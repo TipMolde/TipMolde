@@ -141,7 +141,7 @@ namespace TipMolde.Infrastructure.Service
             {
                 await CleanupFileAsync(finalPath);
                 _logger.LogError(ex, "Falha ao persistir documento da ficha {FichaId}.", fichaId);
-                throw;
+                throw new InvalidOperationException($"Falha ao persistir metadata do documento da ficha {fichaId}.", ex);
             }
         }
 
@@ -275,8 +275,7 @@ namespace TipMolde.Infrastructure.Service
         /// <returns>Hash hexadecimal em maiusculas.</returns>
         private static string ComputeSha256(byte[] bytes)
         {
-            using var sha = SHA256.Create();
-            var hash = sha.ComputeHash(bytes);
+            var hash = SHA256.HashData(bytes);
             return Convert.ToHexString(hash);
         }
     }

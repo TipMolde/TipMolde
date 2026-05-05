@@ -14,6 +14,8 @@ namespace TipMolde.Tests.Unitario.Service;
 [Category("Unit")]
 public class ClienteServiceTests
 {
+    private static readonly int[] ExpectedClienteIds = [1, 2];
+
     private Mock<IClienteRepository> _clienteRepository = null!;
     private ClienteService _sut = null!;
 
@@ -281,7 +283,7 @@ public class ClienteServiceTests
         // ASSERT
         result.TotalCount.Should().Be(2);
         result.Items.Should().HaveCount(2);
-        result.Items.Select(x => x.Cliente_id).Should().Contain(new[] { 1, 2 });
+        result.Items.Select(x => x.Cliente_id).Should().Contain(ExpectedClienteIds);
     }
 
     [Test(Description = "T13CLI - GetById deve devolver nulo quando cliente nao existe.")]

@@ -26,6 +26,7 @@ using TipMolde.Application.Service;
 using TipMolde.Infrastructure.DB;
 using TipMolde.Infrastructure.Repositorio;
 using TipMolde.Infrastructure.Service;
+using TipMolde.Infrastructure.Settings;
 
 namespace TipMolde.Infrastructure;
 
@@ -36,6 +37,17 @@ public static class DependencyInjection
         IConfiguration configuration,
         IHostEnvironment environment)
     {
+        services.AddOptions<StorageOptions>()
+            .Bind(configuration.GetSection(StorageOptions.SectionName))
+            .Validate(x => !string.IsNullOrWhiteSpace(x.FichasRootPath), "Storage:FichasRootPath e obrigatorio.")
+            .Validate(x => !string.IsNullOrWhiteSpace(x.UploadsRootPath), "Storage:UploadsRootPath e obrigatorio.")
+            .ValidateOnStart();
+
+        services.AddOptions<TemplateOptions>()
+            .Bind(configuration.GetSection(TemplateOptions.SectionName))
+            .Validate(x => !string.IsNullOrWhiteSpace(x.RootPath), "Templates:RootPath e obrigatorio.")
+            .ValidateOnStart();
+
         var connectionString = configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
         {

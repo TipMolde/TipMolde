@@ -1,16 +1,19 @@
 ﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Moq;
 using TipMolde.Application.Dtos.FichaDocumentoDto;
 using TipMolde.Application.Interface.Fichas.IFichaDocumento;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Desenho;
+using TipMolde.Domain.Entities.Fichas;
 using TipMolde.Domain.Entities.Fichas.TipoFichas;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 using TipMolde.Infrastructure.DB;
 using TipMolde.Infrastructure.Repositorio;
+using TipMolde.Infrastructure.Settings;
 using TipMolde.Infrastructure.Service;
 
 namespace TipMolde.Tests.Integracao
@@ -23,6 +26,7 @@ namespace TipMolde.Tests.Integracao
     public class RelatorioServiceTests
     {
         private const string MockOutputDirectory = @"C:\Users\HP\Documents\TipMolde\RelatoriosMock";
+        private const string TemplatesRootDirectory = @"C:\Users\HP\Documents\TipMolde\Templates";
 
         private static ApplicationDbContext CreateContext()
         {
@@ -35,23 +39,28 @@ namespace TipMolde.Tests.Integracao
 
         private static RelatorioService CreateSut(ApplicationDbContext ctx)
         {
-            var config = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["Templates:FichaFLT"] = @"C:\Users\HP\Documents\TipMolde\Templates\FLT.xlsx",
-                    ["Templates:FichaFRE"] = @"C:\Users\HP\Documents\TipMolde\Templates\FRE.xlsx",
-                    ["Templates:FichaFRM"] = @"C:\Users\HP\Documents\TipMolde\Templates\FRM.xlsx",
-                    ["Templates:FichaFRA"] = @"C:\Users\HP\Documents\TipMolde\Templates\FRA.xlsx",
-                    ["Templates:FichaFOP"] = @"C:\Users\HP\Documents\TipMolde\Templates\FOP.xlsx",
-                    ["Templates:FolhaFLT"] = "FLT - TM.04.05",
-                    ["Templates:FolhaFRE"] = "FRE - TM.08.05",
-                    ["Templates:FolhaFRM"] = "FRM - TM.09.05",
-                    ["Templates:FolhaFRA"] = "FRA - TM.010.05",
-                    ["Templates:FolhaFOP"] = "FOP - TM.07.05"
-                })
-                .Build();
-
             var repo = new RelatorioRepository(ctx);
+            var templateOptions = Options.Create(new TemplateOptions
+            {
+                RootPath = TemplatesRootDirectory,
+                FichaFLT = "FLT.xlsx",
+                FichaFRE = "FRE.xlsx",
+                FichaFRM = "FRM.xlsx",
+                FichaFRA = "FRA.xlsx",
+                FichaFOP = "FOP.xlsx",
+                FolhaFLT = "FLT - TM.04.05",
+                FolhaFRE = "FRE - TM.08.05",
+                FolhaFRM = "FRM - TM.09.05",
+                FolhaFRA = "FRA - TM.010.05",
+                FolhaFOP = "FOP - TM.07.05"
+            });
+            var storageOptions = Options.Create(new StorageOptions
+            {
+                FichasRootPath = @"C:\Users\HP\Documents\TipMolde\Storage\Fichas",
+                UploadsRootPath = @"C:\Users\HP\Documents\TipMolde\Storage\Uploads"
+            });
+            var environmentMock = new Mock<IHostEnvironment>();
+            environmentMock.SetupGet(e => e.ContentRootPath).Returns(@"C:\Users\HP\Documents\TipMolde\Aplicacao\TipMolde\TipMolde");
 
             var fichaDocServiceMock = new Mock<IFichaDocumentoService>();
 
@@ -76,7 +85,12 @@ namespace TipMolde.Tests.Integracao
                 });
 
 
-            return new RelatorioService(repo, config, fichaDocServiceMock.Object);
+            return new RelatorioService(
+                repo,
+                fichaDocServiceMock.Object,
+                templateOptions,
+                storageOptions,
+                environmentMock.Object);
         }
 
         private static async Task<int> SeedMoldeAsync(ApplicationDbContext ctx, string numero = "M-001")
@@ -314,7 +328,7 @@ namespace TipMolde.Tests.Integracao
             await File.WriteAllBytesAsync(Path.Combine(MockOutputDirectory, fileName), content);
         }
 
-        private static async Task<int> SeedFichaAsync(ApplicationDbContext ctx, int fichaId = 1)
+        private static async Task<int> SeedFichaAsync(ApplicationDbContext ctx, TipoFicha tipo, int fichaId = 1)
         {
             var cliente = new Cliente
             {
@@ -377,13 +391,21 @@ namespace TipMolde.Tests.Integracao
             await ctx.EncomendasMoldes.AddAsync(link);
             await ctx.SaveChangesAsync();
 
-            var ficha = new FichaFlt
+            FichaProducao ficha = tipo switch
             {
-                FichaProducao_id = fichaId,
-                Tipo = TipoFicha.FLT,
-                DataCriacao = DateTime.UtcNow,
-                EncomendaMolde_id = link.EncomendaMolde_id
+                TipoFicha.FLT => new FichaFlt(),
+                TipoFicha.FRE => new FichaFre(),
+                TipoFicha.FRM => new FichaFrm(),
+                TipoFicha.FRA => new FichaFra(),
+                TipoFicha.FOP => new FichaFop(),
+                _ => throw new ArgumentOutOfRangeException(nameof(tipo), tipo, "Tipo de ficha nao suportado no seed de testes.")
             };
+
+            ficha.FichaProducao_id = fichaId;
+            ficha.Tipo = tipo;
+            ficha.DataCriacao = DateTime.UtcNow;
+            ficha.EncomendaMolde_id = link.EncomendaMolde_id;
+
             await ctx.FichasProducao.AddAsync(ficha);
             await ctx.SaveChangesAsync();
 
@@ -475,7 +497,7 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, 30);
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FLT, 30);
             var encomendaMoldeId = await ctx.FichasProducao
                 .Where(f => f.FichaProducao_id == fichaId)
                 .Select(f => f.EncomendaMolde_id)
@@ -498,7 +520,7 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, 31);
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRE, 31);
             var sut = CreateSut(ctx);
 
             // ACT
@@ -517,7 +539,7 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, 32);
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRM, 32);
             var sut = CreateSut(ctx);
 
             // ACT
@@ -536,7 +558,7 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, 33);
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRA, 33);
             var sut = CreateSut(ctx);
 
             // ACT
@@ -555,7 +577,7 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, 34);
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FOP, 34);
             var sut = CreateSut(ctx);
 
             // ACT

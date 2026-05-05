@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
+using TipMolde.API.Requests;
 using TipMolde.Application.Dtos.FichaDocumentoDto;
 using TipMolde.Application.Interface.Fichas.IFichaDocumento;
 

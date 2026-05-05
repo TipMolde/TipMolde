@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 
-namespace TipMolde.API.Controllers
+namespace TipMolde.API.Extensions
 {
     public static class ControllerProblemDetailsExtensions
     {

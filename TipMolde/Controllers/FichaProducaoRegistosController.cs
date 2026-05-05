@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.FichaProducaoDto;
 using TipMolde.Application.Interface.Fichas.IFichaProducao;
 
@@ -12,6 +13,8 @@ namespace TipMolde.API.Controllers
     [Route("api/fichas-producao/{fichaId:int}")]
     public class FichaProducaoRegistosController : ControllerBase
     {
+        private const string PedidoInvalido = "Pedido invalido";
+
         private readonly IFichaProducaoService _service;
 
         /// <summary>
@@ -35,7 +38,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> GetLinhasFrm(int fichaId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Page e pageSize devem ser maiores ou iguais a 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser maiores ou iguais a 1."));
 
             return Ok(await _service.GetLinhasFrmAsync(fichaId, page, pageSize));
         }
@@ -51,7 +54,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> CreateLinhaFrm(int fichaId, [FromBody] CreateFichaFrmLinhaDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados invalidos para a linha FRM."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados invalidos para a linha FRM."));
 
             var created = await _service.CreateLinhaFrmAsync(fichaId, dto);
             return CreatedAtAction(nameof(GetLinhasFrm), new { fichaId }, created);
@@ -69,7 +72,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> GetLinhasFra(int fichaId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Page e pageSize devem ser maiores ou iguais a 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser maiores ou iguais a 1."));
 
             return Ok(await _service.GetLinhasFraAsync(fichaId, page, pageSize));
         }
@@ -85,7 +88,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> CreateLinhaFra(int fichaId, [FromBody] CreateFichaFraLinhaDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados invalidos para a linha FRA."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados invalidos para a linha FRA."));
 
             var created = await _service.CreateLinhaFraAsync(fichaId, dto);
             return CreatedAtAction(nameof(GetLinhasFra), new { fichaId }, created);
@@ -103,7 +106,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> GetLinhasFop(int fichaId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Page e pageSize devem ser maiores ou iguais a 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser maiores ou iguais a 1."));
 
             return Ok(await _service.GetLinhasFopAsync(fichaId, page, pageSize));
         }
@@ -119,7 +122,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> CreateLinhaFop(int fichaId, [FromBody] CreateFichaFopLinhaDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados invalidos para a linha FOP."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados invalidos para a linha FOP."));
 
             var created = await _service.CreateLinhaFopAsync(fichaId, dto);
             return CreatedAtAction(nameof(GetLinhasFop), new { fichaId }, created);

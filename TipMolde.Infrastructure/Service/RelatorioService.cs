@@ -1,11 +1,13 @@
 ﻿using ClosedXML.Excel;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
 using TipMolde.Application.Dtos.RelatorioDto;
 using TipMolde.Application.Interface.Fichas.IFichaDocumento;
 using TipMolde.Application.Interface.Relatorios;
 using TipMolde.Domain.Enums;
+using TipMolde.Infrastructure.Settings;
 
 namespace TipMolde.Infrastructure.Service
 {
@@ -22,23 +24,31 @@ namespace TipMolde.Infrastructure.Service
         private const string ExcelContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
         private readonly IRelatorioRepository _relatorioRepository;
-        private readonly IConfiguration _configuration;
         private readonly IFichaDocumentoService _fichaDocumentoService;
+        private readonly TemplateOptions _templateOptions;
+        private readonly StorageOptions _storageOptions;
+        private readonly IHostEnvironment _environment;
 
         /// <summary>
         /// Construtor de RelatorioService.
         /// </summary>
         /// <param name="relatorioRepository">Repositorio de leitura especializado para relatorios e indicadores.</param>
-        /// <param name="configuration">Configuracao de templates, folhas e paths tecnicos.</param>
+        /// <param name="templateOptions">Configuracao dos templates documentais.</param>
+        /// <param name="storageOptions">Configuracao dos roots de storage e uploads.</param>
+        /// <param name="environment">Ambiente da aplicacao usado para resolver paths relativos.</param>
         /// <param name="fichaDocumentoService">Servico responsavel por versionar e persistir os ficheiros gerados.</param>
         public RelatorioService(
             IRelatorioRepository relatorioRepository,
-            IConfiguration configuration,
-            IFichaDocumentoService fichaDocumentoService)
+            IFichaDocumentoService fichaDocumentoService,
+            IOptions<TemplateOptions> templateOptions,
+            IOptions<StorageOptions> storageOptions,
+            IHostEnvironment environment)
         {
             _relatorioRepository = relatorioRepository;
-            _configuration = configuration;
             _fichaDocumentoService = fichaDocumentoService;
+            _templateOptions = templateOptions.Value;
+            _storageOptions = storageOptions.Value;
+            _environment = environment;
         }
 
         /// <summary>
@@ -154,8 +164,8 @@ namespace TipMolde.Infrastructure.Service
         {
             return GerarFichaExcelSemVersionamentoAsync(
                 encomendaMoldeId,
-                "Templates:FichaFLT",
-                "Templates:FolhaFLT",
+                _templateOptions.FichaFLT,
+                _templateOptions.FolhaFLT,
                 "FLT - TM.04.05",
                 $"ficha_FLT_{encomendaMoldeId}.xlsx",
                 _relatorioRepository.ObterFltRelatorioBaseAsync,
@@ -174,8 +184,8 @@ namespace TipMolde.Infrastructure.Service
             return GerarFichaExcelAsync(
                 fichaId,
                 userId,
-                "Templates:FichaFRE",
-                "Templates:FolhaFRE",
+                _templateOptions.FichaFRE,
+                _templateOptions.FolhaFRE,
                 "FRE - TM.08.05",
                 $"ficha_FRE_{fichaId}.xlsx",
                 FillFreBody);
@@ -198,11 +208,17 @@ namespace TipMolde.Infrastructure.Service
             return GerarFichaExcelAsync(
                 fichaId,
                 userId,
-                "Templates:FichaFRM",
-                "Templates:FolhaFRM",
+                _relatorioRepository.ObterFichaFrmRelatorioAsync,
+                _templateOptions.FichaFRM,
+                _templateOptions.FolhaFRM,
                 "FRM - TM.09.05",
                 $"ficha_FRM_{fichaId}.xlsx",
-                FillBlocoCliente);
+                (ws, context) =>
+                {
+                    FillHeaderComum(ws, context.Base);
+                    FillBlocoCliente(ws, context.Base);
+                    FillFrmBody(ws, context);
+                });
         }
 
         public Task<(byte[] Content, string FileName)> GerarFichaExcelFRAAsync(int fichaId, int userId)
@@ -210,11 +226,17 @@ namespace TipMolde.Infrastructure.Service
             return GerarFichaExcelAsync(
                 fichaId,
                 userId,
-                "Templates:FichaFRA",
-                "Templates:FolhaFRA",
+                _relatorioRepository.ObterFichaFraRelatorioAsync,
+                _templateOptions.FichaFRA,
+                _templateOptions.FolhaFRA,
                 "FRA - TM.010.05",
                 $"ficha_FRA_{fichaId}.xlsx",
-                FillBlocoCliente);
+                (ws, context) =>
+                {
+                    FillHeaderComum(ws, context.Base);
+                    FillBlocoCliente(ws, context.Base);
+                    FillFraBody(ws, context);
+                });
         }
 
         public Task<(byte[] Content, string FileName)> GerarFichaExcelFOPAsync(int fichaId, int userId)
@@ -222,11 +244,17 @@ namespace TipMolde.Infrastructure.Service
             return GerarFichaExcelAsync(
                 fichaId,
                 userId,
-                "Templates:FichaFOP",
-                "Templates:FolhaFOP",
+                _relatorioRepository.ObterFichaFopRelatorioAsync,
+                _templateOptions.FichaFOP,
+                _templateOptions.FolhaFOP,
                 "FOP - TM.07.05",
                 $"ficha_FOP_{fichaId}.xlsx",
-                FillBlocoCliente);
+                (ws, context) =>
+                {
+                    FillHeaderComum(ws, context.Base);
+                    FillBlocoCliente(ws, context.Base);
+                    FillFopBody(ws, context);
+                });
         }
 
         /// <summary>
@@ -301,6 +329,37 @@ namespace TipMolde.Infrastructure.Service
             return (bytes, documento.NomeFicheiro);
         }
 
+        private async Task<(byte[] Content, string FileName)> GerarFichaExcelAsync<TContext>(
+            int fichaId,
+            int userId,
+            Func<int, Task<TContext?>> loadContext,
+            string templateFileName,
+            string worksheetName,
+            string defaultSheetName,
+            string fileName,
+            Action<IXLWorksheet, TContext> fillWorksheet)
+        {
+            var context = await loadContext(fichaId)
+                ?? throw new KeyNotFoundException($"Ficha {fichaId} nao encontrada.");
+
+            using var workbook = LoadWorkbook(templateFileName, worksheetName, defaultSheetName, out var worksheet);
+            fillWorksheet(worksheet, context);
+
+            using var ms = new MemoryStream();
+            workbook.SaveAs(ms);
+            var bytes = ms.ToArray();
+
+            var documento = await _fichaDocumentoService.GuardarGeradoAsync(
+                fichaId,
+                bytes,
+                fileName,
+                ExcelContentType,
+                userId,
+                "SISTEMA");
+
+            return (bytes, documento.NomeFicheiro);
+        }
+
         /// <summary>
         /// Carrega o workbook e valida a configuracao do template Excel.
         /// </summary>
@@ -310,22 +369,21 @@ namespace TipMolde.Infrastructure.Service
         /// <param name="worksheet">Folha carregada pronta a ser preenchida.</param>
         /// <returns>Workbook carregado a partir do template configurado.</returns>
         private XLWorkbook LoadWorkbook(
-            string templateConfigKey,
-            string folhaConfigKey,
+            string templateFileName,
+            string worksheetName,
             string defaultSheetName,
             out IXLWorksheet worksheet)
         {
-            var templatePath = _configuration[templateConfigKey]
-                ?? throw new InvalidOperationException($"{templateConfigKey} nao configurado.");
-
-            var worksheetName = _configuration[folhaConfigKey] ?? defaultSheetName;
+            var rootPath = ResolvePath(_templateOptions.RootPath);
+            var templatePath = Path.Combine(rootPath, templateFileName);
+            var finalWorksheetName = string.IsNullOrWhiteSpace(worksheetName) ? defaultSheetName : worksheetName;
 
             if (!File.Exists(templatePath))
                 throw new FileNotFoundException($"Template nao encontrado: {templatePath}");
 
             var workbook = new XLWorkbook(templatePath);
-            worksheet = workbook.Worksheet(worksheetName)
-                ?? throw new KeyNotFoundException($"Folha '{worksheetName}' nao encontrada no template.");
+            worksheet = workbook.Worksheet(finalWorksheetName)
+                ?? throw new KeyNotFoundException($"Folha '{finalWorksheetName}' nao encontrada no template.");
 
             return workbook;
         }
@@ -413,6 +471,73 @@ namespace TipMolde.Infrastructure.Service
             ws.Cell("E29").Value = context.NomeResponsavelCliente;
         }
 
+        private void FillFrmBody(IXLWorksheet ws, FichaFrmRelatorioDto context)
+        {
+            const int startRow = 14;
+
+            if (context.Linhas.Count == 0)
+            {
+                ws.Cell(startRow, 2).Value = "Sem linhas registadas.";
+                return;
+            }
+
+            for (var i = 0; i < context.Linhas.Count; i++)
+            {
+                var row = startRow + i;
+                var linha = context.Linhas[i];
+
+                ws.Cell($"B{row}").Value = linha.Data.ToString("dd/MM/yyyy");
+                ws.Cell($"C{row}").Value = linha.Defeito;
+                ws.Cell($"F{row}").Value = linha.Pormenor;
+                ws.Cell($"I{row}").Value = linha.Verificado ? "Sim" : "Nao";
+                ws.Cell($"J{row}").Value = linha.ResponsavelNome;
+            }
+        }
+
+        private void FillFraBody(IXLWorksheet ws, FichaFraRelatorioDto context)
+        {
+            const int startRow = 14;
+
+            if (context.Linhas.Count == 0)
+            {
+                ws.Cell(startRow, 2).Value = "Sem linhas registadas.";
+                return;
+            }
+
+            for (var i = 0; i < context.Linhas.Count; i++)
+            {
+                var row = startRow + i;
+                var linha = context.Linhas[i];
+
+                ws.Cell($"B{row}").Value = linha.Data.ToString("dd/MM/yyyy");
+                ws.Cell($"C{row}").Value = linha.Alteracoes;
+                ws.Cell($"I{row}").Value = linha.Verificado ? "Sim" : "Nao";
+                ws.Cell($"J{row}").Value = linha.ResponsavelNome;
+            }
+        }
+
+        private void FillFopBody(IXLWorksheet ws, FichaFopRelatorioDto context)
+        {
+            const int startRow = 14;
+
+            if (context.Linhas.Count == 0)
+            {
+                ws.Cell(startRow, 2).Value = "Sem linhas registadas.";
+                return;
+            }
+
+            for (var i = 0; i < context.Linhas.Count; i++)
+            {
+                var row = startRow + i;
+                var linha = context.Linhas[i];
+
+                ws.Cell($"B{row}").Value = linha.Data.ToString("dd/MM/yyyy");
+                ws.Cell($"C{row}").Value = linha.Ocorrencia;
+                ws.Cell($"G{row}").Value = linha.Correcao;
+                ws.Cell($"J{row}").Value = linha.ResponsavelNome;
+            }
+        }
+
         /// <summary>
         /// Resolve o caminho fisico da imagem de capa do molde.
         /// </summary>
@@ -430,13 +555,7 @@ namespace TipMolde.Infrastructure.Service
 
             var imagePath = imagePathRaw;
             if (!Path.IsPathRooted(imagePath))
-            {
-                var uploadsRoot = _configuration["Uploads:RootPath"];
-                if (string.IsNullOrWhiteSpace(uploadsRoot))
-                    throw new InvalidOperationException("Uploads:RootPath nao configurado.");
-
-                imagePath = Path.Combine(uploadsRoot, imagePath.TrimStart('\\', '/'));
-            }
+                imagePath = Path.Combine(ResolvePath(_storageOptions.UploadsRootPath), imagePath.TrimStart('\\', '/'));
 
             if (!File.Exists(imagePath))
                 throw new FileNotFoundException($"Imagem nao encontrada: {imagePath}");
@@ -446,6 +565,16 @@ namespace TipMolde.Infrastructure.Service
                 throw new InvalidOperationException("Formato de imagem nao suportado.");
 
             return imagePath;
+        }
+
+        private string ResolvePath(string configuredPath)
+        {
+            if (string.IsNullOrWhiteSpace(configuredPath))
+                throw new InvalidOperationException("Path tecnico nao configurado.");
+
+            return Path.IsPathRooted(configuredPath)
+                ? configuredPath
+                : Path.GetFullPath(Path.Combine(_environment.ContentRootPath, configuredPath));
         }
 
         private static void SetX(IXLWorksheet ws, string cell, bool condition)

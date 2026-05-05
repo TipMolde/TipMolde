@@ -1,5 +1,7 @@
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using TipMolde.Application.Interface.Fichas.IFichaDocumento;
+using TipMolde.Infrastructure.Settings;
 
 namespace TipMolde.Infrastructure.Service
 {
@@ -13,11 +15,19 @@ namespace TipMolde.Infrastructure.Service
         /// <summary>
         /// Construtor de FichaDocumentoFileStorage.
         /// </summary>
-        /// <param name="configuration">Configuracao com a raiz fisica de armazenamento das fichas.</param>
-        public FichaDocumentoFileStorage(IConfiguration configuration)
+        /// <param name="options">Options com a raiz fisica de armazenamento das fichas.</param>
+        /// <param name="environment">Ambiente da aplicacao usado para resolver paths relativos.</param>
+        public FichaDocumentoFileStorage(
+            IOptions<StorageOptions> options,
+            IHostEnvironment environment)
         {
-            _rootPath = configuration["Storage:FichasRootPath"]
-                ?? throw new InvalidOperationException("Storage:FichasRootPath nao configurado.");
+            var configuredPath = options.Value.FichasRootPath;
+            if (string.IsNullOrWhiteSpace(configuredPath))
+                throw new InvalidOperationException("Storage:FichasRootPath nao configurado.");
+
+            _rootPath = Path.IsPathRooted(configuredPath)
+                ? configuredPath
+                : Path.GetFullPath(Path.Combine(environment.ContentRootPath, configuredPath));
         }
 
         /// <summary>

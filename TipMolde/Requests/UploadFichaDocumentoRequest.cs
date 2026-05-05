@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace TipMolde.API.Controllers
+namespace TipMolde.API.Requests
 {
     /// <summary>
     /// Representa o request HTTP multipart usado para submeter um documento de ficha.

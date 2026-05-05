@@ -21,6 +21,8 @@ namespace TipMolde.Tests.Unitario.Service;
 [Category("Unit")]
 public class PedidoMaterialServiceTests
 {
+    private static readonly int[] ExpectedPecaIds = [1, 2];
+
     private Mock<IPedidoMaterialRepository> _pedidoRepository = null!;
     private Mock<IFornecedorRepository> _fornecedorRepository = null!;
     private Mock<IPecaRepository> _pecaRepository = null!;
@@ -101,7 +103,7 @@ public class PedidoMaterialServiceTests
         var pecas = BuildPecas(1, 2).ToList();
         _pecaRepository
             .Setup(r => r.GetByIdsAsync(
-                It.Is<IEnumerable<int>>(ids => ids.SequenceEqual(new[] { 1, 2 }))))
+                It.Is<IEnumerable<int>>(ids => ids.SequenceEqual(ExpectedPecaIds))))
             .ReturnsAsync(pecas);
 
         _pedidoRepository
@@ -206,7 +208,7 @@ public class PedidoMaterialServiceTests
         });
         _pecaRepository
             .Setup(r => r.GetByIdsAsync(
-                It.Is<IEnumerable<int>>(ids => ids.SequenceEqual(new[] { 1, 2 }))))
+                It.Is<IEnumerable<int>>(ids => ids.SequenceEqual(ExpectedPecaIds))))
             .ReturnsAsync(pecas);
 
         // ACT

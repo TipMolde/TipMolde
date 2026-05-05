@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.MoldeDto;
 using TipMolde.Application.Interface.Producao.IMolde;
-using TipMolde.Application.Interface.Relatorios;
 
 namespace TipMolde.API.Controllers
 {
@@ -16,23 +16,22 @@ namespace TipMolde.API.Controllers
     [Route("api/moldes")]
     public class MoldeController : ControllerBase
     {
+        private const string PedidoInvalido = "Pedido invalido";
+        private const string RecursoNaoEncontrado = "Recurso nao encontrado";
+
         private readonly IMoldeService _moldeService;
-        private readonly IRelatorioService _relatorioService;
         private readonly ILogger<MoldeController> _logger;
 
         /// <summary>
         /// Construtor de MoldeController.
         /// </summary>
         /// <param name="moldeService">Servico responsavel pelos casos de uso da feature Molde.</param>
-        /// <param name="relatorioService">Servico responsavel pela geracao de relatorios do molde.</param>
         /// <param name="logger">Logger para rastreabilidade das operacoes HTTP.</param>
         public MoldeController(
             IMoldeService moldeService,
-            IRelatorioService relatorioService,
             ILogger<MoldeController> logger)
         {
             _moldeService = moldeService;
-            _relatorioService = relatorioService;
             _logger = logger;
         }
 
@@ -47,7 +46,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Page e pageSize devem ser >= 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
 
             var result = await _moldeService.GetAllAsync(page, pageSize);
             return Ok(result);
@@ -58,13 +57,13 @@ namespace TipMolde.API.Controllers
         /// </summary>
         /// <param name="id">Identificador interno do molde.</param>
         /// <returns>HTTP 200 com o molde; HTTP 404 quando nao encontrado.</returns>
-        [Authorize]
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
             var molde = await _moldeService.GetByIdAsync(id);
             if (molde == null)
-                return NotFound(this.CreateProblem(StatusCodes.Status404NotFound, "Recurso nao encontrado", $"Molde com ID {id} nao encontrado."));
+                return NotFound(this.CreateProblem(StatusCodes.Status404NotFound, RecursoNaoEncontrado, $"Molde com ID {id} nao encontrado."));
 
             return Ok(molde);
         }
@@ -84,7 +83,7 @@ namespace TipMolde.API.Controllers
             [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Page e pageSize devem ser >= 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
 
             var moldes = await _moldeService.GetByEncomendaIdAsync(encomendaId, page, pageSize);
             return Ok(moldes);
@@ -95,47 +94,17 @@ namespace TipMolde.API.Controllers
         /// </summary>
         /// <param name="numero">Numero funcional do molde.</param>
         /// <returns>HTTP 200 com o molde; HTTP 400 quando o numero e invalido; HTTP 404 quando nao encontrado.</returns>
-        [Authorize]
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
         [HttpGet("por-numero")]
         public async Task<IActionResult> GetByNumero([FromQuery] string? numero)
         {
             if (string.IsNullOrWhiteSpace(numero))
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Numero do molde e obrigatorio."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Numero do molde e obrigatorio."));
 
             var molde = await _moldeService.GetByNumeroAsync(numero);
             if (molde == null)
-                return NotFound(this.CreateProblem(StatusCodes.Status404NotFound, "Recurso nao encontrado", $"Molde com numero '{numero.Trim()}' nao encontrado."));
+                return NotFound(this.CreateProblem(StatusCodes.Status404NotFound, RecursoNaoEncontrado, $"Molde com numero '{numero.Trim()}' nao encontrado."));
             return Ok(molde);
-        }
-
-        /// <summary>
-        /// Exporta o ciclo de vida do molde para PDF.
-        /// </summary>
-        /// <param name="id">Identificador interno do molde.</param>
-        /// <returns>Ficheiro PDF gerado para o molde indicado.</returns>
-        [Authorize(Roles = "ADMIN")]
-        [HttpGet("{id:int}/ciclo-vida-pdf")]
-        public async Task<IActionResult> ExportCicloVidaPdf(int id)
-        {
-            var result = await _relatorioService.GerarCicloVidaMoldePdfAsync(id);
-
-            _logger.LogInformation("PDF de ciclo de vida exportado para o molde {MoldeId}", id);
-
-            return File(result.Content, "application/pdf", result.FileName);
-        }
-
-        /// <summary>
-        /// Mostra o dashboard do ciclo de vida do molde.
-        /// </summary>
-        /// <param name="id">Identificador interno do molde.</param>
-        /// <returns>Dados do dashboard do ciclo de vida do molde.</returns>
-        [Authorize(Roles = "ADMIN")]
-        [HttpGet("{id:int}/dashboard-ciclo-vida")]
-        public async Task<IActionResult> GetDashboardCicloVida(int id)
-        {
-            var result = await _relatorioService.ObterDashboardMoldeAsync(id);
-            _logger.LogInformation("Dashboard de ciclo de vida consultado para o molde {MoldeId}", id);
-            return Ok(result);
         }
 
         /// <summary>
@@ -151,7 +120,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> Create([FromBody] CreateMoldeDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados de criacao invalidos."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados de criacao invalidos."));
 
             var created = await _moldeService.CreateAsync(dto);
 
@@ -174,7 +143,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> Update(int id, [FromBody] UpdateMoldeDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados de criacao invalidos."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados de criacao invalidos."));
 
             await _moldeService.UpdateAsync(id, dto);
 

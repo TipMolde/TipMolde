@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.ProjetoDto;
 using TipMolde.Application.Interface.Desenho.IProjeto;
 
@@ -16,6 +17,8 @@ namespace TipMolde.API.Controllers
     [Route("api/projetos")]
     public class ProjetoController : ControllerBase
     {
+        private const string PedidoInvalido = "Pedido invalido";
+
         private readonly IProjetoService _projetoService;
         private readonly ILogger<ProjetoController> _logger;
 
@@ -43,7 +46,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Page e pageSize devem ser >= 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
 
             var result = await _projetoService.GetAllAsync(page, pageSize);
             return Ok(result);
@@ -96,10 +99,10 @@ namespace TipMolde.API.Controllers
             [FromQuery] int pageSize = 10)
         {
             if (moldeId < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "MoldeId deve ser >= 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "MoldeId deve ser >= 1."));
 
             if (page < 1 || pageSize < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Page e pageSize devem ser >= 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
 
             var projetos = await _projetoService.GetByMoldeIdAsync(moldeId, page, pageSize);
             return Ok(projetos);
@@ -118,7 +121,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> Create([FromBody] CreateProjetoDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados de criacao invalidos."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados de criacao invalidos."));
 
             var created = await _projetoService.CreateAsync(dto);
 
@@ -141,7 +144,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> Update(int id, [FromBody] UpdateProjetoDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados de atualizacao invalidos."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados de atualizacao invalidos."));
 
             await _projetoService.UpdateAsync(id, dto);
 

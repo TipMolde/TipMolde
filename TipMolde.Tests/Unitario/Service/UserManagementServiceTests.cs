@@ -17,6 +17,9 @@ namespace TipMolde.Tests.Unitario.Service;
 [Category("Unit")]
 public class UserManagementServiceTests
 {
+    private static readonly string[] ExpectedUserNames = ["Ana", "Bruno"];
+    private static readonly int[] ExpectedUserIds = [1, 2];
+
     private Mock<IUserRepository> _userRepository = null!;
     private Mock<IPasswordHasherService> _passwordHasher = null!;
     private Mock<ILogger<UserManagementService>> _logger = null!;
@@ -87,7 +90,7 @@ public class UserManagementServiceTests
 
         // ASSERT
         result.Items.Should().HaveCount(2);
-        result.Items.Select(u => u.Nome).Should().Contain(new[] { "Ana", "Bruno" });
+        result.Items.Select(u => u.Nome).Should().Contain(ExpectedUserNames);
         result.TotalCount.Should().Be(2);
         result.CurrentPage.Should().Be(1);
         result.PageSize.Should().Be(10);
@@ -292,7 +295,7 @@ public class UserManagementServiceTests
         result.CurrentPage.Should().Be(1);
         result.PageSize.Should().Be(10);
         result.Items.Should().HaveCount(2);
-        result.Items.Select(x => x.User_id).Should().Contain(new[] { 1, 2 });
+        result.Items.Select(x => x.User_id).Should().Contain(ExpectedUserIds);
         result.Items.Select(x => x.User_id).Should().NotContain(3);
     }
 

@@ -18,6 +18,8 @@ namespace TipMolde.Tests.Unitario.Service;
 [Category("Unit")]
 public class ProjetoServiceTests
 {
+    private static readonly int[] ExpectedProjetoIds = [1, 2];
+
     private Mock<IProjetoRepository> _projetoRepository = null!;
     private Mock<IMoldeRepository> _moldeRepository = null!;
     private Mock<ILogger<ProjetoService>> _logger = null!;
@@ -202,7 +204,7 @@ public class ProjetoServiceTests
         // ASSERT
         result.TotalCount.Should().Be(2);
         result.Items.Should().HaveCount(2);
-        result.Items.Select(x => x.Projeto_id).Should().Contain(new[] { 1, 2 });
+        result.Items.Select(x => x.Projeto_id).Should().Contain(ExpectedProjetoIds);
     }
 
     [Test(Description = "TPROJSRV8 - GetById deve devolver nulo quando projeto nao existe.")]

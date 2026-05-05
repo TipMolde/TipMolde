@@ -33,7 +33,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TipMolde.Application\TipMolde.Application.csproj" />
-    <ProjectReference Include="..\TipMolde.Domain\TipMolde.Domain.csproj" />
     <ProjectReference Include="..\TipMolde.Infrastructure\TipMolde.Infrastructure.csproj" />
   </ItemGroup>
 

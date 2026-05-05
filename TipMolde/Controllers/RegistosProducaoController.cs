@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.RegistoProducaoDto;
 using TipMolde.Application.Interface.Producao.IRegistosProducao;
 

@@ -18,6 +18,8 @@ namespace TipMolde.Tests.Unitario.Service;
 [Category("Unit")]
 public class PecaServiceTests
 {
+    private static readonly int[] ExpectedPecaIds = [3, 4];
+
     private Mock<IPecaRepository> _pecaRepository = null!;
     private Mock<IMoldeRepository> _moldeRepository = null!;
     private Mock<ILogger<PecaService>> _logger = null!;
@@ -69,7 +71,7 @@ public class PecaServiceTests
         Molde_id = moldeId
     };
 
-    private static Stream BuildCsvStream(string content)
+    private static MemoryStream BuildCsvStream(string content)
     {
         return new MemoryStream(Encoding.UTF8.GetBytes(content));
     }
@@ -161,7 +163,7 @@ public class PecaServiceTests
 
         // ASSERT
         result.TotalCount.Should().Be(2);
-        result.Items.Select(x => x.PecaId).Should().BeEquivalentTo(new[] { 3, 4 });
+        result.Items.Select(x => x.PecaId).Should().BeEquivalentTo(ExpectedPecaIds);
     }
 
     [Test(Description = "TPECASRV4 - Update deve preservar MaterialRecebido quando o campo nao e enviado.")]

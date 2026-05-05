@@ -66,7 +66,7 @@ public class PecaImportCsvServiceTests
         return molde.Molde_id;
     }
 
-    private static Encoding CreateMockOutputEncoding()
+    private static UTF8Encoding CreateMockOutputEncoding()
     {
         return new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
     }

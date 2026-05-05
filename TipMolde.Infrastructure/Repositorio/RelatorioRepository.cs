@@ -1,6 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using TipMolde.Application.Dtos.RelatorioDto;
+using TipMolde.Application.DTOs.RelatorioDto.Linhas;
 using TipMolde.Application.Interface.Relatorios;
+using TipMolde.Domain.Entities.Comercio;
+using TipMolde.Domain.Entities.Fichas;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 using TipMolde.Infrastructure.DB;
@@ -17,6 +21,62 @@ namespace TipMolde.Infrastructure.Repositorio
     /// </remarks>
     public class RelatorioRepository : IRelatorioRepository
     {
+        private static readonly Expression<Func<EncomendaMolde, FichaRelatorioBaseDto>> FltRelatorioBaseProjection = em => new()
+        {
+            FichaId = em.EncomendaMolde_id,
+            Tipo = TipoFicha.FLT,
+            MoldeNumero = em.Molde != null ? em.Molde.Numero : string.Empty,
+            MoldeNome = em.Molde != null ? em.Molde.Nome : null,
+            NumeroMoldeCliente = em.Molde != null ? em.Molde.NumeroMoldeCliente : null,
+            ImagemCapaPath = em.Molde != null ? em.Molde.ImagemCapaPath : null,
+            NumeroCavidades = em.Molde != null ? em.Molde.Numero_cavidades : 0,
+            TipoPedido = em.Molde != null ? em.Molde.TipoPedido : TipoPedido.NOVO_MOLDE,
+            ClienteNome = em.Encomenda != null && em.Encomenda.Cliente != null ? em.Encomenda.Cliente.Nome : string.Empty,
+            NomeServicoCliente = em.Encomenda != null ? em.Encomenda.NomeServicoCliente : null,
+            NumeroProjetoCliente = em.Encomenda != null ? em.Encomenda.NumeroProjetoCliente : null,
+            NomeResponsavelCliente = em.Encomenda != null ? em.Encomenda.NomeResponsavelCliente : null,
+            DataEntregaPrevista = em.DataEntregaPrevista,
+            MaterialInjecao = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.MaterialInjecao : null,
+            Contracao = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.Contracao : null,
+            TipoInjecao = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.TipoInjecao : null,
+            AcabamentoPeca = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.AcabamentoPeca : null,
+            MaterialMacho = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.MaterialMacho : null,
+            MaterialCavidade = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.MaterialCavidade : null,
+            MaterialMovimentos = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.MaterialMovimentos : null,
+            SistemaInjecao = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.SistemaInjecao : null,
+            Cor = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.Cor : null,
+            LadoFixo = em.Molde != null && em.Molde.Especificacoes != null && em.Molde.Especificacoes.LadoFixo,
+            LadoMovel = em.Molde != null && em.Molde.Especificacoes != null && em.Molde.Especificacoes.LadoMovel
+        };
+
+        private static readonly Expression<Func<FichaProducao, FichaRelatorioBaseDto>> FichaRelatorioBaseProjection = f => new()
+        {
+            FichaId = f.FichaProducao_id,
+            Tipo = f.Tipo,
+            MoldeNumero = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null ? f.EncomendaMolde.Molde.Numero : string.Empty,
+            MoldeNome = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null ? f.EncomendaMolde.Molde.Nome : null,
+            NumeroMoldeCliente = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null ? f.EncomendaMolde.Molde.NumeroMoldeCliente : null,
+            ImagemCapaPath = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null ? f.EncomendaMolde.Molde.ImagemCapaPath : null,
+            NumeroCavidades = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null ? f.EncomendaMolde.Molde.Numero_cavidades : 0,
+            TipoPedido = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null ? f.EncomendaMolde.Molde.TipoPedido : TipoPedido.NOVO_MOLDE,
+            ClienteNome = f.EncomendaMolde != null && f.EncomendaMolde.Encomenda != null && f.EncomendaMolde.Encomenda.Cliente != null ? f.EncomendaMolde.Encomenda.Cliente.Nome : string.Empty,
+            NomeServicoCliente = f.EncomendaMolde != null && f.EncomendaMolde.Encomenda != null ? f.EncomendaMolde.Encomenda.NomeServicoCliente : null,
+            NumeroProjetoCliente = f.EncomendaMolde != null && f.EncomendaMolde.Encomenda != null ? f.EncomendaMolde.Encomenda.NumeroProjetoCliente : null,
+            NomeResponsavelCliente = f.EncomendaMolde != null && f.EncomendaMolde.Encomenda != null ? f.EncomendaMolde.Encomenda.NomeResponsavelCliente : null,
+            DataEntregaPrevista = f.EncomendaMolde != null ? f.EncomendaMolde.DataEntregaPrevista : DateTime.UtcNow,
+            MaterialInjecao = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null && f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.MaterialInjecao : null,
+            Contracao = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null && f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.Contracao : null,
+            TipoInjecao = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null && f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.TipoInjecao : null,
+            AcabamentoPeca = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null && f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.AcabamentoPeca : null,
+            MaterialMacho = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null && f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.MaterialMacho : null,
+            MaterialCavidade = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null && f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.MaterialCavidade : null,
+            MaterialMovimentos = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null && f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.MaterialMovimentos : null,
+            SistemaInjecao = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null && f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.SistemaInjecao : null,
+            Cor = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null && f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.Cor : null,
+            LadoFixo = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null && f.EncomendaMolde.Molde.Especificacoes != null && f.EncomendaMolde.Molde.Especificacoes.LadoFixo,
+            LadoMovel = f.EncomendaMolde != null && f.EncomendaMolde.Molde != null && f.EncomendaMolde.Molde.Especificacoes != null && f.EncomendaMolde.Molde.Especificacoes.LadoMovel
+        };
+
         private readonly ApplicationDbContext _context;
 
         /// <summary>
@@ -34,7 +94,7 @@ namespace TipMolde.Infrastructure.Repositorio
                 .AsNoTracking()
                 .Include(m => m.EncomendasMoldes)
                     .ThenInclude(em => em.Encomenda)
-                        .ThenInclude(e => e.Cliente)
+                        .ThenInclude(e => e!.Cliente)
                 .FirstOrDefaultAsync(m => m.Molde_id == moldeId);
 
             if (molde is null)
@@ -181,33 +241,7 @@ namespace TipMolde.Infrastructure.Repositorio
             return _context.EncomendasMoldes
                 .AsNoTracking()
                 .Where(em => em.EncomendaMolde_id == encomendaMoldeId)
-                .Select(em => new FichaRelatorioBaseDto
-                {
-                    FichaId = em.EncomendaMolde_id,
-                    Tipo = TipoFicha.FLT,
-                    MoldeNumero = em.Molde != null ? em.Molde.Numero : string.Empty,
-                    MoldeNome = em.Molde != null ? em.Molde.Nome : null,
-                    NumeroMoldeCliente = em.Molde != null ? em.Molde.NumeroMoldeCliente : null,
-                    ImagemCapaPath = em.Molde != null ? em.Molde.ImagemCapaPath : null,
-                    NumeroCavidades = em.Molde != null ? em.Molde.Numero_cavidades : 0,
-                    TipoPedido = em.Molde != null ? em.Molde.TipoPedido : TipoPedido.NOVO_MOLDE,
-                    ClienteNome = em.Encomenda != null && em.Encomenda.Cliente != null ? em.Encomenda.Cliente.Nome : string.Empty,
-                    NomeServicoCliente = em.Encomenda != null ? em.Encomenda.NomeServicoCliente : null,
-                    NumeroProjetoCliente = em.Encomenda != null ? em.Encomenda.NumeroProjetoCliente : null,
-                    NomeResponsavelCliente = em.Encomenda != null ? em.Encomenda.NomeResponsavelCliente : null,
-                    DataEntregaPrevista = em.DataEntregaPrevista,
-                    MaterialInjecao = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.MaterialInjecao : null,
-                    Contracao = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.Contracao : null,
-                    TipoInjecao = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.TipoInjecao : null,
-                    AcabamentoPeca = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.AcabamentoPeca : null,
-                    MaterialMacho = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.MaterialMacho : null,
-                    MaterialCavidade = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.MaterialCavidade : null,
-                    MaterialMovimentos = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.MaterialMovimentos : null,
-                    SistemaInjecao = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.SistemaInjecao : null,
-                    Cor = em.Molde != null && em.Molde.Especificacoes != null ? em.Molde.Especificacoes.Cor : null,
-                    LadoFixo = em.Molde != null && em.Molde.Especificacoes != null && em.Molde.Especificacoes.LadoFixo,
-                    LadoMovel = em.Molde != null && em.Molde.Especificacoes != null && em.Molde.Especificacoes.LadoMovel
-                })
+                .Select(FltRelatorioBaseProjection)
                 .FirstOrDefaultAsync();
         }
 
@@ -225,35 +259,123 @@ namespace TipMolde.Infrastructure.Repositorio
             return _context.FichasProducao
                 .AsNoTracking()
                 .Where(f => f.FichaProducao_id == fichaId)
-                .Select(f => new FichaRelatorioBaseDto
+                .Select(FichaRelatorioBaseProjection)
+                .FirstOrDefaultAsync();
+        }
+
+        public Task<FichaFrmRelatorioDto?> ObterFichaFrmRelatorioAsync(int fichaId)
+        {
+            return _context.FichasFrm
+                .AsNoTracking()
+                .Where(f => f.FichaProducao_id == fichaId)
+                .Select(f => new FichaFrmRelatorioDto
                 {
-                    FichaId = f.FichaProducao_id,
-                    Tipo = f.Tipo,
-                    MoldeNumero = f.EncomendaMolde!.Molde!.Numero,
-                    MoldeNome = f.EncomendaMolde.Molde.Nome,
-                    NumeroMoldeCliente = f.EncomendaMolde.Molde.NumeroMoldeCliente,
-                    ImagemCapaPath = f.EncomendaMolde.Molde.ImagemCapaPath,
-                    NumeroCavidades = f.EncomendaMolde.Molde.Numero_cavidades,
-                    TipoPedido = f.EncomendaMolde.Molde.TipoPedido,
-                    ClienteNome = f.EncomendaMolde.Encomenda!.Cliente!.Nome,
-                    NomeServicoCliente = f.EncomendaMolde.Encomenda.NomeServicoCliente,
-                    NumeroProjetoCliente = f.EncomendaMolde.Encomenda.NumeroProjetoCliente,
-                    NomeResponsavelCliente = f.EncomendaMolde.Encomenda.NomeResponsavelCliente,
-                    DataEntregaPrevista = f.EncomendaMolde.DataEntregaPrevista,
-                    MaterialInjecao = f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.MaterialInjecao : null,
-                    Contracao = f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.Contracao : null,
-                    TipoInjecao = f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.TipoInjecao : null,
-                    AcabamentoPeca = f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.AcabamentoPeca : null,
-                    MaterialMacho = f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.MaterialMacho : null,
-                    MaterialCavidade = f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.MaterialCavidade : null,
-                    MaterialMovimentos = f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.MaterialMovimentos : null,
-                    SistemaInjecao = f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.SistemaInjecao : null,
-                    Cor = f.EncomendaMolde.Molde.Especificacoes != null ? f.EncomendaMolde.Molde.Especificacoes.Cor : null,
-                    LadoFixo = f.EncomendaMolde.Molde.Especificacoes != null && f.EncomendaMolde.Molde.Especificacoes.LadoFixo,
-                    LadoMovel = f.EncomendaMolde.Molde.Especificacoes != null && f.EncomendaMolde.Molde.Especificacoes.LadoMovel
+                    Base = new FichaRelatorioBaseDto
+                    {
+                        FichaId = f.FichaProducao_id,
+                        Tipo = f.Tipo,
+                        MoldeNumero = f.EncomendaMolde!.Molde!.Numero,
+                        MoldeNome = f.EncomendaMolde.Molde.Nome,
+                        NumeroMoldeCliente = f.EncomendaMolde.Molde.NumeroMoldeCliente,
+                        ClienteNome = f.EncomendaMolde.Encomenda!.Cliente!.Nome,
+                        NomeServicoCliente = f.EncomendaMolde.Encomenda.NomeServicoCliente,
+                        NumeroProjetoCliente = f.EncomendaMolde.Encomenda.NumeroProjetoCliente,
+                        NomeResponsavelCliente = f.EncomendaMolde.Encomenda.NomeResponsavelCliente,
+                    },
+                    Linhas = _context.FichasFrmLinhas
+                        .Where(l => l.FichaFrm_id == f.FichaProducao_id)
+                        .OrderBy(l => l.Data)
+                        .ThenBy(l => l.FichaFrmLinha_id)
+                        .Select(l => new FichaFrmRelatorioLinhaDto
+                        {
+                            Data = l.Data,
+                            Defeito = l.Defeito,
+                            Pormenor = l.Pormenor,
+                            Verificado = l.Verificado,
+                            ResponsavelNome = _context.Users
+                                .Where(u => u.User_id == l.Responsavel_id)
+                                .Select(u => u.Nome)
+                                .FirstOrDefault() ?? $"User {l.Responsavel_id}"
+                        })
+                        .ToList()
                 })
                 .FirstOrDefaultAsync();
         }
 
+        public Task<FichaFraRelatorioDto?> ObterFichaFraRelatorioAsync(int fichaId)
+        {
+            return _context.FichasFra
+                .AsNoTracking()
+                .Where(f => f.FichaProducao_id == fichaId)
+                .Select(f => new FichaFraRelatorioDto
+                {
+                    Base = new FichaRelatorioBaseDto
+                    {
+                        FichaId = f.FichaProducao_id,
+                        Tipo = f.Tipo,
+                        MoldeNumero = f.EncomendaMolde!.Molde!.Numero,
+                        MoldeNome = f.EncomendaMolde.Molde.Nome,
+                        NumeroMoldeCliente = f.EncomendaMolde.Molde.NumeroMoldeCliente,
+                        ClienteNome = f.EncomendaMolde.Encomenda!.Cliente!.Nome,
+                        NomeServicoCliente = f.EncomendaMolde.Encomenda.NomeServicoCliente,
+                        NumeroProjetoCliente = f.EncomendaMolde.Encomenda.NumeroProjetoCliente,
+                        NomeResponsavelCliente = f.EncomendaMolde.Encomenda.NomeResponsavelCliente,
+                    },
+                    Linhas = _context.FichasFraLinhas
+                        .Where(l => l.FichaFra_id == f.FichaProducao_id)
+                        .OrderBy(l => l.Data)
+                        .ThenBy(l => l.FichaFraLinha_id)
+                        .Select(l => new FichaFraRelatorioLinhaDto
+                        {
+                            Data = l.Data,
+                            Alteracoes = l.Alteracoes,
+                            Verificado = l.Verificado,
+                            ResponsavelNome = _context.Users
+                                .Where(u => u.User_id == l.Responsavel_id)
+                                .Select(u => u.Nome)
+                                .FirstOrDefault() ?? $"User {l.Responsavel_id}"
+                        })
+                        .ToList()
+                })
+                .FirstOrDefaultAsync();
+        }
+
+        public Task<FichaFopRelatorioDto?> ObterFichaFopRelatorioAsync(int fichaId)
+        {
+            return _context.FichasFop
+                .AsNoTracking()
+                .Where(f => f.FichaProducao_id == fichaId)
+                .Select(f => new FichaFopRelatorioDto
+                {
+                    Base = new FichaRelatorioBaseDto
+                    {
+                        FichaId = f.FichaProducao_id,
+                        Tipo = f.Tipo,
+                        MoldeNumero = f.EncomendaMolde!.Molde!.Numero,
+                        MoldeNome = f.EncomendaMolde.Molde.Nome,
+                        NumeroMoldeCliente = f.EncomendaMolde.Molde.NumeroMoldeCliente,
+                        ClienteNome = f.EncomendaMolde.Encomenda!.Cliente!.Nome,
+                        NomeServicoCliente = f.EncomendaMolde.Encomenda.NomeServicoCliente,
+                        NumeroProjetoCliente = f.EncomendaMolde.Encomenda.NumeroProjetoCliente,
+                        NomeResponsavelCliente = f.EncomendaMolde.Encomenda.NomeResponsavelCliente,
+                    },
+                    Linhas = _context.FichasFopLinhas
+                        .Where(l => l.FichaFop_id == f.FichaProducao_id)
+                        .OrderBy(l => l.Data)
+                        .ThenBy(l => l.FichaFopLinha_id)
+                        .Select(l => new FichaFopRelatorioLinhaDto
+                        {
+                            Data = l.Data,
+                            Ocorrencia = l.Ocorrencia,
+                            Correcao = l.Correcao,
+                            ResponsavelNome = _context.Users
+                                .Where(u => u.User_id == l.Responsavel_id)
+                                .Select(u => u.Nome)
+                                .FirstOrDefault() ?? $"User {l.Responsavel_id}"
+                        })
+                        .ToList()
+                })
+                .FirstOrDefaultAsync();
+        }
     }
 }

@@ -17,6 +17,8 @@ namespace TipMolde.Tests.Unitario.Service;
 [Category("Unit")]
 public class EncomendaServiceTests
 {
+    private static readonly int[] ExpectedEncomendaIds = [1, 2];
+
     private Mock<IEncomendaRepository> _encomendaRepository = null!;
     private Mock<IClienteRepository> _clienteRepository = null!;
     private Mock<IMapper> _mapper = null!;
@@ -343,7 +345,7 @@ public class EncomendaServiceTests
         // ASSERT
         result.TotalCount.Should().Be(2);
         result.Items.Should().HaveCount(2);
-        result.Items.Select(x => x.Encomenda_id).Should().Contain(new[] { 1, 2 });
+        result.Items.Select(x => x.Encomenda_id).Should().Contain(ExpectedEncomendaIds);
     }
 
     [Test(Description = "TENCSRV13 - GetById deve devolver nulo quando encomenda nao existe.")]

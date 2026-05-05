@@ -8,6 +8,8 @@ namespace TipMolde.Tests.Integracao.Repositorio
     [Category("Integration")]
     public sealed class PecaRepositoryTests : RepositoryIntegrationTestBase
     {
+        private static readonly string[] ExpectedDesignacoes = ["Placa", "Extrator"];
+
         [Test(Description = "TPECAREP1 - GetByMoldeId deve devolver pecas paginadas do molde indicado.")]
         public async Task GetByMoldeIdAsync_Should_ReturnPecas_When_MoldeMatches()
         {
@@ -26,7 +28,7 @@ namespace TipMolde.Tests.Integracao.Repositorio
 
             // ASSERT
             result.TotalCount.Should().Be(2);
-            result.Items.Select(p => p.Designacao).Should().Contain(new[] { "Placa", "Extrator" });
+            result.Items.Select(p => p.Designacao).Should().Contain(ExpectedDesignacoes);
         }
 
         [Test(Description = "TPECAREP2 - GetByIds deve remover duplicados e devolver pecas ordenadas por ID.")]

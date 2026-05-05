@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.UserDto;
 using TipMolde.Application.Interface.Utilizador.IUser;
 using TipMolde.Domain.Enums;
@@ -16,6 +17,8 @@ namespace TipMolde.API.Controllers
     [Route("api/users")]
     public class UserController : ControllerBase
     {
+        private const string PedidoInvalido = "Pedido invalido";
+
         private readonly IUserManagementService _userService;
         private readonly ILogger<UserController> _logger;
 
@@ -44,7 +47,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Os parametros de paginacao sao invalidos. Regras: page >= 1."));
             }
 
@@ -92,7 +95,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "O parametro searchTerm e obrigatorio."));
             }
 
@@ -100,7 +103,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Os parametros de paginacao sao invalidos. Regras: page >= 1."));
             }
 
@@ -126,7 +129,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "O body do pedido e invalido."));
             }
 
@@ -156,7 +159,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "O body do pedido e invalido."));
             }
 
@@ -184,7 +187,7 @@ namespace TipMolde.API.Controllers
 
             // Porque: apenas ADMIN ou o proprio utilizador podem alterar o perfil alvo.
             // Risco: remover esta regra permite alteracao indevida de contas de terceiros (quebra RBAC).
-            if (authenticatedUser.Role != UserRole.ADMIN && authenticatedUserId != id)
+            if (!User.IsInRole("ADMIN") && authenticatedUserId != id)
             {
                 return StatusCode(
                     StatusCodes.Status403Forbidden,
@@ -218,7 +221,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "O body do pedido e invalido."));
             }
 

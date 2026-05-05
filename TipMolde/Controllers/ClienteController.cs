@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.ClienteDto;
 using TipMolde.Application.Interface.Comercio.ICliente;
 
@@ -15,6 +16,9 @@ namespace TipMolde.API.Controllers
     [Route("api/clientes")]
     public class ClienteController : ControllerBase
     {
+        private const string PedidoInvalido = "Pedido invalido";
+        private const string RecursoNaoEncontrado = "Recurso nao encontrado";
+
         private readonly IClienteService _clienteService;
         private readonly ILogger<ClienteController> _logger;
 
@@ -47,7 +51,7 @@ namespace TipMolde.API.Controllers
             if (page < 1 || pageSize < 1)
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Page e pageSize devem ser >= 1."));
 
             var clientes = await _clienteService.GetAllAsync(page, pageSize);
@@ -69,7 +73,7 @@ namespace TipMolde.API.Controllers
             {
                 return NotFound(this.CreateProblem(
                     StatusCodes.Status404NotFound,
-                    "Recurso nao encontrado",
+                    RecursoNaoEncontrado,
                     $"Cliente com ID {id} nao encontrado."));
             }
 
@@ -90,7 +94,7 @@ namespace TipMolde.API.Controllers
             {
                 return NotFound(this.CreateProblem(
                     StatusCodes.Status404NotFound,
-                    "Recurso nao encontrado",
+                    RecursoNaoEncontrado,
                     $"Cliente com ID {id} nao encontrado."));
             }
 
@@ -112,14 +116,14 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "O parametro searchTerm e obrigatorio."));
             }
 
             if (page < 1 || pageSize < 1)
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Page e pageSize devem ser >= 1."));
 
             var clientes = await _clienteService.SearchByNameAsync(searchTerm, page, pageSize);
@@ -141,14 +145,14 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "O parametro searchTerm e obrigatorio."));
             }
 
             if (page < 1 || pageSize < 1)
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Page e pageSize devem ser >= 1."));
 
             var clientes = await _clienteService.SearchBySiglaAsync(searchTerm, page, pageSize);
@@ -168,7 +172,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> CreateCliente([FromBody] CreateClienteDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados de criacao invalidos."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados de criacao invalidos."));
 
             var created = await _clienteService.CreateAsync(dto);
 
@@ -193,7 +197,7 @@ namespace TipMolde.API.Controllers
                 _logger.LogWarning("Tentativa de atualizacao de cliente {ClienteId} falhou: recurso nao encontrado", id);
                 return NotFound(this.CreateProblem(
                     StatusCodes.Status404NotFound,
-                    "Recurso nao encontrado",
+                    RecursoNaoEncontrado,
                     $"Cliente com ID {id} nao encontrado."));
             }
 
@@ -219,7 +223,7 @@ namespace TipMolde.API.Controllers
                 _logger.LogWarning("Tentativa de remocao de cliente {ClienteId} falhou: recurso nao encontrado", id);
                 return NotFound(this.CreateProblem(
                     StatusCodes.Status404NotFound,
-                    "Recurso nao encontrado",
+                    RecursoNaoEncontrado,
                     $"Cliente com ID {id} nao encontrado."));
             }
 

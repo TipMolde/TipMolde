@@ -18,6 +18,8 @@ namespace TipMolde.Tests.Unitario.Service;
 [Category("Unit")]
 public class MoldeServiceTests
 {
+    private static readonly int[] ExpectedMoldeIds = [1, 2];
+
     private Mock<IMoldeRepository> _moldeRepository = null!;
     private Mock<IEncomendaRepository> _encomendaRepository = null!;
     private Mock<ILogger<MoldeService>> _logger = null!;
@@ -264,7 +266,7 @@ public class MoldeServiceTests
         // ASSERT
         result.TotalCount.Should().Be(2);
         result.Items.Should().HaveCount(2);
-        result.Items.Select(x => x.MoldeId).Should().Contain(new[] { 1, 2 });
+        result.Items.Select(x => x.MoldeId).Should().Contain(ExpectedMoldeIds);
     }
 
     [Test(Description = "TMOLDSRV9 - GetById deve devolver nulo quando molde nao existe.")]

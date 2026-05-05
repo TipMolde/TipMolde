@@ -2,7 +2,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
-namespace TipMolde.API.Controllers
+namespace TipMolde.API.Extensions
 {
     /// <summary>
     /// Centraliza helpers de autenticacao comuns aos controllers da API.

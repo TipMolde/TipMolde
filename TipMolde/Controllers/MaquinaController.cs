@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.MaquinaDto;
 using TipMolde.Application.Interface.Producao.IMaquina;
 using TipMolde.Domain.Enums;
@@ -16,6 +17,8 @@ namespace TipMolde.API.Controllers
     [Route("api/[controller]")]
     public class MaquinaController : ControllerBase
     {
+        private const string PedidoInvalido = "Pedido invalido";
+
         private readonly IMaquinaService _service;
         private readonly ILogger<MaquinaController> _logger;
 
@@ -45,7 +48,7 @@ namespace TipMolde.API.Controllers
             if (page < 1 || pageSize < 1)
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Page e pageSize devem ser maiores ou iguais a 1."));
 
             var result = await _service.GetAllAsync(page, pageSize);
@@ -87,7 +90,7 @@ namespace TipMolde.API.Controllers
             if (page < 1 || pageSize < 1)
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Page e pageSize devem ser maiores ou iguais a 1."));
 
             var maquinas = await _service.GetByEstadoAsync(estado, page, pageSize);
@@ -111,7 +114,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Dados de criacao invalidos para a maquina."));
             }
 
@@ -139,7 +142,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Dados de atualizacao invalidos para a maquina."));
             }
 

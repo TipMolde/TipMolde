@@ -220,11 +220,14 @@ namespace TipMolde.Tests.Unitario.Mapping
             result.Email.Should().Be("cliente@tipmolde.pt");
             result.Telefone.Should().Be("910000000");
 
-            result.Encomendas.Should().NotBeNull();
-            result.Encomendas!.Should().HaveCount(1);
-            result.Encomendas.First().Encomenda_id.Should().Be(1001);
-            result.Encomendas.First().NumeroEncomendaCliente.Should().Be("ENC-1001");
-            result.Encomendas.First().NomeCliente.Should().Be("  Cliente A  ");
+            var encomendas = result.Encomendas;
+            encomendas.Should().NotBeNull();
+            encomendas!.Should().HaveCount(1);
+
+            var encomenda = encomendas!.First();
+            encomenda.Encomenda_id.Should().Be(1001);
+            encomenda.NumeroEncomendaCliente.Should().Be("ENC-1001");
+            encomenda.NomeCliente.Should().Be("  Cliente A  ");
         }
     }
 }

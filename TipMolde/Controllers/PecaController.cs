@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.PecaDto;
 using TipMolde.Application.Interface.Producao.IPeca;
 
@@ -15,6 +16,8 @@ namespace TipMolde.API.Controllers
     [Route("api/pecas")]
     public class PecaController : ControllerBase
     {
+        private const string PedidoInvalido = "Pedido invalido";
+
         private readonly IPecaService _pecaService;
         private readonly ILogger<PecaController> _logger;
 
@@ -40,7 +43,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Page e pageSize devem ser >= 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
 
             var result = await _pecaService.GetAllAsync(page, pageSize);
             return Ok(result);
@@ -74,7 +77,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> GetByMoldeId(int moldeId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Page e pageSize devem ser >= 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
 
             var result = await _pecaService.GetByMoldeIdAsync(moldeId, page, pageSize);
             return Ok(result);
@@ -91,7 +94,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> GetByDesignacao([FromQuery] string? designacao, [FromQuery] int moldeId)
         {
             if (string.IsNullOrWhiteSpace(designacao))
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Designacao e obrigatoria."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Designacao e obrigatoria."));
 
             var peca = await _pecaService.GetByDesignacaoAsync(designacao, moldeId);
             if (peca == null)
@@ -110,7 +113,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> Create([FromBody] CreatePecaDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados de criacao invalidos."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados de criacao invalidos."));
 
             var created = await _pecaService.CreateAsync(dto);
 
@@ -131,7 +134,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> ImportarCsv(int moldeId, IFormFile? file = null)
         {
             if (file == null || file.Length == 0)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "O ficheiro CSV e obrigatorio."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "O ficheiro CSV e obrigatorio."));
 
             await using var stream = file.OpenReadStream();
             var result = await _pecaService.ImportarCsvAsync(moldeId, stream);
@@ -155,7 +158,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> Update(int id, [FromBody] UpdatePecaDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados de atualizacao invalidos."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados de atualizacao invalidos."));
 
             await _pecaService.UpdateAsync(id, dto);
 

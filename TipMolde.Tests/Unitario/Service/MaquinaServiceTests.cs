@@ -16,6 +16,8 @@ namespace TipMolde.Tests.Unitario.Service;
 [Category("Unit")]
 public class MaquinaServiceTests
 {
+    private static readonly int[] ExpectedMaquinaIds = [1, 2];
+
     private Mock<IMaquinaRepository> _maquinaRepository = null!;
     private Mock<IMapper> _mapper = null!;
     private Mock<ILogger<MaquinaService>> _logger = null!;
@@ -291,7 +293,7 @@ public class MaquinaServiceTests
         // ASSERT
         result.TotalCount.Should().Be(2);
         result.Items.Should().HaveCount(2);
-        result.Items.Select(m => m.Maquina_id).Should().Contain(new[] { 1, 2 });
+        result.Items.Select(m => m.Maquina_id).Should().Contain(ExpectedMaquinaIds);
     }
 
     [Test(Description = "TMAQSERV8 - GetByEstado deve mapear o resultado paginado por estado.")]

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.FornecedorDto;
 using TipMolde.Application.Interface.Comercio.IFornecedor;
 
@@ -15,6 +16,8 @@ namespace TipMolde.API.Controllers
     [Route("api/fornecedores")]
     public class FornecedorController : ControllerBase
     {
+        private const string PedidoInvalido = "Pedido invalido";
+
         private readonly IFornecedorService _service;
         private readonly ILogger<FornecedorController> _logger;
 
@@ -45,7 +48,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Page e pageSize devem ser >= 1."));
             }
 
@@ -95,7 +98,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "O parametro searchTerm e obrigatorio."));
             }
 
@@ -103,7 +106,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Page e pageSize devem ser >= 1."));
             }
 
@@ -127,7 +130,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Dados de criacao invalidos."));
             }
 
@@ -152,7 +155,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Dados de atualizacao invalidos."));
             }
 

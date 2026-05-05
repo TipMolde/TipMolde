@@ -13,6 +13,13 @@ namespace TipMolde.Application.Mappings
     {
         public FichaProducaoProfile()
         {
+            ConfigureFichaResponseMaps();
+            ConfigureCreateFichaMaps();
+            ConfigureLinhaMaps();
+        }
+
+        private void ConfigureFichaResponseMaps()
+        {
             CreateMap<FichaProducao, ResponseFichaProducaoDto>();
 
             CreateMap<FichaProducao, ResponseFichaProducaoDetalheDto>()
@@ -23,7 +30,18 @@ namespace TipMolde.Application.Mappings
                 .ForMember(dest => dest.LinhasFrm, opt => opt.Ignore())
                 .ForMember(dest => dest.LinhasFra, opt => opt.Ignore())
                 .ForMember(dest => dest.LinhasFop, opt => opt.Ignore());
+        }
 
+        private void ConfigureCreateFichaMaps()
+        {
+            ConfigureCreateFichaFreMap();
+            ConfigureCreateFichaFrmMap();
+            ConfigureCreateFichaFraMap();
+            ConfigureCreateFichaFopMap();
+        }
+
+        private void ConfigureCreateFichaFreMap()
+        {
             CreateMap<CreateFichaProducaoDto, FichaFre>()
                 .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
                 .ForMember(dest => dest.DataCriacao, opt => opt.Ignore())
@@ -35,7 +53,10 @@ namespace TipMolde.Application.Mappings
                 .ForMember(dest => dest.DesativadaPor_user_id, opt => opt.Ignore())
                 .ForMember(dest => dest.EncomendaMolde, opt => opt.Ignore())
                 .ForMember(dest => dest.Relatorios, opt => opt.Ignore());
+        }
 
+        private void ConfigureCreateFichaFrmMap()
+        {
             CreateMap<CreateFichaProducaoDto, FichaFrm>()
                 .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
                 .ForMember(dest => dest.DataCriacao, opt => opt.Ignore())
@@ -48,7 +69,10 @@ namespace TipMolde.Application.Mappings
                 .ForMember(dest => dest.EncomendaMolde, opt => opt.Ignore())
                 .ForMember(dest => dest.Relatorios, opt => opt.Ignore())
                 .ForMember(dest => dest.Linhas, opt => opt.Ignore());
+        }
 
+        private void ConfigureCreateFichaFraMap()
+        {
             CreateMap<CreateFichaProducaoDto, FichaFra>()
                 .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
                 .ForMember(dest => dest.DataCriacao, opt => opt.Ignore())
@@ -61,7 +85,10 @@ namespace TipMolde.Application.Mappings
                 .ForMember(dest => dest.EncomendaMolde, opt => opt.Ignore())
                 .ForMember(dest => dest.Relatorios, opt => opt.Ignore())
                 .ForMember(dest => dest.Linhas, opt => opt.Ignore());
+        }
 
+        private void ConfigureCreateFichaFopMap()
+        {
             CreateMap<CreateFichaProducaoDto, FichaFop>()
                 .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
                 .ForMember(dest => dest.DataCriacao, opt => opt.Ignore())
@@ -74,7 +101,10 @@ namespace TipMolde.Application.Mappings
                 .ForMember(dest => dest.EncomendaMolde, opt => opt.Ignore())
                 .ForMember(dest => dest.Relatorios, opt => opt.Ignore())
                 .ForMember(dest => dest.Linhas, opt => opt.Ignore());
+        }
 
+        private void ConfigureLinhaMaps()
+        {
             CreateMap<CreateFichaFrmLinhaDto, FichaFrmLinha>()
                 .ForMember(dest => dest.FichaFrmLinha_id, opt => opt.Ignore())
                 .ForMember(dest => dest.FichaFrm_id, opt => opt.Ignore())

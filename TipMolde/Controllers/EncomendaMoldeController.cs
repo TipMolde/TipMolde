@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.EncomendaMoldeDto;
 using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
 
@@ -15,6 +16,8 @@ namespace TipMolde.API.Controllers
     [Route("api/encomenda-moldes")]
     public class EncomendaMoldeController : ControllerBase
     {
+        private const string PedidoInvalido = "Pedido invalido";
+
         private readonly IEncomendaMoldeService _service;
         private readonly ILogger<EncomendaMoldeController> _logger;
 
@@ -62,7 +65,7 @@ namespace TipMolde.API.Controllers
             [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Page e pageSize devem ser >= 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
 
             var result = await _service.GetByEncomendaIdAsync(encomendaId, page, pageSize);
             return Ok(result);
@@ -83,7 +86,7 @@ namespace TipMolde.API.Controllers
             [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Page e pageSize devem ser >= 1."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
 
             var result = await _service.GetByMoldeIdAsync(moldeId, page, pageSize);
             return Ok(result);
@@ -99,7 +102,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> Create([FromBody] CreateEncomendaMoldeDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados de criacao invalidos."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados de criacao invalidos."));
 
             var created = await _service.CreateAsync(dto);
             _logger.LogInformation("Controller: EncomendaMolde {EncomendaMoldeId} criado", created.EncomendaMolde_id);
@@ -121,7 +124,7 @@ namespace TipMolde.API.Controllers
         public async Task<IActionResult> Update(int id, [FromBody] UpdateEncomendaMoldeDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, "Pedido invalido", "Dados de atualizacao invalidos."));
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados de atualizacao invalidos."));
 
             await _service.UpdateAsync(id, dto);
             _logger.LogInformation("Controller: EncomendaMolde {EncomendaMoldeId} atualizado", id);

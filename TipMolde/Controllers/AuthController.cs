@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.AuthDto;
 using TipMolde.Application.Interface.Utilizador.IAuth;
 
@@ -54,9 +55,9 @@ namespace TipMolde.API.Controllers
                 _logger.LogInformation("Login bem-sucedido para utilizador com email {Email}", dto.Email);
                 return Ok(result);
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                _logger.LogWarning("Tentativa de login falhada para email {Email}", dto.Email);
+                _logger.LogWarning(ex, "Tentativa de login falhada para email {Email}", dto.Email);
                 return Unauthorized(this.CreateProblem(
                     StatusCodes.Status401Unauthorized,
                     "Credenciais invalidas",

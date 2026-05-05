@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.RevisaoDto;
 using TipMolde.Application.Interface.Desenho.IRevisao;
 
@@ -16,6 +17,8 @@ namespace TipMolde.API.Controllers
     [Route("api/revisoes")]
     public class RevisaoController : ControllerBase
     {
+        private const string PedidoInvalido = "Pedido invalido";
+
         private readonly IRevisaoService _revisaoService;
         private readonly ILogger<RevisaoController> _logger;
 
@@ -47,7 +50,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "ProjetoId deve ser >= 1."));
             }
 
@@ -55,7 +58,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Page e pageSize devem ser maiores ou iguais a 1."));
             }
 
@@ -97,7 +100,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Dados de criacao invalidos."));
             }
 
@@ -122,7 +125,7 @@ namespace TipMolde.API.Controllers
             {
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Dados de resposta do cliente invalidos."));
             }
 

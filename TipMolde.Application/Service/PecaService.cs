@@ -206,8 +206,7 @@ namespace TipMolde.Application.Service
         /// <returns>Resumo da importacao com as pecas persistidas.</returns>
         public async Task<ImportPecasCsvResultDto> ImportarCsvAsync(int moldeId, Stream csvStream)
         {
-            if (csvStream == null)
-                throw new ArgumentNullException(nameof(csvStream));
+            ArgumentNullException.ThrowIfNull(csvStream);
 
             if (!csvStream.CanRead)
                 throw new ArgumentException("O ficheiro CSV nao pode ser lido.");

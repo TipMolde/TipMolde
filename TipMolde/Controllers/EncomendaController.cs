@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TipMolde.API.Extensions;
 using TipMolde.Application.Dtos.EncomendaDto;
 using TipMolde.Application.Interface.Comercio.IEncomenda;
 using TipMolde.Domain.Enums;
@@ -16,6 +17,8 @@ namespace TipMolde.API.Controllers
     [Route("api/encomendas")]
     public class EncomendaController : ControllerBase
     {
+        private const string PedidoInvalido = "Pedido invalido";
+
         private readonly IEncomendaService _encomendaService;
         private readonly ILogger<EncomendaController> _logger;
 
@@ -45,7 +48,7 @@ namespace TipMolde.API.Controllers
             if (page < 1 || pageSize < 1)
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Page e pageSize devem ser >= 1."));
 
             var result = await _encomendaService.GetAllAsync(page, pageSize);
@@ -108,7 +111,7 @@ namespace TipMolde.API.Controllers
             if (page < 1 || pageSize < 1)
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Page e pageSize devem ser >= 1."));
 
             var encomendas = await _encomendaService.GetEncomendasPorConcluirAsync(page, pageSize);
@@ -127,7 +130,7 @@ namespace TipMolde.API.Controllers
             if (page < 1 || pageSize < 1)
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "Page e pageSize devem ser >= 1."));
 
             var encomendas = await _encomendaService.GetByEstadoAsync(estado, page, pageSize);
@@ -146,7 +149,7 @@ namespace TipMolde.API.Controllers
             if (string.IsNullOrWhiteSpace(numero))
                 return BadRequest(this.CreateProblem(
                     StatusCodes.Status400BadRequest,
-                    "Pedido invalido",
+                    PedidoInvalido,
                     "O numero de encomenda do cliente e obrigatorio."));
 
             var encomenda = await _encomendaService.GetByNumeroEncomendaClienteAsync(numero);
@@ -170,7 +173,7 @@ namespace TipMolde.API.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(this.CreateProblem(
                 StatusCodes.Status400BadRequest,
-                "Pedido invalido",
+                PedidoInvalido,
                 "Dados de criacao invalidos."));
 
             var created = await _encomendaService.CreateAsync(dto);
@@ -197,7 +200,7 @@ namespace TipMolde.API.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(this.CreateProblem(
                 StatusCodes.Status400BadRequest,
-                "Pedido invalido",
+                PedidoInvalido,
                 "Dados de atualizacao invalidos."));
 
 
@@ -219,7 +222,7 @@ namespace TipMolde.API.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(this.CreateProblem(
                 StatusCodes.Status400BadRequest,
-                "Pedido invalido",
+                PedidoInvalido,
                 "Dados de atualizacao invalidos."));
 
             await _encomendaService.UpdateEstadoAsync(id, dto);

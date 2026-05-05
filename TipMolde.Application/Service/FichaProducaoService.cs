@@ -16,6 +16,8 @@ namespace TipMolde.Application.Service
     /// </summary>
     public class FichaProducaoService : IFichaProducaoService
     {
+        private const string ResponsavelDescricao = "Responsavel";
+
         private readonly IFichaProducaoRepository _fichaRepository;
         private readonly IEncomendaMoldeRepository _encomendaMoldeRepository;
         private readonly IUserRepository _userRepository;
@@ -172,7 +174,7 @@ namespace TipMolde.Application.Service
         {
             var ficha = await GetFichaAtivaAsync(fichaId);
             EnsureFichaEditavel(ficha, TipoFicha.FRM);
-            await EnsureUserExistsAsync(dto.Responsavel_id, "Responsavel");
+            await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
 
             var linha = _mapper.Map<FichaFrmLinha>(dto);
             linha.FichaFrm_id = fichaId;
@@ -183,7 +185,7 @@ namespace TipMolde.Application.Service
         {
             var ficha = await GetFichaAtivaAsync(fichaId);
             EnsureFichaEditavel(ficha, TipoFicha.FRM);
-            await EnsureUserExistsAsync(dto.Responsavel_id, "Responsavel");
+            await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
 
             var linha = await _fichaRepository.GetLinhaFrmByIdAsync(fichaId, linhaId)
                 ?? throw new KeyNotFoundException($"Linha FRM {linhaId} nao encontrada.");
@@ -212,7 +214,7 @@ namespace TipMolde.Application.Service
         {
             var ficha = await GetFichaAtivaAsync(fichaId);
             EnsureFichaEditavel(ficha, TipoFicha.FRA);
-            await EnsureUserExistsAsync(dto.Responsavel_id, "Responsavel");
+            await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
 
             var linha = _mapper.Map<FichaFraLinha>(dto);
             linha.FichaFra_id = fichaId;
@@ -223,7 +225,7 @@ namespace TipMolde.Application.Service
         {
             var ficha = await GetFichaAtivaAsync(fichaId);
             EnsureFichaEditavel(ficha, TipoFicha.FRA);
-            await EnsureUserExistsAsync(dto.Responsavel_id, "Responsavel");
+            await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
 
             var linha = await _fichaRepository.GetLinhaFraByIdAsync(fichaId, linhaId)
                 ?? throw new KeyNotFoundException($"Linha FRA {linhaId} nao encontrada.");
@@ -252,7 +254,7 @@ namespace TipMolde.Application.Service
         {
             var ficha = await GetFichaAtivaAsync(fichaId);
             EnsureFichaEditavel(ficha, TipoFicha.FOP);
-            await EnsureUserExistsAsync(dto.Responsavel_id, "Responsavel");
+            await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
 
             var linha = _mapper.Map<FichaFopLinha>(dto);
             linha.FichaFop_id = fichaId;
@@ -263,7 +265,7 @@ namespace TipMolde.Application.Service
         {
             var ficha = await GetFichaAtivaAsync(fichaId);
             EnsureFichaEditavel(ficha, TipoFicha.FOP);
-            await EnsureUserExistsAsync(dto.Responsavel_id, "Responsavel");
+            await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
 
             var linha = await _fichaRepository.GetLinhaFopByIdAsync(fichaId, linhaId)
                 ?? throw new KeyNotFoundException($"Linha FOP {linhaId} nao encontrada.");

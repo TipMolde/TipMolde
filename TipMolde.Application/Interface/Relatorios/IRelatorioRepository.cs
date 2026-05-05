@@ -31,5 +31,9 @@ namespace TipMolde.Application.Interface.Relatorios
         /// <param name="fichaId">Identificador interno da ficha editavel.</param>
         /// <returns>Read-model base da ficha ou nulo quando a ficha nao existe.</returns>
         Task<FichaRelatorioBaseDto?> ObterFichaRelatorioBaseAsync(int fichaId);
+
+        Task<FichaFrmRelatorioDto?> ObterFichaFrmRelatorioAsync(int fichaId);
+        Task<FichaFraRelatorioDto?> ObterFichaFraRelatorioAsync(int fichaId);
+        Task<FichaFopRelatorioDto?> ObterFichaFopRelatorioAsync(int fichaId);
     }
 }
