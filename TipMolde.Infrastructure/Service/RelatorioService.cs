@@ -22,6 +22,7 @@ namespace TipMolde.Infrastructure.Service
     public class RelatorioService : IRelatorioService
     {
         private const string ExcelContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        private const string DateFormat = "dd/MM/yyyy";
 
         private readonly IRelatorioRepository _relatorioRepository;
         private readonly IFichaDocumentoService _fichaDocumentoService;
@@ -114,7 +115,6 @@ namespace TipMolde.Infrastructure.Service
                             ("Pecas com movimento em erosao", relatorio.Erosao.ToString()),
                             ("Pecas com movimento em montagem", relatorio.Montagem.ToString()),
                             ("Registos em trabalho", relatorio.EmTrabalho.ToString()),
-                            ("Pecas concluidas", relatorio.Concluidas.ToString()),
                             ("Percentagem de conclusao", $"{relatorio.PercentagemConclusao:N2}%")
                         ]);
                     });
@@ -127,6 +127,11 @@ namespace TipMolde.Infrastructure.Service
         /// <summary>
         /// Calcula os KPI do ciclo de vida produtivo de um molde.
         /// </summary>
+        /// <remarks>
+        /// Este metodo devolve uma vista resumida orientada ao dashboard sem gerar qualquer
+        /// artefacto documental. A agregacao depende da mesma projection transversal usada no
+        /// PDF para manter coerencia entre indicadores e detalhe do relatorio.
+        /// </remarks>
         /// <param name="moldeId">Identificador interno do molde.</param>
         /// <returns>DTO com os principais indicadores agregados do molde.</returns>
         public async Task<MoldeCicloVidaDashboardDto> ObterDashboardMoldeAsync(int moldeId)
@@ -175,10 +180,13 @@ namespace TipMolde.Infrastructure.Service
         /// <summary>
         /// Gera a ficha FRE oficial a partir do template configurado.
         /// </summary>
+        /// <remarks>
+        /// A FRE e preenchida com o estado atual da ficha de producao e fica sujeita ao fluxo
+        /// normal de versionamento documental para garantir rastreabilidade da exportacao.
+        /// </remarks>
         /// <param name="fichaId">Identificador interno da ficha de producao.</param>
         /// <param name="userId">Identificador do utilizador responsavel pela geracao.</param>
         /// <returns>Conteudo binario do Excel e nome final versionado do ficheiro.</returns>
-
         public Task<(byte[] Content, string FileName)> GerarFichaExcelFREAsync(int fichaId, int userId)
         {
             return GerarFichaExcelAsync(
@@ -195,14 +203,12 @@ namespace TipMolde.Infrastructure.Service
         /// Gera a ficha FRM oficial a partir do template configurado.
         /// </summary>
         /// <remarks>
-        /// No estado atual, este metodo so cumpre o criterio documental.
-        /// Para cumprir o criterio funcional na totalidade, precisa de uma projection propria com
-        /// os registos de melhoria/alteracao efetivamente persistidos no dominio.
+        /// A FRM e preenchida com as linhas de melhoria registadas no sistema e devolve
+        /// o mesmo nome final versionado que fica persistido na trilha documental da ficha.
         /// </remarks>
         /// <param name="fichaId">Identificador interno da ficha de producao.</param>
         /// <param name="userId">Identificador do utilizador responsavel pela geracao.</param>
         /// <returns>Conteudo binario do Excel e nome final versionado do ficheiro.</returns>
-
         public Task<(byte[] Content, string FileName)> GerarFichaExcelFRMAsync(int fichaId, int userId)
         {
             return GerarFichaExcelAsync(
@@ -221,6 +227,16 @@ namespace TipMolde.Infrastructure.Service
                 });
         }
 
+        /// <summary>
+        /// Gera a ficha FRA oficial a partir do template configurado.
+        /// </summary>
+        /// <remarks>
+        /// A FRA incorpora as linhas de alteracao registadas para a ficha e persiste o ficheiro
+        /// no historico documental para manter controlo de versoes e autoria da exportacao.
+        /// </remarks>
+        /// <param name="fichaId">Identificador interno da ficha de producao.</param>
+        /// <param name="userId">Identificador do utilizador responsavel pela geracao.</param>
+        /// <returns>Conteudo binario do Excel e nome final versionado do ficheiro.</returns>
         public Task<(byte[] Content, string FileName)> GerarFichaExcelFRAAsync(int fichaId, int userId)
         {
             return GerarFichaExcelAsync(
@@ -239,6 +255,16 @@ namespace TipMolde.Infrastructure.Service
                 });
         }
 
+        /// <summary>
+        /// Gera a ficha FOP oficial a partir do template configurado.
+        /// </summary>
+        /// <remarks>
+        /// A FOP materializa as ocorrencias operacionais registadas na ficha e devolve ao cliente
+        /// o mesmo nome final que fica persistido na trilha documental auditavel.
+        /// </remarks>
+        /// <param name="fichaId">Identificador interno da ficha de producao.</param>
+        /// <param name="userId">Identificador do utilizador responsavel pela geracao.</param>
+        /// <returns>Conteudo binario do Excel e nome final versionado do ficheiro.</returns>
         public Task<(byte[] Content, string FileName)> GerarFichaExcelFOPAsync(int fichaId, int userId)
         {
             return GerarFichaExcelAsync(
@@ -258,24 +284,21 @@ namespace TipMolde.Infrastructure.Service
         }
 
         /// <summary>
-        /// Gera uma ficha Excel oficial a partir de um template configurado.
+        /// Gera uma ficha Excel oficial nao versionada a partir de um template configurado.
         /// </summary>
         /// <remarks>
-        /// Fluxo critico:
-        /// 1. Carrega o read-model da ficha necessario ao preenchimento.
-        /// 2. Valida a configuracao do template e da folha.
-        /// 3. Preenche cabecalho e corpo especifico da ficha.
-        /// 4. Persiste o artefacto gerado em FichaDocumento.
-        /// 5. Devolve ao cliente o mesmo nome versionado que ficou auditado.
+        /// Este helper e usado quando o contexto funcional nao corresponde a uma ficha editavel
+        /// persistida, como acontece na FLT. O documento final e devolvido ao cliente sem criar
+        /// registo em FichaDocumento.
         /// </remarks>
-        /// <param name="fichaId">Identificador interno da ficha de producao.</param>
-        /// <param name="userId">Identificador do utilizador responsavel pela geracao.</param>
-        /// <param name="templateConfigKey">Chave de configuracao do caminho do template Excel.</param>
-        /// <param name="folhaConfigKey">Chave de configuracao do nome da folha a usar.</param>
+        /// <param name="contextId">Identificador do contexto funcional usado para obter os dados da ficha.</param>
+        /// <param name="templateConfigKey">Nome do ficheiro template Excel a carregar.</param>
+        /// <param name="folhaConfigKey">Nome configurado da folha a usar no template.</param>
         /// <param name="defaultSheetName">Nome por defeito da folha quando a configuracao nao existe.</param>
-        /// <param name="fileName">Nome base do ficheiro a persistir.</param>
+        /// <param name="fileName">Nome final do ficheiro devolvido ao cliente.</param>
+        /// <param name="loadContext">Funcao responsavel por obter o read-model necessario ao preenchimento.</param>
         /// <param name="fillBody">Acao responsavel por preencher o corpo especifico da ficha.</param>
-        /// <returns>Conteudo binario do Excel e nome final versionado do ficheiro.</returns>
+        /// <returns>Conteudo binario do Excel e nome final do ficheiro gerado.</returns>
         private async Task<(byte[] Content, string FileName)> GerarFichaExcelSemVersionamentoAsync(
             int contextId,
             string templateConfigKey,
@@ -297,6 +320,25 @@ namespace TipMolde.Infrastructure.Service
             return (ms.ToArray(), fileName);
         }
 
+        /// <summary>
+        /// Gera uma ficha Excel oficial versionada a partir do read-model base da ficha.
+        /// </summary>
+        /// <remarks>
+        /// Fluxo critico:
+        /// 1. Carrega o read-model base da ficha necessario ao preenchimento.
+        /// 2. Valida a configuracao do template e da folha.
+        /// 3. Preenche cabecalho e corpo especifico da ficha.
+        /// 4. Persiste o artefacto gerado em FichaDocumento.
+        /// 5. Devolve ao cliente o mesmo nome versionado que ficou auditado.
+        /// </remarks>
+        /// <param name="fichaId">Identificador interno da ficha de producao.</param>
+        /// <param name="userId">Identificador do utilizador responsavel pela geracao.</param>
+        /// <param name="templateConfigKey">Nome do ficheiro template Excel a carregar.</param>
+        /// <param name="folhaConfigKey">Nome configurado da folha a usar no template.</param>
+        /// <param name="defaultSheetName">Nome por defeito da folha quando a configuracao nao existe.</param>
+        /// <param name="fileName">Nome base do ficheiro a persistir.</param>
+        /// <param name="fillBody">Acao responsavel por preencher o corpo especifico da ficha.</param>
+        /// <returns>Conteudo binario do Excel e nome final versionado do ficheiro.</returns>
         private async Task<(byte[] Content, string FileName)> GerarFichaExcelAsync(
             int fichaId,
             int userId,
@@ -329,6 +371,23 @@ namespace TipMolde.Infrastructure.Service
             return (bytes, documento.NomeFicheiro);
         }
 
+        /// <summary>
+        /// Gera uma ficha Excel oficial versionada a partir de um read-model especializado.
+        /// </summary>
+        /// <remarks>
+        /// Este overload e usado quando a ficha exige uma projection propria com cabecalho e
+        /// linhas funcionais especializadas, como acontece nas fichas FRM, FRA e FOP.
+        /// </remarks>
+        /// <typeparam name="TContext">Tipo do contexto especializado carregado para preencher a worksheet.</typeparam>
+        /// <param name="fichaId">Identificador interno da ficha de producao.</param>
+        /// <param name="userId">Identificador do utilizador responsavel pela geracao.</param>
+        /// <param name="loadContext">Funcao responsavel por obter o contexto especializado da ficha.</param>
+        /// <param name="templateFileName">Nome do ficheiro template Excel a carregar.</param>
+        /// <param name="worksheetName">Nome configurado da folha a usar no template.</param>
+        /// <param name="defaultSheetName">Nome por defeito da folha quando a configuracao nao existe.</param>
+        /// <param name="fileName">Nome base do ficheiro a persistir.</param>
+        /// <param name="fillWorksheet">Acao responsavel por preencher a worksheet com o contexto especializado.</param>
+        /// <returns>Conteudo binario do Excel e nome final versionado do ficheiro.</returns>
         private async Task<(byte[] Content, string FileName)> GerarFichaExcelAsync<TContext>(
             int fichaId,
             int userId,
@@ -363,8 +422,8 @@ namespace TipMolde.Infrastructure.Service
         /// <summary>
         /// Carrega o workbook e valida a configuracao do template Excel.
         /// </summary>
-        /// <param name="templateConfigKey">Chave de configuracao do caminho do template Excel.</param>
-        /// <param name="folhaConfigKey">Chave de configuracao do nome da folha a usar.</param>
+        /// <param name="templateFileName">Nome do ficheiro template Excel a carregar.</param>
+        /// <param name="worksheetName">Nome configurado da folha a usar.</param>
         /// <param name="defaultSheetName">Nome por defeito da folha quando a configuracao nao existe.</param>
         /// <param name="worksheet">Folha carregada pronta a ser preenchida.</param>
         /// <returns>Workbook carregado a partir do template configurado.</returns>
@@ -388,6 +447,15 @@ namespace TipMolde.Infrastructure.Service
             return workbook;
         }
 
+        /// <summary>
+        /// Preenche o corpo funcional da ficha FLT com a informacao tecnica e comercial do molde.
+        /// </summary>
+        /// <remarks>
+        /// O template FLT inclui imagem de capa, caracteristicas tecnicas, flags visuais e bloco
+        /// cliente num layout proprio que nao reutiliza o bloco comum das restantes fichas.
+        /// </remarks>
+        /// <param name="ws">Worksheet do template oficial a preencher.</param>
+        /// <param name="context">Read-model base com os dados necessarios ao preenchimento da FLT.</param>
         private void FillFltBody(IXLWorksheet ws, FichaRelatorioBaseDto context)
         {
             var imagePath = ResolveImagePath(context.ImagemCapaPath);
@@ -413,9 +481,18 @@ namespace TipMolde.Infrastructure.Service
 
             ws.Cell("E38").Value = context.TipoPedido.ToString();
             FillBlocoClienteFlt(ws, context);
-            ws.Cell("B48").Value = context.DataEntregaPrevista.ToString("dd/MM/yyyy");
+            ws.Cell("B48").Value = context.DataEntregaPrevista.ToString(DateFormat);
         }
 
+        /// <summary>
+        /// Preenche o corpo funcional da ficha FRE com a informacao tecnica e comercial relevante.
+        /// </summary>
+        /// <remarks>
+        /// A FRE usa um layout diferente da FLT, mas continua a depender da mesma base de dados
+        /// tecnicos, cliente e imagem de capa do molde.
+        /// </remarks>
+        /// <param name="ws">Worksheet do template oficial a preencher.</param>
+        /// <param name="context">Read-model base com os dados necessarios ao preenchimento da FRE.</param>
         private void FillFreBody(IXLWorksheet ws, FichaRelatorioBaseDto context)
         {
             var imagePath = ResolveImagePath(context.ImagemCapaPath);
@@ -437,13 +514,23 @@ namespace TipMolde.Infrastructure.Service
             FillBlocoClienteFre(ws, context);
         }
 
+        /// <summary>
+        /// Preenche o cabecalho comum das fichas oficiais.
+        /// </summary>
+        /// <param name="ws">Worksheet do template oficial a preencher.</param>
+        /// <param name="context">Read-model base com os dados transversais do molde.</param>
         private static void FillHeaderComum(IXLWorksheet ws, FichaRelatorioBaseDto context)
         {
-            ws.Cell("I4").Value = DateTime.UtcNow.ToString("dd/MM/yyyy");
+            ws.Cell("I4").Value = DateTime.UtcNow.ToString(DateFormat);
             ws.Cell("C6").Value = context.MoldeNome;
             ws.Cell("J6").Value = context.MoldeNumero;
         }
 
+        /// <summary>
+        /// Preenche o bloco comum de dados do cliente usado nas fichas versionadas.
+        /// </summary>
+        /// <param name="ws">Worksheet do template oficial a preencher.</param>
+        /// <param name="context">Read-model base com os dados comerciais do molde.</param>
         private static void FillBlocoCliente(IXLWorksheet ws, FichaRelatorioBaseDto context)
         {
             ws.Cell("D9").Value = context.ClienteNome;
@@ -453,6 +540,11 @@ namespace TipMolde.Infrastructure.Service
             ws.Cell("E12").Value = context.NomeResponsavelCliente;
         }
 
+        /// <summary>
+        /// Preenche o bloco cliente especifico do layout FLT.
+        /// </summary>
+        /// <param name="ws">Worksheet do template oficial a preencher.</param>
+        /// <param name="context">Read-model base com os dados comerciais do molde.</param>
         private static void FillBlocoClienteFlt(IXLWorksheet ws, FichaRelatorioBaseDto context)
         {
             ws.Cell("D43").Value = context.ClienteNome;
@@ -462,6 +554,11 @@ namespace TipMolde.Infrastructure.Service
             ws.Cell("E46").Value = context.NomeResponsavelCliente;
         }
 
+        /// <summary>
+        /// Preenche o bloco cliente especifico do layout FRE.
+        /// </summary>
+        /// <param name="ws">Worksheet do template oficial a preencher.</param>
+        /// <param name="context">Read-model base com os dados comerciais do molde.</param>
         private static void FillBlocoClienteFre(IXLWorksheet ws, FichaRelatorioBaseDto context)
         {
             ws.Cell("D26").Value = context.ClienteNome;
@@ -471,22 +568,21 @@ namespace TipMolde.Infrastructure.Service
             ws.Cell("E29").Value = context.NomeResponsavelCliente;
         }
 
-        private void FillFrmBody(IXLWorksheet ws, FichaFrmRelatorioDto context)
+        /// <summary>
+        /// Preenche o corpo funcional da ficha FRM com as linhas de melhoria registadas.
+        /// </summary>
+        /// <param name="ws">Worksheet do template oficial a preencher.</param>
+        /// <param name="context">Contexto de relatorio contendo cabecalho e linhas FRM.</param>
+        private static void FillFrmBody(IXLWorksheet ws, FichaFrmRelatorioDto context)
         {
             const int startRow = 14;
 
-            if (context.Linhas.Count == 0)
-            {
-                ws.Cell(startRow, 2).Value = "Sem linhas registadas.";
-                return;
-            }
-
             for (var i = 0; i < context.Linhas.Count; i++)
             {
-                var row = startRow + i;
+                var row = startRow + (i * 2);
                 var linha = context.Linhas[i];
 
-                ws.Cell($"B{row}").Value = linha.Data.ToString("dd/MM/yyyy");
+                ws.Cell($"B{row}").Value = linha.Data.ToString(DateFormat);
                 ws.Cell($"C{row}").Value = linha.Defeito;
                 ws.Cell($"F{row}").Value = linha.Pormenor;
                 ws.Cell($"I{row}").Value = linha.Verificado ? "Sim" : "Nao";
@@ -494,44 +590,42 @@ namespace TipMolde.Infrastructure.Service
             }
         }
 
-        private void FillFraBody(IXLWorksheet ws, FichaFraRelatorioDto context)
+        /// <summary>
+        /// Preenche o corpo funcional da ficha FRA com as linhas de alteracao registadas.
+        /// </summary>
+        /// <param name="ws">Worksheet do template oficial a preencher.</param>
+        /// <param name="context">Contexto de relatorio contendo cabecalho e linhas FRA.</param>
+        private static void FillFraBody(IXLWorksheet ws, FichaFraRelatorioDto context)
         {
             const int startRow = 14;
 
-            if (context.Linhas.Count == 0)
-            {
-                ws.Cell(startRow, 2).Value = "Sem linhas registadas.";
-                return;
-            }
-
             for (var i = 0; i < context.Linhas.Count; i++)
             {
-                var row = startRow + i;
+                var row = startRow + (i * 2);
                 var linha = context.Linhas[i];
 
-                ws.Cell($"B{row}").Value = linha.Data.ToString("dd/MM/yyyy");
+                ws.Cell($"B{row}").Value = linha.Data.ToString(DateFormat);
                 ws.Cell($"C{row}").Value = linha.Alteracoes;
                 ws.Cell($"I{row}").Value = linha.Verificado ? "Sim" : "Nao";
                 ws.Cell($"J{row}").Value = linha.ResponsavelNome;
             }
         }
 
-        private void FillFopBody(IXLWorksheet ws, FichaFopRelatorioDto context)
+        /// <summary>
+        /// Preenche o corpo funcional da ficha FOP com as ocorrencias operacionais registadas.
+        /// </summary>
+        /// <param name="ws">Worksheet do template oficial a preencher.</param>
+        /// <param name="context">Contexto de relatorio contendo cabecalho e linhas FOP.</param>
+        private static void FillFopBody(IXLWorksheet ws, FichaFopRelatorioDto context)
         {
             const int startRow = 14;
 
-            if (context.Linhas.Count == 0)
-            {
-                ws.Cell(startRow, 2).Value = "Sem linhas registadas.";
-                return;
-            }
-
             for (var i = 0; i < context.Linhas.Count; i++)
             {
-                var row = startRow + i;
+                var row = startRow + (i * 2);
                 var linha = context.Linhas[i];
 
-                ws.Cell($"B{row}").Value = linha.Data.ToString("dd/MM/yyyy");
+                ws.Cell($"B{row}").Value = linha.Data.ToString(DateFormat);
                 ws.Cell($"C{row}").Value = linha.Ocorrencia;
                 ws.Cell($"G{row}").Value = linha.Correcao;
                 ws.Cell($"J{row}").Value = linha.ResponsavelNome;
@@ -567,6 +661,15 @@ namespace TipMolde.Infrastructure.Service
             return imagePath;
         }
 
+        /// <summary>
+        /// Resolve um path tecnico configurado para caminho absoluto no ambiente atual.
+        /// </summary>
+        /// <remarks>
+        /// O metodo aceita paths absolutos ou relativos ao `ContentRootPath` da aplicacao para
+        /// manter portabilidade entre desenvolvimento, testes e deploy.
+        /// </remarks>
+        /// <param name="configuredPath">Path tecnico vindo da configuracao da aplicacao.</param>
+        /// <returns>Caminho absoluto pronto a ser usado pelo sistema de ficheiros.</returns>
         private string ResolvePath(string configuredPath)
         {
             if (string.IsNullOrWhiteSpace(configuredPath))
@@ -577,11 +680,23 @@ namespace TipMolde.Infrastructure.Service
                 : Path.GetFullPath(Path.Combine(_environment.ContentRootPath, configuredPath));
         }
 
+        /// <summary>
+        /// Escreve uma marcacao visual "X" numa celula quando a condicao e verdadeira.
+        /// </summary>
+        /// <param name="ws">Worksheet onde a marcacao sera aplicada.</param>
+        /// <param name="cell">Referencia da celula a preencher.</param>
+        /// <param name="condition">Condicao funcional que determina se a marcacao deve existir.</param>
         private static void SetX(IXLWorksheet ws, string cell, bool condition)
         {
             ws.Cell(cell).Value = condition ? "X" : string.Empty;
         }
 
+        /// <summary>
+        /// Adiciona uma secao textual ao PDF do ciclo de vida com rotulo e valor normalizado.
+        /// </summary>
+        /// <param name="column">Coluna QuestPDF onde a secao sera desenhada.</param>
+        /// <param name="title">Titulo funcional da secao no relatorio.</param>
+        /// <param name="rows">Linhas label/valor a apresentar ao utilizador final.</param>
         private static void AddSection(ColumnDescriptor column, string title, IEnumerable<(string Label, string? Value)> rows)
         {
             column.Item().PaddingTop(8).Text(title).Bold().FontSize(14);
@@ -590,11 +705,21 @@ namespace TipMolde.Infrastructure.Service
                 column.Item().Text($"{row.Label}: {Normalize(row.Value)}");
         }
 
+        /// <summary>
+        /// Formata uma data opcional para o padrao documental usado nos relatorios.
+        /// </summary>
+        /// <param name="value">Data a formatar.</param>
+        /// <returns>Data no formato `dd/MM/yyyy` ou `n/d` quando nao existe valor.</returns>
         private static string FormatDate(DateTime? value)
         {
-            return value?.ToString("dd/MM/yyyy") ?? "n/d";
+            return value?.ToString(DateFormat) ?? "n/d";
         }
 
+        /// <summary>
+        /// Normaliza um texto opcional para apresentacao documental.
+        /// </summary>
+        /// <param name="value">Valor textual a apresentar.</param>
+        /// <returns>Texto sem espacos exteriores ou `n/d` quando o valor nao existe.</returns>
         private static string Normalize(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? "n/d" : value.Trim();

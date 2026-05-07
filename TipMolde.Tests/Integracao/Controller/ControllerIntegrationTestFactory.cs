@@ -16,6 +16,7 @@ using TipMolde.Application.Interface.Comercio.IPedidoMaterial;
 using TipMolde.Application.Interface.Desenho.IProjeto;
 using TipMolde.Application.Interface.Desenho.IRegistoTempoProjeto;
 using TipMolde.Application.Interface.Desenho.IRevisao;
+using TipMolde.Application.Interface.Fichas.IFichaDocumento;
 using TipMolde.Application.Interface.Fichas.IFichaProducao;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMaquina;
@@ -50,6 +51,7 @@ public sealed class ControllerIntegrationTestFactory : WebApplicationFactory<Pro
     public Mock<IRegistoTempoProjetoService> RegistoTempoProjetoService { get; } = new();
     public Mock<IRegistosProducaoService> RegistosProducaoService { get; } = new();
     public Mock<IRevisaoService> RevisaoService { get; } = new();
+    public Mock<IFichaDocumentoService> FichaDocumentoService { get; } = new();
     public Mock<IFichaProducaoService> FichaProducaoService { get; } = new();
     public Mock<IRelatorioService> RelatorioService { get; } = new();
     public Mock<IAuthService> AuthService { get; } = new();
@@ -74,6 +76,7 @@ public sealed class ControllerIntegrationTestFactory : WebApplicationFactory<Pro
         RegistoTempoProjetoService.Reset();
         RegistosProducaoService.Reset();
         RevisaoService.Reset();
+        FichaDocumentoService.Reset();
         FichaProducaoService.Reset();
         RelatorioService.Reset();
         AuthService.Reset();
@@ -114,6 +117,7 @@ public sealed class ControllerIntegrationTestFactory : WebApplicationFactory<Pro
             services.ReplaceScoped(RegistoTempoProjetoService.Object);
             services.ReplaceScoped(RegistosProducaoService.Object);
             services.ReplaceScoped(RevisaoService.Object);
+            services.ReplaceScoped(FichaDocumentoService.Object);
             services.ReplaceScoped(FichaProducaoService.Object);
             services.ReplaceScoped(RelatorioService.Object);
             services.ReplaceScoped(AuthService.Object);

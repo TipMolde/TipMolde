@@ -154,6 +154,8 @@ namespace TipMolde.Infrastructure.Service
         /// <returns>DTO seguro com os metadados da nova versao criada.</returns>
         public Task<ResponseFichaDocumentoDto> UploadAsync(int fichaId, UploadFichaDocumentoDto dto, int userId)
         {
+            ValidateUploadInput(dto.Content, dto.FileName, dto.ContentType);
+
             return GuardarGeradoAsync(
                 fichaId,
                 dto.Content,
@@ -231,7 +233,7 @@ namespace TipMolde.Infrastructure.Service
         /// <param name="contentType">Tipo MIME indicado para o ficheiro.</param>
         private static void ValidateUploadInput(byte[] content, string fileName, string contentType)
         {
-            if (content.Length == 0)
+            if (content.Length <= 0)
                 throw new ArgumentException("O ficheiro submetido nao pode estar vazio.");
 
             if (content.LongLength > MaxFileSizeBytes)

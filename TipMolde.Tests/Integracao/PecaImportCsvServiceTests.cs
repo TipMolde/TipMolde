@@ -106,7 +106,7 @@ public class PecaImportCsvServiceTests
     [Explicit("Depende do CSV real e deve ser executado manualmente depois de resolver linhas repetidas com dados contraditorios.")]
     public async Task ImportarCsvAsync_ComDadosReais_DevePersistirPecasConsolidadasECriarCsvComPrioridade()
     {
-        // Arrange
+        // ARRANGE
         await using var ctx = CreateContext();
         var moldeId = await SeedMoldeAsync(ctx);
         var sut = CreateSut(ctx);
@@ -114,7 +114,7 @@ public class PecaImportCsvServiceTests
         File.Exists(InputCsvPath).Should().BeTrue($"o CSV real deve existir em '{InputCsvPath}'");
         await using var stream = new FileStream(InputCsvPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 
-        // Act
+        // ACT
         var result = await sut.ImportarCsvAsync(moldeId, stream);
         var pecasPersistidas = await ctx.Pecas
             .AsNoTracking()
@@ -124,7 +124,7 @@ public class PecaImportCsvServiceTests
 
         await WriteImportResultCsvAsync(pecasPersistidas);
 
-        // Assert
+        // ASSERT
         result.MoldeId.Should().Be(moldeId);
         result.ReferenciaMolde.Should().Be("Molde");
         result.TotalLinhasPecaLidas.Should().BeGreaterThan(0);

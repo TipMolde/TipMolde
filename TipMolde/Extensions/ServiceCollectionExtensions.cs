@@ -7,8 +7,28 @@ using TipMolde.Infrastructure.Settings;
 
 namespace TipMolde.API.Extensions;
 
+/// <summary>
+/// Reune a configuracao transversal da camada API no contentor de injecao de dependencias.
+/// </summary>
+/// <remarks>
+/// Regista controllers, Swagger, ProblemDetails e a autenticacao JWT usada pelos endpoints.
+/// Tambem valida a configuracao minima de seguranca antes do arranque da aplicacao.
+/// </remarks>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Regista os servicos base da API e configura autenticacao/autorizacao.
+    /// </summary>
+    /// <remarks>
+    /// Fluxo critico:
+    /// 1. Regista infraestrutura HTTP comum da API.
+    /// 2. Carrega e valida a configuracao JWT obrigatoria.
+    /// 3. Configura validacao do token e verificacao de revogacao.
+    /// 4. Ativa autorizacao para os endpoints protegidos.
+    /// </remarks>
+    /// <param name="services">Colecao de servicos usada para registar dependencias da API.</param>
+    /// <param name="configuration">Configuracao da aplicacao usada para ler opcoes JWT.</param>
+    /// <returns>Colecao de servicos encadeada com a configuracao da camada API aplicada.</returns>
     public static IServiceCollection AddApiServices(
         this IServiceCollection services,
         IConfiguration configuration)

@@ -76,5 +76,54 @@ namespace TipMolde.Tests.Integracao.Controller
             var body = await response.Content.ReadFromJsonAsync<ResponseEncomendaMoldeDto>();
             body.Should().BeEquivalentTo(created);
         }
+
+        [Test(Description = "TENCMAPI4 - GET /api/encomenda-moldes/por-molde/{id} devolve ProblemDetails quando paginacao e invalida.")]
+        public async Task GetByMoldeId_Should_ReturnProblemDetails_When_PaginationIsInvalid()
+        {
+            // ARRANGE
+
+            // ACT
+            var response = await Client.GetAsync("/api/encomenda-moldes/por-molde/3?page=1&pageSize=0");
+
+            // ASSERT
+            await AssertProblemAsync(response, HttpStatusCode.BadRequest, "Pedido invalido");
+            Factory.EncomendaMoldeService.Verify(
+                s => s.GetByMoldeIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>()),
+                Times.Never);
+        }
+
+        [Test(Description = "TENCMAPI5 - PUT /api/encomenda-moldes/{id} devolve 204 quando o request e valido.")]
+        public async Task Update_Should_ReturnNoContent_When_RequestIsValid()
+        {
+            // ARRANGE
+            var payload = new
+            {
+                quantidade = 4,
+                prioridade = 3,
+                dataEntregaPrevista = new DateTime(2026, 5, 20, 0, 0, 0, DateTimeKind.Utc)
+            };
+
+            // ACT
+            var response = await Client.PutAsJsonAsync("/api/encomenda-moldes/8", payload);
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+            Factory.EncomendaMoldeService.Verify(
+                s => s.UpdateAsync(8, It.IsAny<UpdateEncomendaMoldeDto>()),
+                Times.Once);
+        }
+
+        [Test(Description = "TENCMAPI6 - DELETE /api/encomenda-moldes/{id} devolve 204 quando a remocao e concluida.")]
+        public async Task Delete_Should_ReturnNoContent_When_RequestIsValid()
+        {
+            // ARRANGE
+
+            // ACT
+            var response = await Client.DeleteAsync("/api/encomenda-moldes/12");
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+            Factory.EncomendaMoldeService.Verify(s => s.DeleteAsync(12), Times.Once);
+        }
     }
 }

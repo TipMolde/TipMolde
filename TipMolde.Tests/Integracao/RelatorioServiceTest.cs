@@ -1,4 +1,5 @@
 ﻿using FluentAssertions;
+using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -9,12 +10,14 @@ using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Desenho;
 using TipMolde.Domain.Entities.Fichas;
 using TipMolde.Domain.Entities.Fichas.TipoFichas;
+using TipMolde.Domain.Entities.Fichas.TipoFichas.Linhas;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 using TipMolde.Infrastructure.DB;
 using TipMolde.Infrastructure.Repositorio;
 using TipMolde.Infrastructure.Settings;
 using TipMolde.Infrastructure.Service;
+using TipMolde.Domain.Entities;
 
 namespace TipMolde.Tests.Integracao
 {
@@ -412,6 +415,130 @@ namespace TipMolde.Tests.Integracao
             return ficha.FichaProducao_id;
         }
 
+        private static async Task SeedResponsavelAsync(ApplicationDbContext ctx, int userId, string nome)
+        {
+            if (await ctx.Users.AnyAsync(u => u.User_id == userId))
+                return;
+
+            await ctx.Users.AddAsync(new User
+            {
+                User_id = userId,
+                Nome = nome,
+                Email = $"user{userId}@tipmolde.test",
+                Password = "hashed-password",
+                Role = UserRole.ADMIN
+            });
+
+            await ctx.SaveChangesAsync();
+        }
+
+        private static async Task SeedFrmLinhasAsync(ApplicationDbContext ctx, int fichaId)
+        {
+            await SeedResponsavelAsync(ctx, 101, "Rita FRM");
+            await SeedResponsavelAsync(ctx, 102, "Tiago FRM");
+
+            await ctx.FichasFrmLinhas.AddRangeAsync(
+                new FichaFrmLinha
+                {
+                    FichaFrm_id = fichaId,
+                    Data = new DateTime(2026, 05, 01),
+                    Defeito = "Risco na gaveta",
+                    Pormenor = "Zona junto ao extrator",
+                    Verificado = true,
+                    Responsavel_id = 101
+                },
+                new FichaFrmLinha
+                {
+                    FichaFrm_id = fichaId,
+                    Data = new DateTime(2026, 05, 03),
+                    Defeito = "Folga lateral",
+                    Pormenor = "Confirmar ajuste final",
+                    Verificado = false,
+                    Responsavel_id = 102
+                });
+
+            await ctx.SaveChangesAsync();
+        }
+
+        private static async Task SeedFraLinhasAsync(ApplicationDbContext ctx, int fichaId)
+        {
+            await SeedResponsavelAsync(ctx, 201, "Rita FRA");
+            await SeedResponsavelAsync(ctx, 202, "Tiago FRA");
+
+            await ctx.FichasFraLinhas.AddRangeAsync(
+                new FichaFraLinha
+                {
+                    FichaFra_id = fichaId,
+                    Data = new DateTime(2026, 05, 02),
+                    Alteracoes = "Reforco da zona de apoio",
+                    Verificado = true,
+                    Responsavel_id = 201
+                },
+                new FichaFraLinha
+                {
+                    FichaFra_id = fichaId,
+                    Data = new DateTime(2026, 05, 04),
+                    Alteracoes = "Ajuste de cota no macho",
+                    Verificado = false,
+                    Responsavel_id = 202
+                });
+
+            await ctx.SaveChangesAsync();
+        }
+
+        private static async Task SeedFopLinhasAsync(ApplicationDbContext ctx, int fichaId)
+        {
+            await SeedResponsavelAsync(ctx, 301, "Rita FOP");
+            await SeedResponsavelAsync(ctx, 302, "Tiago FOP");
+
+            await ctx.FichasFopLinhas.AddRangeAsync(
+                new FichaFopLinha
+                {
+                    FichaFop_id = fichaId,
+                    Data = new DateTime(2026, 05, 02),
+                    Ocorrencia = "Paragem por afinacao",
+                    Correcao = "Reiniciado com nova parametrizacao",
+                    Responsavel_id = 301
+                },
+                new FichaFopLinha
+                {
+                    FichaFop_id = fichaId,
+                    Data = new DateTime(2026, 05, 05),
+                    Ocorrencia = "Batida na extracao",
+                    Correcao = "Revisto curso do cilindro",
+                    Responsavel_id = 302
+                });
+
+            await ctx.SaveChangesAsync();
+        }
+
+        private static Task<(byte[] Content, string FileName)> GerarFichaExcelAsync(RelatorioService sut, TipoFicha tipo, int fichaId)
+        {
+            return tipo switch
+            {
+                TipoFicha.FRM => sut.GerarFichaExcelFRMAsync(fichaId, 1),
+                TipoFicha.FRA => sut.GerarFichaExcelFRAAsync(fichaId, 1),
+                TipoFicha.FOP => sut.GerarFichaExcelFOPAsync(fichaId, 1),
+                _ => throw new ArgumentOutOfRangeException(nameof(tipo), tipo, "Tipo de ficha nao suportado para este helper.")
+            };
+        }
+
+        private static string GetWorksheetName(TipoFicha tipo)
+        {
+            return tipo switch
+            {
+                TipoFicha.FRM => "FRM - TM.09.05",
+                TipoFicha.FRA => "FRA - TM.010.05",
+                TipoFicha.FOP => "FOP - TM.07.05",
+                _ => throw new ArgumentOutOfRangeException(nameof(tipo), tipo, "Tipo de ficha nao suportado para este helper.")
+            };
+        }
+
+        private static XLWorkbook OpenWorkbook(byte[] content)
+        {
+            return new XLWorkbook(new MemoryStream(content));
+        }
+
         [Test(Description = "TRLI001 - Agrega dados comerciais, desenho e producao no ciclo de vida do molde.")]
         public async Task ObterMoldeCicloVidaAsync_Should_Return_CompleteLifecycleData()
         {
@@ -513,6 +640,21 @@ namespace TipMolde.Tests.Integracao
             result.FileName.Should().EndWith(".xlsx");
             result.FileName.Should().StartWith("ficha_");
             result.Content.Length.Should().BeGreaterThan(50);
+
+            using var workbook = OpenWorkbook(result.Content);
+            var worksheet = workbook.Worksheet("FLT - TM.04.05");
+
+            worksheet.Cell("C6").GetString().Should().Be("Molde 030");
+            worksheet.Cell("J6").GetString().Should().Be("M-030");
+            worksheet.Cell("D28").GetValue<int>().Should().Be(2);
+            worksheet.Cell("G28").GetString().Should().Be("ABS");
+            worksheet.Cell("E29").GetString().Should().Be("Hot Runner");
+            worksheet.Cell("D43").GetString().Should().Be("Cliente X");
+            worksheet.Cell("D44").GetString().Should().Be("Serviço Teste");
+            worksheet.Cell("E45").GetString().Should().Be("PRJ-030");
+            worksheet.Cell("I45").GetString().Should().Be("Molde Teste - 001");
+            worksheet.Cell("E46").GetString().Should().Be("Responsável Gonçalo");
+
         }
 
         [Test(Description = "TRLI005 - Gera a ficha FRE quando a ficha existe.")]
@@ -532,6 +674,20 @@ namespace TipMolde.Tests.Integracao
             result.FileName.Should().EndWith(".xlsx");
             result.FileName.Should().StartWith("ficha_");
             result.Content.Length.Should().BeGreaterThan(50);
+
+            using var workbook = OpenWorkbook(result.Content);
+            var worksheet = workbook.Worksheet("FRE - TM.08.05");
+
+            worksheet.Cell("C6").GetString().Should().Be("Molde 031");
+            worksheet.Cell("J6").GetString().Should().Be("M-031");
+            worksheet.Cell("D20").GetValue<int>().Should().Be(2);
+            worksheet.Cell("G20").GetString().Should().Be("ABS");
+            worksheet.Cell("E21").GetString().Should().Be("Hot Runner");
+            worksheet.Cell("D26").GetString().Should().Be("Cliente X");
+            worksheet.Cell("D27").GetString().Should().Be("Serviço Teste");
+            worksheet.Cell("E28").GetString().Should().Be("PRJ-031");
+            worksheet.Cell("I28").GetString().Should().Be("Molde Teste - 001");
+            worksheet.Cell("E29").GetString().Should().Be("Responsável Gonçalo");
         }
 
         [Test(Description = "TRLI006 - Gera a ficha FRM quando a ficha existe.")]
@@ -589,6 +745,125 @@ namespace TipMolde.Tests.Integracao
             result.FileName.Should().EndWith(".xlsx");
             result.FileName.Should().StartWith("ficha_");
             result.Content.Length.Should().BeGreaterThan(50);
+        }
+
+        [TestCase(TipoFicha.FRM, Description = "TRLI008A - FRM sem linhas deve manter a primeira linha do template em branco.")]
+        [TestCase(TipoFicha.FRA, Description = "TRLI008B - FRA sem linhas deve manter a primeira linha do template em branco.")]
+        [TestCase(TipoFicha.FOP, Description = "TRLI008C - FOP sem linhas deve manter a primeira linha do template em branco.")]
+        public async Task GerarFichaExcelAsync_Should_KeepTemplateRowsBlank_When_ThereAreNoManualLines(TipoFicha tipo)
+        {
+            // ARRANGE
+            await using var ctx = CreateContext();
+            var fichaId = await SeedFichaAsync(ctx, tipo, 80 + (int)tipo);
+            var sut = CreateSut(ctx);
+
+            // ACT
+            var result = await GerarFichaExcelAsync(sut, tipo, fichaId);
+
+            // ASSERT
+            using var workbook = OpenWorkbook(result.Content);
+            var worksheet = workbook.Worksheet(GetWorksheetName(tipo));
+
+            worksheet.Cell("B14").GetString().Should().BeEmpty();
+            worksheet.Cell("C14").GetString().Should().BeEmpty();
+        }
+
+        [Test(Description = "TRLI008D - FRM com linhas deve preencher apenas as linhas existentes e deixar as seguintes livres.")]
+        public async Task GerarFichaExcelFRMAsync_Should_FillExistingRows_And_KeepFollowingRowsBlank()
+        {
+            // ARRANGE
+            await using var ctx = CreateContext();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRM, 132);
+            await SeedFrmLinhasAsync(ctx, fichaId);
+            var sut = CreateSut(ctx);
+
+            // ACT
+            var result = await sut.GerarFichaExcelFRMAsync(fichaId, 1);
+            await WriteMockArtifactAsync(result.FileName, result.Content);
+
+            // ASSERT
+            using var workbook = OpenWorkbook(result.Content);
+            var worksheet = workbook.Worksheet("FRM - TM.09.05");
+
+            worksheet.Cell("B14").GetString().Should().Be("01/05/2026");
+            worksheet.Cell("C14").GetString().Should().Be("Risco na gaveta");
+            worksheet.Cell("F14").GetString().Should().Be("Zona junto ao extrator");
+            worksheet.Cell("I14").GetString().Should().Be("Sim");
+            worksheet.Cell("J14").GetString().Should().Be("Rita FRM");
+
+            worksheet.Cell("B15").GetString().Should().BeEmpty();
+            worksheet.Cell("C15").GetString().Should().BeEmpty();
+            worksheet.Cell("F15").GetString().Should().BeEmpty();
+
+            worksheet.Cell("B16").GetString().Should().Be("03/05/2026");
+            worksheet.Cell("C16").GetString().Should().Be("Folga lateral");
+            worksheet.Cell("F16").GetString().Should().Be("Confirmar ajuste final");
+            worksheet.Cell("I16").GetString().Should().Be("Nao");
+            worksheet.Cell("J16").GetString().Should().Be("Tiago FRM");
+        }
+
+        [Test(Description = "TRLI008E - FRA com linhas deve preencher apenas as linhas existentes e deixar as seguintes livres.")]
+        public async Task GerarFichaExcelFRAAsync_Should_FillExistingRows_And_KeepFollowingRowsBlank()
+        {
+            // ARRANGE
+            await using var ctx = CreateContext();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRA, 133);
+            await SeedFraLinhasAsync(ctx, fichaId);
+            var sut = CreateSut(ctx);
+
+            // ACT
+            var result = await sut.GerarFichaExcelFRAAsync(fichaId, 1);
+            await WriteMockArtifactAsync(result.FileName, result.Content);
+
+            // ASSERT
+            using var workbook = OpenWorkbook(result.Content);
+            var worksheet = workbook.Worksheet("FRA - TM.010.05");
+
+            worksheet.Cell("B14").GetString().Should().Be("02/05/2026");
+            worksheet.Cell("C14").GetString().Should().Be("Reforco da zona de apoio");
+            worksheet.Cell("I14").GetString().Should().Be("Sim");
+            worksheet.Cell("J14").GetString().Should().Be("Rita FRA");
+
+            worksheet.Cell("B15").GetString().Should().BeEmpty();
+            worksheet.Cell("C15").GetString().Should().BeEmpty();
+            worksheet.Cell("I15").GetString().Should().BeEmpty();
+
+            worksheet.Cell("B16").GetString().Should().Be("04/05/2026");
+            worksheet.Cell("C16").GetString().Should().Be("Ajuste de cota no macho");
+            worksheet.Cell("I16").GetString().Should().Be("Nao");
+            worksheet.Cell("J16").GetString().Should().Be("Tiago FRA");
+        }
+
+        [Test(Description = "TRLI008F - FOP com linhas deve preencher apenas as linhas existentes e deixar as seguintes livres.")]
+        public async Task GerarFichaExcelFOPAsync_Should_FillExistingRows_And_KeepFollowingRowsBlank()
+        {
+            // ARRANGE
+            await using var ctx = CreateContext();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FOP, 134);
+            await SeedFopLinhasAsync(ctx, fichaId);
+            var sut = CreateSut(ctx);
+
+            // ACT
+            var result = await sut.GerarFichaExcelFOPAsync(fichaId, 1);
+            await WriteMockArtifactAsync(result.FileName, result.Content);
+
+            // ASSERT
+            using var workbook = OpenWorkbook(result.Content);
+            var worksheet = workbook.Worksheet("FOP - TM.07.05");
+
+            worksheet.Cell("B14").GetString().Should().Be("02/05/2026");
+            worksheet.Cell("C14").GetString().Should().Be("Paragem por afinacao");
+            worksheet.Cell("G14").GetString().Should().Be("Reiniciado com nova parametrizacao");
+            worksheet.Cell("J14").GetString().Should().Be("Rita FOP");
+
+            worksheet.Cell("B15").GetString().Should().BeEmpty();
+            worksheet.Cell("C15").GetString().Should().BeEmpty();
+            worksheet.Cell("G15").GetString().Should().BeEmpty();
+
+            worksheet.Cell("B16").GetString().Should().Be("05/05/2026");
+            worksheet.Cell("C16").GetString().Should().Be("Batida na extracao");
+            worksheet.Cell("G16").GetString().Should().Be("Revisto curso do cilindro");
+            worksheet.Cell("J16").GetString().Should().Be("Tiago FOP");
         }
 
         [Test(Description = "TRLI009 - Gera excecao quando a ficha nao existe para a exportacao FLT.")]
