@@ -44,22 +44,6 @@ namespace TipMolde.Application.Interface.Fichas.IFichaProducao
         Task<ResponseFichaProducaoDto> CreateAsync(CreateFichaProducaoDto dto);
 
         /// <summary>
-        /// Submete a ficha editavel e bloqueia novas alteracoes funcionais.
-        /// </summary>
-        /// <param name="id">Identificador da ficha a submeter.</param>
-        /// <param name="userId">Utilizador responsavel pela submissao final.</param>
-        /// <returns>Cabecalho atualizado da ficha submetida.</returns>
-        Task<ResponseFichaProducaoDto> SubmitAsync(int id, int userId);
-
-        /// <summary>
-        /// Cancela logicamente uma ficha editavel sem remover o historico.
-        /// </summary>
-        /// <param name="id">Identificador da ficha a cancelar.</param>
-        /// <param name="userId">Utilizador responsavel pelo cancelamento.</param>
-        /// <returns>Cabecalho atualizado da ficha cancelada.</returns>
-        Task<ResponseFichaProducaoDto> CancelAsync(int id, int userId);
-
-        /// <summary>
         /// Lista as linhas manuais da ficha FRM.
         /// </summary>
         /// <param name="fichaId">Identificador da ficha FRM.</param>

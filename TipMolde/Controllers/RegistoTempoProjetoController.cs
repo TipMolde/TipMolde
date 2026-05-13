@@ -86,11 +86,10 @@ namespace TipMolde.API.Controllers
             var created = await _service.CreateRegistoAsync(dto);
 
             _logger.LogInformation(
-                "Controller: RegistoTempoProjeto {RegistoId} criado para Projeto {ProjetoId}, Autor {AutorId}, Peca {PecaId}",
+                "Controller: RegistoTempoProjeto {RegistoId} criado para Projeto {ProjetoId}, Autor {AutorId}",
                 created.Registo_Tempo_Projeto_id,
                 created.Projeto_id,
-                created.Autor_id,
-                created.Peca_id);
+                created.Autor_id);
 
             return CreatedAtAction(nameof(GetById), new { id = created.Registo_Tempo_Projeto_id }, created);
         }

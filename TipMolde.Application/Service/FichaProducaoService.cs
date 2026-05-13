@@ -5,8 +5,7 @@ using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
 using TipMolde.Application.Interface.Fichas.IFichaProducao;
 using TipMolde.Application.Interface.Utilizador.IUser;
 using TipMolde.Domain.Entities.Fichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas.Linhas;
+using TipMolde.Domain.Entities.Fichas.Linhas;
 using TipMolde.Domain.Enums;
 
 namespace TipMolde.Application.Service
@@ -81,15 +80,15 @@ namespace TipMolde.Application.Service
 
             var dto = _mapper.Map<ResponseFichaProducaoDetalheDto>(ficha);
 
-            switch (ficha)
+            switch (ficha.Tipo)
             {
-                case FichaFrm:
+                case TipoFicha.FRM:
                     dto.LinhasFrm = await LoadAllLinhasFrmAsync(id);
                     break;
-                case FichaFra:
+                case TipoFicha.FRA:
                     dto.LinhasFra = await LoadAllLinhasFraAsync(id);
                     break;
-                case FichaFop:
+                case TipoFicha.FOP:
                     dto.LinhasFop = await LoadAllLinhasFopAsync(id);
                     break;
             }
@@ -105,61 +104,17 @@ namespace TipMolde.Application.Service
             if (await _encomendaMoldeRepository.GetByIdAsync(dto.EncomendaMolde_id) == null)
                 throw new KeyNotFoundException($"EncomendaMolde com ID {dto.EncomendaMolde_id} nao encontrado.");
 
-            FichaProducao ficha = dto.Tipo switch
-            {
-                TipoFicha.FRE => _mapper.Map<FichaFre>(dto),
-                TipoFicha.FRM => _mapper.Map<FichaFrm>(dto),
-                TipoFicha.FRA => _mapper.Map<FichaFra>(dto),
-                TipoFicha.FOP => _mapper.Map<FichaFop>(dto),
-                _ => throw new ArgumentException("Tipo de ficha nao suportado.")
-            };
-
+            var ficha = _mapper.Map<FichaProducao>(dto);
             ficha.Tipo = dto.Tipo;
             ficha.DataCriacao = DateTime.UtcNow;
-            ficha.Estado = EstadoFichaProducao.RASCUNHO;
-            ficha.Ativa = true;
 
             var created = await _fichaRepository.AddAsync(ficha);
             return _mapper.Map<ResponseFichaProducaoDto>(created);
         }
 
-        public async Task<ResponseFichaProducaoDto> SubmitAsync(int id, int userId)
-        {
-            var ficha = await GetFichaAtivaAsync(id);
-            EnsureFichaNaoTerminada(ficha);
-            await EnsureUserExistsAsync(userId, "Utilizador de submissao");
-            await ValidarConteudoMinimoParaSubmissaoAsync(ficha);
-
-            if (ficha.Estado == EstadoFichaProducao.SUBMETIDA)
-                throw new ArgumentException("A ficha ja se encontra submetida.");
-
-            ficha.Estado = EstadoFichaProducao.SUBMETIDA;
-            ficha.SubmetidaEm = DateTime.UtcNow;
-            ficha.SubmetidaPor_user_id = userId;
-
-            await _fichaRepository.UpdateAsync(ficha);
-            return _mapper.Map<ResponseFichaProducaoDto>(ficha);
-        }
-
-        public async Task<ResponseFichaProducaoDto> CancelAsync(int id, int userId)
-        {
-            var ficha = await GetFichaAtivaAsync(id);
-            await EnsureUserExistsAsync(userId, "Utilizador de cancelamento");
-
-            ficha.Ativa = false;
-            ficha.Estado = EstadoFichaProducao.CANCELADA;
-            ficha.DesativadaEm = DateTime.UtcNow;
-            ficha.DesativadaPor_user_id = userId;
-
-            await _fichaRepository.UpdateAsync(ficha);
-            return _mapper.Map<ResponseFichaProducaoDto>(ficha);
-        }
-
         public async Task<PagedResult<ResponseFichaFrmLinhaDto>> GetLinhasFrmAsync(int fichaId, int page = 1, int pageSize = 10)
         {
-            var ficha = await GetFichaAtivaAsync(fichaId);
-            if (ficha.Tipo != TipoFicha.FRM)
-                throw new ArgumentException($"A ficha {fichaId} nao corresponde ao tipo esperado FRM.");
+            await EnsureFichaTipoAsync(fichaId, TipoFicha.FRM);
 
             var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
             var linhas = await _fichaRepository.GetLinhasFrmByFichaIdAsync(fichaId, normalizedPage, normalizedPageSize);
@@ -172,34 +127,17 @@ namespace TipMolde.Application.Service
 
         public async Task<ResponseFichaFrmLinhaDto> CreateLinhaFrmAsync(int fichaId, CreateFichaFrmLinhaDto dto)
         {
-            var ficha = await GetFichaAtivaAsync(fichaId);
-            EnsureFichaEditavel(ficha, TipoFicha.FRM);
+            await EnsureFichaTipoAsync(fichaId, TipoFicha.FRM);
             await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
 
             var linha = _mapper.Map<FichaFrmLinha>(dto);
-            linha.FichaFrm_id = fichaId;
+            linha.FichaProducao_id = fichaId;
             return _mapper.Map<ResponseFichaFrmLinhaDto>(await _fichaRepository.AddLinhaFrmAsync(linha));
-        }
-
-        public async Task<ResponseFichaFrmLinhaDto> UpdateLinhaFrmAsync(int fichaId, int linhaId, CreateFichaFrmLinhaDto dto)
-        {
-            var ficha = await GetFichaAtivaAsync(fichaId);
-            EnsureFichaEditavel(ficha, TipoFicha.FRM);
-            await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
-
-            var linha = await _fichaRepository.GetLinhaFrmByIdAsync(fichaId, linhaId)
-                ?? throw new KeyNotFoundException($"Linha FRM {linhaId} nao encontrada.");
-
-            _mapper.Map(dto, linha);
-            await _fichaRepository.UpdateLinhaFrmAsync(linha);
-            return _mapper.Map<ResponseFichaFrmLinhaDto>(linha);
         }
 
         public async Task<PagedResult<ResponseFichaFraLinhaDto>> GetLinhasFraAsync(int fichaId, int page = 1, int pageSize = 10)
         {
-            var ficha = await GetFichaAtivaAsync(fichaId);
-            if (ficha.Tipo != TipoFicha.FRA)
-                throw new ArgumentException($"A ficha {fichaId} nao corresponde ao tipo esperado FRA.");
+            await EnsureFichaTipoAsync(fichaId, TipoFicha.FRA);
 
             var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
             var linhas = await _fichaRepository.GetLinhasFraByFichaIdAsync(fichaId, normalizedPage, normalizedPageSize);
@@ -212,34 +150,17 @@ namespace TipMolde.Application.Service
 
         public async Task<ResponseFichaFraLinhaDto> CreateLinhaFraAsync(int fichaId, CreateFichaFraLinhaDto dto)
         {
-            var ficha = await GetFichaAtivaAsync(fichaId);
-            EnsureFichaEditavel(ficha, TipoFicha.FRA);
+            await EnsureFichaTipoAsync(fichaId, TipoFicha.FRA);
             await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
 
             var linha = _mapper.Map<FichaFraLinha>(dto);
-            linha.FichaFra_id = fichaId;
+            linha.FichaProducao_id = fichaId;
             return _mapper.Map<ResponseFichaFraLinhaDto>(await _fichaRepository.AddLinhaFraAsync(linha));
-        }
-
-        public async Task<ResponseFichaFraLinhaDto> UpdateLinhaFraAsync(int fichaId, int linhaId, CreateFichaFraLinhaDto dto)
-        {
-            var ficha = await GetFichaAtivaAsync(fichaId);
-            EnsureFichaEditavel(ficha, TipoFicha.FRA);
-            await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
-
-            var linha = await _fichaRepository.GetLinhaFraByIdAsync(fichaId, linhaId)
-                ?? throw new KeyNotFoundException($"Linha FRA {linhaId} nao encontrada.");
-
-            _mapper.Map(dto, linha);
-            await _fichaRepository.UpdateLinhaFraAsync(linha);
-            return _mapper.Map<ResponseFichaFraLinhaDto>(linha);
         }
 
         public async Task<PagedResult<ResponseFichaFopLinhaDto>> GetLinhasFopAsync(int fichaId, int page = 1, int pageSize = 10)
         {
-            var ficha = await GetFichaAtivaAsync(fichaId);
-            if (ficha.Tipo != TipoFicha.FOP)
-                throw new ArgumentException($"A ficha {fichaId} nao corresponde ao tipo esperado FOP.");
+            await EnsureFichaTipoAsync(fichaId, TipoFicha.FOP);
 
             var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
             var linhas = await _fichaRepository.GetLinhasFopByFichaIdAsync(fichaId, normalizedPage, normalizedPageSize);
@@ -252,56 +173,25 @@ namespace TipMolde.Application.Service
 
         public async Task<ResponseFichaFopLinhaDto> CreateLinhaFopAsync(int fichaId, CreateFichaFopLinhaDto dto)
         {
-            var ficha = await GetFichaAtivaAsync(fichaId);
-            EnsureFichaEditavel(ficha, TipoFicha.FOP);
+            await EnsureFichaTipoAsync(fichaId, TipoFicha.FOP);
             await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
 
             var linha = _mapper.Map<FichaFopLinha>(dto);
-            linha.FichaFop_id = fichaId;
+            linha.FichaProducao_id = fichaId;
             return _mapper.Map<ResponseFichaFopLinhaDto>(await _fichaRepository.AddLinhaFopAsync(linha));
         }
 
-        public async Task<ResponseFichaFopLinhaDto> UpdateLinhaFopAsync(int fichaId, int linhaId, CreateFichaFopLinhaDto dto)
-        {
-            var ficha = await GetFichaAtivaAsync(fichaId);
-            EnsureFichaEditavel(ficha, TipoFicha.FOP);
-            await EnsureUserExistsAsync(dto.Responsavel_id, ResponsavelDescricao);
-
-            var linha = await _fichaRepository.GetLinhaFopByIdAsync(fichaId, linhaId)
-                ?? throw new KeyNotFoundException($"Linha FOP {linhaId} nao encontrada.");
-
-            _mapper.Map(dto, linha);
-            await _fichaRepository.UpdateLinhaFopAsync(linha);
-            return _mapper.Map<ResponseFichaFopLinhaDto>(linha);
-        }
-
-        private async Task<FichaProducao> GetFichaAtivaAsync(int fichaId)
+        private async Task<FichaProducao> EnsureFichaTipoAsync(int fichaId, TipoFicha tipoEsperado)
         {
             var ficha = await _fichaRepository.GetByIdAsync(fichaId)
                 ?? throw new KeyNotFoundException($"Ficha de producao com ID {fichaId} nao encontrada.");
 
-            if (!ficha.Ativa)
-                throw new ArgumentException("A ficha indicada encontra-se inativa.");
+            if (ficha.Tipo != tipoEsperado)
+                throw new ArgumentException($"A ficha {fichaId} nao corresponde ao tipo esperado {tipoEsperado}.");
 
             return ficha;
         }
 
-        private static void EnsureFichaNaoTerminada(FichaProducao ficha)
-        {
-            if (ficha.Estado is EstadoFichaProducao.CANCELADA or EstadoFichaProducao.FECHADA)
-                throw new ArgumentException("A ficha indicada nao se encontra editavel.");
-        }
-
-        private static void EnsureFichaEditavel(FichaProducao ficha, TipoFicha tipoEsperado)
-        {
-            if (ficha.Tipo != tipoEsperado)
-                throw new ArgumentException($"A ficha {ficha.FichaProducao_id} nao corresponde ao tipo esperado {tipoEsperado}.");
-
-            EnsureFichaNaoTerminada(ficha);
-
-            if (ficha.Estado == EstadoFichaProducao.SUBMETIDA)
-                throw new ArgumentException("A ficha ja foi submetida e nao pode ser alterada.");
-        }
 
         private async Task EnsureUserExistsAsync(int userId, string descricao)
         {
@@ -309,24 +199,6 @@ namespace TipMolde.Application.Service
                 throw new KeyNotFoundException($"{descricao} com ID {userId} nao encontrado.");
         }
 
-        private async Task ValidarConteudoMinimoParaSubmissaoAsync(FichaProducao ficha)
-        {
-            switch (ficha)
-            {
-                case FichaFrm:
-                    if ((await _fichaRepository.GetLinhasFrmByFichaIdAsync(ficha.FichaProducao_id, 1, 1)).TotalCount == 0)
-                        throw new ArgumentException("A ficha FRM precisa de pelo menos uma linha de melhoria antes de ser submetida.");
-                    break;
-                case FichaFra:
-                    if ((await _fichaRepository.GetLinhasFraByFichaIdAsync(ficha.FichaProducao_id, 1, 1)).TotalCount == 0)
-                        throw new ArgumentException("A ficha FRA precisa de pelo menos uma linha de alteracao antes de ser submetida.");
-                    break;
-                case FichaFop:
-                    if ((await _fichaRepository.GetLinhasFopByFichaIdAsync(ficha.FichaProducao_id, 1, 1)).TotalCount == 0)
-                        throw new ArgumentException("A ficha FOP precisa de pelo menos uma linha de ocorrencia antes de ser submetida.");
-                    break;
-            }
-        }
 
         /// <summary>
         /// Carrega todas as linhas manuais da ficha FRM para o detalhe completo.

@@ -13,11 +13,7 @@ namespace TipMolde.Application.Dtos.FichaProducaoDto
     {
         public int FichaProducao_id { get; set; }
         public TipoFicha Tipo { get; set; }
-        public EstadoFichaProducao Estado { get; set; }
         public DateTime DataCriacao { get; set; }
-        public DateTime? SubmetidaEm { get; set; }
-        public int? SubmetidaPor_user_id { get; set; }
-        public bool Ativa { get; set; }
         public int EncomendaMolde_id { get; set; }
         public string? NumeroMolde { get; set; }
         public string? NomeMolde { get; set; }

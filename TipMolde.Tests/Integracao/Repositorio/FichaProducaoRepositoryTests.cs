@@ -1,8 +1,7 @@
 using FluentAssertions;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Fichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas.Linhas;
+using TipMolde.Domain.Entities.Fichas.Linhas;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 using TipMolde.Infrastructure.DB;
@@ -14,21 +13,22 @@ namespace TipMolde.Tests.Integracao.Repositorio
     [Category("Integration")]
     public sealed class FichaProducaoRepositoryTests : RepositoryIntegrationTestBase
     {
-        [Test(Description = "TFPREP001 - As queries de fichas devem filtrar ativas, ordenar por data e carregar o detalhe completo.")]
+        [Test(Description = "TFPREP001 - As queries de fichas devem filtrar por contexto, ordenar por data e carregar o detalhe completo.")]
         public async Task QueryMethods_Should_FilterSortAndLoadDetail()
         {
             // ARRANGE
             await using var context = CreateContext();
             var link = await SeedEncomendaMoldeAsync(context);
+            var outroLink = await SeedEncomendaMoldeAsync(context, "ALT");
 
-            var fichaAntiga = new FichaFre
+            var fichaAntiga = new FichaProducao
             {
                 Tipo = TipoFicha.FRE,
                 DataCriacao = new DateTime(2026, 5, 1, 8, 0, 0, DateTimeKind.Utc),
                 EncomendaMolde_id = link.EncomendaMolde_id
             };
 
-            var fichaDetalhe = new FichaFrm
+            var fichaDetalhe = new FichaProducao
             {
                 Tipo = TipoFicha.FRM,
                 DataCriacao = new DateTime(2026, 5, 3, 8, 0, 0, DateTimeKind.Utc),
@@ -48,17 +48,16 @@ namespace TipMolde.Tests.Integracao.Repositorio
                 }
             };
 
-            var fichaInativa = new FichaFra
+            var fichaOutroContexto = new FichaProducao
             {
                 Tipo = TipoFicha.FRA,
                 DataCriacao = new DateTime(2026, 5, 4, 8, 0, 0, DateTimeKind.Utc),
-                EncomendaMolde_id = link.EncomendaMolde_id,
-                Ativa = false
+                EncomendaMolde_id = outroLink.EncomendaMolde_id,
             };
 
-            await context.FichasFre.AddAsync(fichaAntiga);
-            await context.FichasFrm.AddAsync(fichaDetalhe);
-            await context.FichasFra.AddAsync(fichaInativa);
+            await context.FichasProducao.AddAsync(fichaAntiga);
+            await context.FichasProducao.AddAsync(fichaDetalhe);
+            await context.FichasProducao.AddAsync(fichaOutroContexto);
             await context.SaveChangesAsync();
 
             var repository = new FichaProducaoRepository(context);
@@ -95,7 +94,7 @@ namespace TipMolde.Tests.Integracao.Repositorio
 
             var primeira = await repository.AddLinhaFrmAsync(new FichaFrmLinha
             {
-                FichaFrm_id = ficha.FichaProducao_id,
+                FichaProducao_id = ficha.FichaProducao_id,
                 Data = new DateTime(2026, 5, 3),
                 Defeito = "Rebarba",
                 Pormenor = "Zona lateral",
@@ -105,7 +104,7 @@ namespace TipMolde.Tests.Integracao.Repositorio
 
             var segunda = await repository.AddLinhaFrmAsync(new FichaFrmLinha
             {
-                FichaFrm_id = ficha.FichaProducao_id,
+                FichaProducao_id = ficha.FichaProducao_id,
                 Data = new DateTime(2026, 5, 1),
                 Defeito = "Batida",
                 Pormenor = "Canto superior",
@@ -137,7 +136,7 @@ namespace TipMolde.Tests.Integracao.Repositorio
 
             var linha = await repository.AddLinhaFraAsync(new FichaFraLinha
             {
-                FichaFra_id = ficha.FichaProducao_id,
+                FichaProducao_id = ficha.FichaProducao_id,
                 Data = new DateTime(2026, 5, 2),
                 Alteracoes = "Ajuste do macho",
                 Verificado = false,
@@ -168,7 +167,7 @@ namespace TipMolde.Tests.Integracao.Repositorio
 
             var linha = await repository.AddLinhaFopAsync(new FichaFopLinha
             {
-                FichaFop_id = ficha.FichaProducao_id,
+                FichaProducao_id = ficha.FichaProducao_id,
                 Data = new DateTime(2026, 5, 4),
                 Ocorrencia = "Paragem",
                 Correcao = "Rearranque",
@@ -189,24 +188,28 @@ namespace TipMolde.Tests.Integracao.Repositorio
                 .Correcao.Should().Be("Rearranque controlado");
         }
 
-        private static async Task<EncomendaMolde> SeedEncomendaMoldeAsync(ApplicationDbContext context)
+        private static async Task<EncomendaMolde> SeedEncomendaMoldeAsync(ApplicationDbContext context, string suffix = "REP")
         {
+            var clienteNome = suffix == "REP" ? "Cliente Repo" : $"Cliente {suffix}";
+            var numeroEncomenda = suffix == "REP" ? "ENC-REP-01" : $"ENC-{suffix}-01";
+            var numeroMolde = suffix == "REP" ? "M-REP-01" : $"M-{suffix}-01";
+
             var cliente = new Cliente
             {
-                Nome = "Cliente Repo",
-                NIF = "123456789",
-                Sigla = "CR"
+                Nome = clienteNome,
+                NIF = suffix == "REP" ? "123456789" : "123456788",
+                Sigla = suffix == "REP" ? "CR" : "CA"
             };
 
             var encomenda = new Encomenda
             {
-                NumeroEncomendaCliente = "ENC-REP-01",
+                NumeroEncomendaCliente = numeroEncomenda,
                 Cliente = cliente
             };
 
             var molde = new Molde
             {
-                Numero = "M-REP-01",
+                Numero = numeroMolde,
                 Numero_cavidades = 2,
                 TipoPedido = TipoPedido.NOVO_MOLDE
             };
@@ -225,47 +228,47 @@ namespace TipMolde.Tests.Integracao.Repositorio
             return link;
         }
 
-        private static async Task<FichaFrm> SeedFichaFrmAsync(ApplicationDbContext context)
+        private static async Task<FichaProducao> SeedFichaFrmAsync(ApplicationDbContext context)
         {
             var link = await SeedEncomendaMoldeAsync(context);
-            var ficha = new FichaFrm
+            var ficha = new FichaProducao
             {
                 Tipo = TipoFicha.FRM,
                 DataCriacao = new DateTime(2026, 5, 1, 8, 0, 0, DateTimeKind.Utc),
                 EncomendaMolde_id = link.EncomendaMolde_id
             };
 
-            await context.FichasFrm.AddAsync(ficha);
+            await context.FichasProducao.AddAsync(ficha);
             await context.SaveChangesAsync();
             return ficha;
         }
 
-        private static async Task<FichaFra> SeedFichaFraAsync(ApplicationDbContext context)
+        private static async Task<FichaProducao> SeedFichaFraAsync(ApplicationDbContext context)
         {
             var link = await SeedEncomendaMoldeAsync(context);
-            var ficha = new FichaFra
+            var ficha = new FichaProducao
             {
                 Tipo = TipoFicha.FRA,
                 DataCriacao = new DateTime(2026, 5, 1, 8, 0, 0, DateTimeKind.Utc),
                 EncomendaMolde_id = link.EncomendaMolde_id
             };
 
-            await context.FichasFra.AddAsync(ficha);
+            await context.FichasProducao.AddAsync(ficha);
             await context.SaveChangesAsync();
             return ficha;
         }
 
-        private static async Task<FichaFop> SeedFichaFopAsync(ApplicationDbContext context)
+        private static async Task<FichaProducao> SeedFichaFopAsync(ApplicationDbContext context)
         {
             var link = await SeedEncomendaMoldeAsync(context);
-            var ficha = new FichaFop
+            var ficha = new FichaProducao
             {
                 Tipo = TipoFicha.FOP,
                 DataCriacao = new DateTime(2026, 5, 1, 8, 0, 0, DateTimeKind.Utc),
                 EncomendaMolde_id = link.EncomendaMolde_id
             };
 
-            await context.FichasFop.AddAsync(ficha);
+            await context.FichasProducao.AddAsync(ficha);
             await context.SaveChangesAsync();
             return ficha;
         }

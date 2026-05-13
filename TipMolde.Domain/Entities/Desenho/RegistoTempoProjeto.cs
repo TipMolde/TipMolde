@@ -21,8 +21,5 @@ namespace TipMolde.Domain.Entities.Desenho
 
         public int Autor_id { get; set; }
         public User? Autor { get; set; }
-
-        public int Peca_id { get; set; }
-        public Peca? Peca { get; set; }
     }
 }

@@ -18,7 +18,6 @@ namespace TipMolde.Tests.Integracao.Repositorio
             {
                 Projeto_id = 1,
                 Autor_id = 7,
-                Peca_id = 1,
                 Estado_tempo = EstadoTempoProjeto.INICIADO,
                 Data_hora = new DateTime(2026, 4, 20, 8, 0, 0, DateTimeKind.Utc)
             };
@@ -26,7 +25,6 @@ namespace TipMolde.Tests.Integracao.Repositorio
             {
                 Projeto_id = 1,
                 Autor_id = 7,
-                Peca_id = 1,
                 Estado_tempo = EstadoTempoProjeto.CONCLUIDO,
                 Data_hora = new DateTime(2026, 4, 20, 10, 0, 0, DateTimeKind.Utc)
             };
@@ -49,8 +47,8 @@ namespace TipMolde.Tests.Integracao.Repositorio
             // ARRANGE
             await using var context = CreateContext();
             await context.RegistosTempoProjeto.AddRangeAsync(
-                new RegistoTempoProjeto { Projeto_id = 1, Autor_id = 7, Peca_id = 1, Estado_tempo = EstadoTempoProjeto.INICIADO, Data_hora = DateTime.UtcNow.AddHours(-2) },
-                new RegistoTempoProjeto { Projeto_id = 1, Autor_id = 7, Peca_id = 1, Estado_tempo = EstadoTempoProjeto.CONCLUIDO, Data_hora = DateTime.UtcNow });
+                new RegistoTempoProjeto { Projeto_id = 1, Autor_id = 7, Estado_tempo = EstadoTempoProjeto.INICIADO, Data_hora = DateTime.UtcNow.AddHours(-2) },
+                new RegistoTempoProjeto { Projeto_id = 1, Autor_id = 7, Estado_tempo = EstadoTempoProjeto.CONCLUIDO, Data_hora = DateTime.UtcNow });
             await context.SaveChangesAsync();
 
             var repository = new RegistoTempoProjetoRepository(context);

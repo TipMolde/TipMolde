@@ -23,7 +23,6 @@ namespace TipMolde.Application.Service
         private readonly IRegistoTempoProjetoRepository _registoRepository;
         private readonly IProjetoRepository _projetoRepository;
         private readonly IUserRepository _userRepository;
-        private readonly IPecaRepository _pecaRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<RegistoTempoProjetoService> _logger;
 
@@ -40,14 +39,12 @@ namespace TipMolde.Application.Service
             IRegistoTempoProjetoRepository registoRepository,
             IProjetoRepository projetoRepository,
             IUserRepository userRepository,
-            IPecaRepository pecaRepository,
             IMapper mapper,
             ILogger<RegistoTempoProjetoService> logger)
         {
             _registoRepository = registoRepository;
             _projetoRepository = projetoRepository;
             _userRepository = userRepository;
-            _pecaRepository = pecaRepository;
             _mapper = mapper;
             _logger = logger;
         }
@@ -105,13 +102,6 @@ namespace TipMolde.Application.Service
             if (autor == null)
                 throw new KeyNotFoundException("Autor nao encontrado.");
 
-            var peca = await _pecaRepository.GetByIdAsync(dto.Peca_id);
-            if (peca == null)
-                throw new KeyNotFoundException("Peca nao encontrada.");
-
-            if (peca.Molde_id != projeto.Molde_id)
-                throw new ArgumentException("A peca indicada nao pertence ao mesmo molde do projeto.");
-
             var ultimo = await _registoRepository.GetUltimoRegistoAsync(dto.Projeto_id, dto.Autor_id);
             ValidarTransicao(ultimo?.Estado_tempo, dto.Estado_tempo.Value);
 
@@ -124,11 +114,10 @@ namespace TipMolde.Application.Service
             registo = await _registoRepository.AddAsync(registo);
 
             _logger.LogInformation(
-                "RegistoTempoProjeto {RegistoId} criado para Projeto {ProjetoId}, Autor {AutorId}, Peca {PecaId}, Estado {Estado}",
+                "RegistoTempoProjeto {RegistoId} criado para Projeto {ProjetoId}, Autor {AutorId}, Estado {Estado}",
                 registo.Registo_Tempo_Projeto_id,
                 registo.Projeto_id,
                 registo.Autor_id,
-                registo.Peca_id,
                 registo.Estado_tempo);
 
             return _mapper.Map<ResponseRegistoTempoProjetoDto>(registo);

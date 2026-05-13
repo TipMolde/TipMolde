@@ -11,8 +11,7 @@ using TipMolde.Application.Service;
 using TipMolde.Domain.Entities;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Fichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas.Linhas;
+using TipMolde.Domain.Entities.Fichas.Linhas;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 
@@ -77,51 +76,6 @@ public class FichaProducaoServiceTests
             .WithMessage("*7*");
     }
 
-    [Test(Description = "TFPSRV3 - Submit deve falhar quando uma ficha FRM nao tem linhas.")]
-    public async Task SubmitAsync_Should_ThrowArgumentException_When_FrmHasNoLines()
-    {
-        _fichaRepository.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(BuildFichaFrm(10));
-        _userRepository.Setup(r => r.GetByIdAsync(3)).ReturnsAsync(BuildUser(3));
-        _fichaRepository.Setup(r => r.GetLinhasFrmByFichaIdAsync(10, 1, 1))
-            .ReturnsAsync(new PagedResult<FichaFrmLinha>(Array.Empty<FichaFrmLinha>(), 0, 1, 1));
-
-        Func<Task> act = () => _sut.SubmitAsync(10, 3);
-
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*FRM*");
-        _fichaRepository.Verify(r => r.UpdateAsync(It.IsAny<FichaProducao>()), Times.Never);
-    }
-
-    [Test(Description = "TFPSRV4 - Submit deve falhar quando uma ficha FRA nao tem linhas.")]
-    public async Task SubmitAsync_Should_ThrowArgumentException_When_FraHasNoLines()
-    {
-        _fichaRepository.Setup(r => r.GetByIdAsync(11)).ReturnsAsync(BuildFichaFra(11));
-        _userRepository.Setup(r => r.GetByIdAsync(4)).ReturnsAsync(BuildUser(4));
-        _fichaRepository.Setup(r => r.GetLinhasFraByFichaIdAsync(11, 1, 1))
-            .ReturnsAsync(new PagedResult<FichaFraLinha>(Array.Empty<FichaFraLinha>(), 0, 1, 1));
-
-        Func<Task> act = () => _sut.SubmitAsync(11, 4);
-
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*FRA*");
-        _fichaRepository.Verify(r => r.UpdateAsync(It.IsAny<FichaProducao>()), Times.Never);
-    }
-
-    [Test(Description = "TFPSRV5 - Submit deve falhar quando uma ficha FOP nao tem linhas.")]
-    public async Task SubmitAsync_Should_ThrowArgumentException_When_FopHasNoLines()
-    {
-        _fichaRepository.Setup(r => r.GetByIdAsync(12)).ReturnsAsync(BuildFichaFop(12));
-        _userRepository.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(BuildUser(5));
-        _fichaRepository.Setup(r => r.GetLinhasFopByFichaIdAsync(12, 1, 1))
-            .ReturnsAsync(new PagedResult<FichaFopLinha>(Array.Empty<FichaFopLinha>(), 0, 1, 1));
-
-        Func<Task> act = () => _sut.SubmitAsync(12, 5);
-
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*FOP*");
-        _fichaRepository.Verify(r => r.UpdateAsync(It.IsAny<FichaProducao>()), Times.Never);
-    }
-
     [Test(Description = "TFPSRV6 - CreateLinhaFrm deve falhar quando o responsavel nao existe.")]
     public async Task CreateLinhaFrmAsync_Should_ThrowKeyNotFoundException_When_ResponsavelDoesNotExist()
     {
@@ -179,79 +133,45 @@ public class FichaProducaoServiceTests
         result.LinhasFop.Should().BeEmpty();
     }
 
-    [Test(Description = "TFPSRV8 - Cancel deve fazer delete logico e registar utilizador de cancelamento.")]
-    public async Task CancelAsync_Should_MarkFichaAsCancelled_When_RequestIsValid()
+    private static FichaProducao BuildFichaFrm(int id)
     {
-        var ficha = BuildFichaFra(50);
-
-        _fichaRepository.Setup(r => r.GetByIdAsync(50)).ReturnsAsync(ficha);
-        _userRepository.Setup(r => r.GetByIdAsync(6)).ReturnsAsync(BuildUser(6));
-        _fichaRepository.Setup(r => r.UpdateAsync(It.IsAny<FichaProducao>())).Returns(Task.CompletedTask);
-
-        var result = await _sut.CancelAsync(50, 6);
-
-        result.FichaProducao_id.Should().Be(50);
-        result.Ativa.Should().BeFalse();
-        result.Estado.Should().Be(EstadoFichaProducao.CANCELADA);
-        ficha.DesativadaPor_user_id.Should().Be(6);
-        ficha.DesativadaEm.Should().NotBeNull();
-
-        _fichaRepository.Verify(r => r.UpdateAsync(It.Is<FichaProducao>(x =>
-            x.FichaProducao_id == 50 &&
-            !x.Ativa &&
-            x.Estado == EstadoFichaProducao.CANCELADA &&
-            x.DesativadaPor_user_id == 6 &&
-            x.DesativadaEm.HasValue)),
-            Times.Once);
-    }
-
-    private static FichaFrm BuildFichaFrm(int id, EstadoFichaProducao estado = EstadoFichaProducao.RASCUNHO, bool ativa = true)
-    {
-        return new FichaFrm
+        return new FichaProducao
         {
             FichaProducao_id = id,
             Tipo = TipoFicha.FRM,
-            Estado = estado,
-            Ativa = ativa,
             DataCriacao = new DateTime(2026, 4, 1),
             EncomendaMolde_id = 100 + id
         };
     }
 
-    private static FichaFra BuildFichaFra(int id, EstadoFichaProducao estado = EstadoFichaProducao.RASCUNHO, bool ativa = true)
+    private static FichaProducao BuildFichaFra(int id)
     {
-        return new FichaFra
+        return new FichaProducao
         {
             FichaProducao_id = id,
             Tipo = TipoFicha.FRA,
-            Estado = estado,
-            Ativa = ativa,
             DataCriacao = new DateTime(2026, 4, 1),
             EncomendaMolde_id = 100 + id
         };
     }
 
-    private static FichaFop BuildFichaFop(int id, EstadoFichaProducao estado = EstadoFichaProducao.RASCUNHO, bool ativa = true)
+    private static FichaProducao BuildFichaFop(int id)
     {
-        return new FichaFop
+        return new FichaProducao
         {
             FichaProducao_id = id,
             Tipo = TipoFicha.FOP,
-            Estado = estado,
-            Ativa = ativa,
             DataCriacao = new DateTime(2026, 4, 1),
             EncomendaMolde_id = 100 + id
         };
     }
 
-    private static FichaFrm BuildFichaFrmDetalhe(int id)
+    private static FichaProducao BuildFichaFrmDetalhe(int id)
     {
-        return new FichaFrm
+        return new FichaProducao
         {
             FichaProducao_id = id,
             Tipo = TipoFicha.FRM,
-            Estado = EstadoFichaProducao.RASCUNHO,
-            Ativa = true,
             DataCriacao = new DateTime(2026, 4, 10),
             EncomendaMolde_id = 200,
             EncomendaMolde = new EncomendaMolde
@@ -287,7 +207,7 @@ public class FichaProducaoServiceTests
         return new FichaFrmLinha
         {
             FichaFrmLinha_id = linhaId,
-            FichaFrm_id = fichaId,
+            FichaProducao_id = fichaId,
             Data = new DateTime(2026, 5, 1).AddDays(linhaId),
             Defeito = defeito,
             Pormenor = $"Pormenor {linhaId}",

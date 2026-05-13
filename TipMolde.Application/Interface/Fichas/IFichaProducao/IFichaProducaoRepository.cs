@@ -1,5 +1,5 @@
 using TipMolde.Domain.Entities.Fichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas.Linhas;
+using TipMolde.Domain.Entities.Fichas.Linhas;
 
 namespace TipMolde.Application.Interface.Fichas.IFichaProducao
 {

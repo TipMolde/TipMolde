@@ -31,10 +31,5 @@ namespace TipMolde.Application.Dtos.RegistoTempoProjetoDto
         /// Identificador do autor do registo.
         /// </summary>
         public int Autor_id { get; set; }
-
-        /// <summary>
-        /// Identificador da peca do molde associada ao registo.
-        /// </summary>
-        public int Peca_id { get; set; }
     }
 }

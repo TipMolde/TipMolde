@@ -265,9 +265,9 @@ namespace TipMolde.Infrastructure.Repositorio
 
         public Task<FichaFrmRelatorioDto?> ObterFichaFrmRelatorioAsync(int fichaId)
         {
-            return _context.FichasFrm
+            return _context.FichasProducao
                 .AsNoTracking()
-                .Where(f => f.FichaProducao_id == fichaId)
+                .Where(f => f.FichaProducao_id == fichaId && f.Tipo == TipoFicha.FRM)
                 .Select(f => new FichaFrmRelatorioDto
                 {
                     Base = new FichaRelatorioBaseDto
@@ -283,7 +283,7 @@ namespace TipMolde.Infrastructure.Repositorio
                         NomeResponsavelCliente = f.EncomendaMolde.Encomenda.NomeResponsavelCliente,
                     },
                     Linhas = _context.FichasFrmLinhas
-                        .Where(l => l.FichaFrm_id == f.FichaProducao_id)
+                        .Where(l => l.FichaProducao_id == f.FichaProducao_id)
                         .OrderBy(l => l.Data)
                         .ThenBy(l => l.FichaFrmLinha_id)
                         .Select(l => new FichaFrmRelatorioLinhaDto
@@ -304,9 +304,9 @@ namespace TipMolde.Infrastructure.Repositorio
 
         public Task<FichaFraRelatorioDto?> ObterFichaFraRelatorioAsync(int fichaId)
         {
-            return _context.FichasFra
+            return _context.FichasProducao
                 .AsNoTracking()
-                .Where(f => f.FichaProducao_id == fichaId)
+                .Where(f => f.FichaProducao_id == fichaId && f.Tipo == TipoFicha.FRA)
                 .Select(f => new FichaFraRelatorioDto
                 {
                     Base = new FichaRelatorioBaseDto
@@ -322,7 +322,7 @@ namespace TipMolde.Infrastructure.Repositorio
                         NomeResponsavelCliente = f.EncomendaMolde.Encomenda.NomeResponsavelCliente,
                     },
                     Linhas = _context.FichasFraLinhas
-                        .Where(l => l.FichaFra_id == f.FichaProducao_id)
+                        .Where(l => l.FichaProducao_id == f.FichaProducao_id)
                         .OrderBy(l => l.Data)
                         .ThenBy(l => l.FichaFraLinha_id)
                         .Select(l => new FichaFraRelatorioLinhaDto
@@ -342,9 +342,9 @@ namespace TipMolde.Infrastructure.Repositorio
 
         public Task<FichaFopRelatorioDto?> ObterFichaFopRelatorioAsync(int fichaId)
         {
-            return _context.FichasFop
+            return _context.FichasProducao
                 .AsNoTracking()
-                .Where(f => f.FichaProducao_id == fichaId)
+                .Where(f => f.FichaProducao_id == fichaId && f.Tipo == TipoFicha.FOP)
                 .Select(f => new FichaFopRelatorioDto
                 {
                     Base = new FichaRelatorioBaseDto
@@ -360,7 +360,7 @@ namespace TipMolde.Infrastructure.Repositorio
                         NomeResponsavelCliente = f.EncomendaMolde.Encomenda.NomeResponsavelCliente,
                     },
                     Linhas = _context.FichasFopLinhas
-                        .Where(l => l.FichaFop_id == f.FichaProducao_id)
+                        .Where(l => l.FichaProducao_id == f.FichaProducao_id)
                         .OrderBy(l => l.Data)
                         .ThenBy(l => l.FichaFopLinha_id)
                         .Select(l => new FichaFopRelatorioLinhaDto

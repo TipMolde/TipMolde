@@ -1,8 +1,7 @@
 using AutoMapper;
 using TipMolde.Application.Dtos.FichaProducaoDto;
 using TipMolde.Domain.Entities.Fichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas.Linhas;
+using TipMolde.Domain.Entities.Fichas.Linhas;
 
 namespace TipMolde.Application.Mappings
 {
@@ -14,7 +13,7 @@ namespace TipMolde.Application.Mappings
         public FichaProducaoProfile()
         {
             ConfigureFichaResponseMaps();
-            ConfigureCreateFichaMaps();
+            ConfigureCreateFichaMap();
             ConfigureLinhaMaps();
         }
 
@@ -32,102 +31,43 @@ namespace TipMolde.Application.Mappings
                 .ForMember(dest => dest.LinhasFop, opt => opt.Ignore());
         }
 
-        private void ConfigureCreateFichaMaps()
+        private void ConfigureCreateFichaMap()
         {
-            ConfigureCreateFichaFreMap();
-            ConfigureCreateFichaFrmMap();
-            ConfigureCreateFichaFraMap();
-            ConfigureCreateFichaFopMap();
-        }
-
-        private void ConfigureCreateFichaFreMap()
-        {
-            CreateMap<CreateFichaProducaoDto, FichaFre>()
+            CreateMap<CreateFichaProducaoDto, FichaProducao>()
                 .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
                 .ForMember(dest => dest.DataCriacao, opt => opt.Ignore())
-                .ForMember(dest => dest.Estado, opt => opt.Ignore())
-                .ForMember(dest => dest.SubmetidaEm, opt => opt.Ignore())
-                .ForMember(dest => dest.SubmetidaPor_user_id, opt => opt.Ignore())
-                .ForMember(dest => dest.Ativa, opt => opt.Ignore())
-                .ForMember(dest => dest.DesativadaEm, opt => opt.Ignore())
-                .ForMember(dest => dest.DesativadaPor_user_id, opt => opt.Ignore())
                 .ForMember(dest => dest.EncomendaMolde, opt => opt.Ignore())
                 .ForMember(dest => dest.Relatorios, opt => opt.Ignore());
-        }
-
-        private void ConfigureCreateFichaFrmMap()
-        {
-            CreateMap<CreateFichaProducaoDto, FichaFrm>()
-                .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
-                .ForMember(dest => dest.DataCriacao, opt => opt.Ignore())
-                .ForMember(dest => dest.Estado, opt => opt.Ignore())
-                .ForMember(dest => dest.SubmetidaEm, opt => opt.Ignore())
-                .ForMember(dest => dest.SubmetidaPor_user_id, opt => opt.Ignore())
-                .ForMember(dest => dest.Ativa, opt => opt.Ignore())
-                .ForMember(dest => dest.DesativadaEm, opt => opt.Ignore())
-                .ForMember(dest => dest.DesativadaPor_user_id, opt => opt.Ignore())
-                .ForMember(dest => dest.EncomendaMolde, opt => opt.Ignore())
-                .ForMember(dest => dest.Relatorios, opt => opt.Ignore())
-                .ForMember(dest => dest.Linhas, opt => opt.Ignore());
-        }
-
-        private void ConfigureCreateFichaFraMap()
-        {
-            CreateMap<CreateFichaProducaoDto, FichaFra>()
-                .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
-                .ForMember(dest => dest.DataCriacao, opt => opt.Ignore())
-                .ForMember(dest => dest.Estado, opt => opt.Ignore())
-                .ForMember(dest => dest.SubmetidaEm, opt => opt.Ignore())
-                .ForMember(dest => dest.SubmetidaPor_user_id, opt => opt.Ignore())
-                .ForMember(dest => dest.Ativa, opt => opt.Ignore())
-                .ForMember(dest => dest.DesativadaEm, opt => opt.Ignore())
-                .ForMember(dest => dest.DesativadaPor_user_id, opt => opt.Ignore())
-                .ForMember(dest => dest.EncomendaMolde, opt => opt.Ignore())
-                .ForMember(dest => dest.Relatorios, opt => opt.Ignore())
-                .ForMember(dest => dest.Linhas, opt => opt.Ignore());
-        }
-
-        private void ConfigureCreateFichaFopMap()
-        {
-            CreateMap<CreateFichaProducaoDto, FichaFop>()
-                .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
-                .ForMember(dest => dest.DataCriacao, opt => opt.Ignore())
-                .ForMember(dest => dest.Estado, opt => opt.Ignore())
-                .ForMember(dest => dest.SubmetidaEm, opt => opt.Ignore())
-                .ForMember(dest => dest.SubmetidaPor_user_id, opt => opt.Ignore())
-                .ForMember(dest => dest.Ativa, opt => opt.Ignore())
-                .ForMember(dest => dest.DesativadaEm, opt => opt.Ignore())
-                .ForMember(dest => dest.DesativadaPor_user_id, opt => opt.Ignore())
-                .ForMember(dest => dest.EncomendaMolde, opt => opt.Ignore())
-                .ForMember(dest => dest.Relatorios, opt => opt.Ignore())
-                .ForMember(dest => dest.Linhas, opt => opt.Ignore());
         }
 
         private void ConfigureLinhaMaps()
         {
             CreateMap<CreateFichaFrmLinhaDto, FichaFrmLinha>()
                 .ForMember(dest => dest.FichaFrmLinha_id, opt => opt.Ignore())
-                .ForMember(dest => dest.FichaFrm_id, opt => opt.Ignore())
-                .ForMember(dest => dest.FichaFrm, opt => opt.Ignore())
+                .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
+                .ForMember(dest => dest.FichaProducao, opt => opt.Ignore())
                 .ForMember(dest => dest.CriadoEm, opt => opt.Ignore());
 
-            CreateMap<FichaFrmLinha, ResponseFichaFrmLinhaDto>();
+            CreateMap<FichaFrmLinha, ResponseFichaFrmLinhaDto>()
+                .ForMember(dest => dest.FichaFrm_id, opt => opt.MapFrom(src => src.FichaProducao_id));
 
             CreateMap<CreateFichaFraLinhaDto, FichaFraLinha>()
                 .ForMember(dest => dest.FichaFraLinha_id, opt => opt.Ignore())
-                .ForMember(dest => dest.FichaFra_id, opt => opt.Ignore())
-                .ForMember(dest => dest.FichaFra, opt => opt.Ignore())
+                .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
+                .ForMember(dest => dest.FichaProducao, opt => opt.Ignore())
                 .ForMember(dest => dest.CriadoEm, opt => opt.Ignore());
 
-            CreateMap<FichaFraLinha, ResponseFichaFraLinhaDto>();
+            CreateMap<FichaFraLinha, ResponseFichaFraLinhaDto>()
+                .ForMember(dest => dest.FichaFra_id, opt => opt.MapFrom(src => src.FichaProducao_id));
 
             CreateMap<CreateFichaFopLinhaDto, FichaFopLinha>()
                 .ForMember(dest => dest.FichaFopLinha_id, opt => opt.Ignore())
-                .ForMember(dest => dest.FichaFop_id, opt => opt.Ignore())
-                .ForMember(dest => dest.FichaFop, opt => opt.Ignore())
+                .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
+                .ForMember(dest => dest.FichaProducao, opt => opt.Ignore())
                 .ForMember(dest => dest.CriadoEm, opt => opt.Ignore());
 
-            CreateMap<FichaFopLinha, ResponseFichaFopLinhaDto>();
+            CreateMap<FichaFopLinha, ResponseFichaFopLinhaDto>()
+                .ForMember(dest => dest.FichaFop_id, opt => opt.MapFrom(src => src.FichaProducao_id));
         }
     }
 }

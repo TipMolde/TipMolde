@@ -41,8 +41,7 @@ public class RegistoTempoProjetoProfileTests
         {
             Estado_tempo = EstadoTempoProjeto.PAUSADO,
             Projeto_id = 10,
-            Autor_id = 7,
-            Peca_id = 3
+            Autor_id = 7
         };
 
         // ACT
@@ -52,7 +51,6 @@ public class RegistoTempoProjetoProfileTests
         result.Estado_tempo.Should().Be(EstadoTempoProjeto.PAUSADO);
         result.Projeto_id.Should().Be(10);
         result.Autor_id.Should().Be(7);
-        result.Peca_id.Should().Be(3);
     }
 
     [Test(Description = "TRTPMAP3 - Entidade RegistoTempoProjeto deve mapear para ResponseRegistoTempoProjetoDto.")]
@@ -65,8 +63,7 @@ public class RegistoTempoProjetoProfileTests
             Estado_tempo = EstadoTempoProjeto.RETOMADO,
             Data_hora = new DateTime(2026, 4, 24, 10, 15, 0, DateTimeKind.Utc),
             Projeto_id = 2,
-            Autor_id = 4,
-            Peca_id = 8
+            Autor_id = 4
         };
 
         // ACT
@@ -77,6 +74,5 @@ public class RegistoTempoProjetoProfileTests
         result.Estado_tempo.Should().Be(EstadoTempoProjeto.RETOMADO);
         result.Projeto_id.Should().Be(2);
         result.Autor_id.Should().Be(4);
-        result.Peca_id.Should().Be(8);
     }
 }

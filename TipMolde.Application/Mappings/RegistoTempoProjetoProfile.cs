@@ -29,8 +29,7 @@ namespace TipMolde.Application.Mappings
                 .ForMember(dest => dest.Estado_tempo, opt => opt.MapFrom(src => src.Estado_tempo!.Value))
                 .ForMember(dest => dest.Data_hora, opt => opt.Ignore())
                 .ForMember(dest => dest.Projeto, opt => opt.Ignore())
-                .ForMember(dest => dest.Autor, opt => opt.Ignore())
-                .ForMember(dest => dest.Peca, opt => opt.Ignore());
+                .ForMember(dest => dest.Autor, opt => opt.Ignore());
         }
 
         private void ConfigureResponseMap()

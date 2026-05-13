@@ -9,8 +9,7 @@ using TipMolde.Application.Interface.Fichas.IFichaDocumento;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Desenho;
 using TipMolde.Domain.Entities.Fichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas.Linhas;
+using TipMolde.Domain.Entities.Fichas.Linhas;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 using TipMolde.Infrastructure.DB;
@@ -394,16 +393,7 @@ namespace TipMolde.Tests.Integracao
             await ctx.EncomendasMoldes.AddAsync(link);
             await ctx.SaveChangesAsync();
 
-            FichaProducao ficha = tipo switch
-            {
-                TipoFicha.FLT => new FichaFlt(),
-                TipoFicha.FRE => new FichaFre(),
-                TipoFicha.FRM => new FichaFrm(),
-                TipoFicha.FRA => new FichaFra(),
-                TipoFicha.FOP => new FichaFop(),
-                _ => throw new ArgumentOutOfRangeException(nameof(tipo), tipo, "Tipo de ficha nao suportado no seed de testes.")
-            };
-
+            var ficha = new FichaProducao();
             ficha.FichaProducao_id = fichaId;
             ficha.Tipo = tipo;
             ficha.DataCriacao = DateTime.UtcNow;
@@ -440,7 +430,7 @@ namespace TipMolde.Tests.Integracao
             await ctx.FichasFrmLinhas.AddRangeAsync(
                 new FichaFrmLinha
                 {
-                    FichaFrm_id = fichaId,
+                    FichaProducao_id = fichaId,
                     Data = new DateTime(2026, 05, 01),
                     Defeito = "Risco na gaveta",
                     Pormenor = "Zona junto ao extrator",
@@ -449,7 +439,7 @@ namespace TipMolde.Tests.Integracao
                 },
                 new FichaFrmLinha
                 {
-                    FichaFrm_id = fichaId,
+                    FichaProducao_id = fichaId,
                     Data = new DateTime(2026, 05, 03),
                     Defeito = "Folga lateral",
                     Pormenor = "Confirmar ajuste final",
@@ -468,7 +458,7 @@ namespace TipMolde.Tests.Integracao
             await ctx.FichasFraLinhas.AddRangeAsync(
                 new FichaFraLinha
                 {
-                    FichaFra_id = fichaId,
+                    FichaProducao_id = fichaId,
                     Data = new DateTime(2026, 05, 02),
                     Alteracoes = "Reforco da zona de apoio",
                     Verificado = true,
@@ -476,7 +466,7 @@ namespace TipMolde.Tests.Integracao
                 },
                 new FichaFraLinha
                 {
-                    FichaFra_id = fichaId,
+                    FichaProducao_id = fichaId,
                     Data = new DateTime(2026, 05, 04),
                     Alteracoes = "Ajuste de cota no macho",
                     Verificado = false,
@@ -494,7 +484,7 @@ namespace TipMolde.Tests.Integracao
             await ctx.FichasFopLinhas.AddRangeAsync(
                 new FichaFopLinha
                 {
-                    FichaFop_id = fichaId,
+                    FichaProducao_id = fichaId,
                     Data = new DateTime(2026, 05, 02),
                     Ocorrencia = "Paragem por afinacao",
                     Correcao = "Reiniciado com nova parametrizacao",
@@ -502,7 +492,7 @@ namespace TipMolde.Tests.Integracao
                 },
                 new FichaFopLinha
                 {
-                    FichaFop_id = fichaId,
+                    FichaProducao_id = fichaId,
                     Data = new DateTime(2026, 05, 05),
                     Ocorrencia = "Batida na extracao",
                     Correcao = "Revisto curso do cilindro",

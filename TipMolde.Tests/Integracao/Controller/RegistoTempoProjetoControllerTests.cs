@@ -36,8 +36,7 @@ namespace TipMolde.Tests.Integracao.Controller
                 Estado_tempo = EstadoTempoProjeto.INICIADO,
                 Data_hora = DateTime.UtcNow,
                 Projeto_id = 2,
-                Autor_id = 1,
-                Peca_id = 8
+                Autor_id = 1
             };
 
             Factory.RegistoTempoProjetoService

@@ -99,35 +99,5 @@ namespace TipMolde.API.Controllers
             var created = await _service.CreateAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = created.FichaProducao_id }, created);
         }
-
-        /// <summary>
-        /// Submete uma ficha editavel e bloqueia novas alteracoes funcionais.
-        /// </summary>
-        /// <param name="id">Identificador da ficha a submeter.</param>
-        /// <returns>Cabecalho atualizado da ficha submetida.</returns>
-        [Authorize(Roles = "ADMIN,GESTOR_PRODUCAO")]
-        [HttpPost("{id:int}/submit")]
-        public async Task<IActionResult> Submit(int id)
-        {
-            if (!this.TryGetAuthenticatedUserId(out var userId, out var errorResult))
-                return errorResult!;
-
-            return Ok(await _service.SubmitAsync(id, userId));
-        }
-
-        /// <summary>
-        /// Cancela logicamente uma ficha editavel sem remover o historico.
-        /// </summary>
-        /// <param name="id">Identificador da ficha a cancelar.</param>
-        /// <returns>Cabecalho atualizado da ficha cancelada.</returns>
-        [Authorize(Roles = "ADMIN")]
-        [HttpPost("{id:int}/cancel")]
-        public async Task<IActionResult> Cancel(int id)
-        {
-            if (!this.TryGetAuthenticatedUserId(out var userId, out var errorResult))
-                return errorResult!;
-
-            return Ok(await _service.CancelAsync(id, userId));
-        }
     }
 }

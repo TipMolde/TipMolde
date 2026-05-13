@@ -1,4 +1,4 @@
-namespace TipMolde.Domain.Entities.Fichas.TipoFichas.Linhas
+namespace TipMolde.Domain.Entities.Fichas.Linhas
 {
     /// <summary>
     /// Representa uma linha manual da ficha FOP.
@@ -6,8 +6,8 @@ namespace TipMolde.Domain.Entities.Fichas.TipoFichas.Linhas
     public class FichaFopLinha
     {
         public int FichaFopLinha_id { get; set; }
-        public int FichaFop_id { get; set; }
-        public FichaFop? FichaFop { get; set; }
+        public int FichaProducao_id { get; set; }
+        public FichaProducao? FichaProducao { get; set; }
         public DateTime Data { get; set; }
         public string Ocorrencia { get; set; } = string.Empty;
         public string? Correcao { get; set; }

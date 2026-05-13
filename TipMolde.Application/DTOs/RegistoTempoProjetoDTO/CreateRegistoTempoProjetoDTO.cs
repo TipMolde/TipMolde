@@ -29,11 +29,5 @@ namespace TipMolde.Application.Dtos.RegistoTempoProjetoDto
         /// </summary>
         [Required, Range(1, int.MaxValue)]
         public int Autor_id { get; set; }
-
-        /// <summary>
-        /// Identificador da peca do molde em que o trabalho esta a ser registado.
-        /// </summary>
-        [Required, Range(1, int.MaxValue)]
-        public int Peca_id { get; set; }
     }
 }

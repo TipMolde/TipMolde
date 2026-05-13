@@ -67,7 +67,6 @@ namespace TipMolde.Tests.Integracao.Controller
             {
                 FichaProducao_id = 8,
                 Tipo = TipoFicha.FRM,
-                Estado = EstadoFichaProducao.RASCUNHO,
                 DataCriacao = new DateTime(2026, 5, 1, 8, 0, 0, DateTimeKind.Utc),
                 EncomendaMolde_id = 4,
                 NumeroMolde = "M-008",
@@ -114,59 +113,14 @@ namespace TipMolde.Tests.Integracao.Controller
             body.Should().BeEquivalentTo(created);
         }
 
-        [Test(Description = "TFPAPI003 - POST /api/fichas-producao/{id}/submit usa o utilizador autenticado e devolve 200.")]
-        public async Task Submit_Should_ReturnOkJson_When_RequestIsValid()
-        {
-            // ARRANGE
-            var updated = BuildFichaResponse(id: 5, tipo: TipoFicha.FLT, estado: EstadoFichaProducao.SUBMETIDA);
-
-            Factory.FichaProducaoService
-                .Setup(s => s.SubmitAsync(5, 1))
-                .ReturnsAsync(updated);
-
-            // ACT
-            var response = await Client.PostAsync("/api/fichas-producao/5/submit", content: null);
-
-            // ASSERT
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-            var body = await response.Content.ReadFromJsonAsync<ResponseFichaProducaoDto>();
-            body.Should().BeEquivalentTo(updated);
-            Factory.FichaProducaoService.Verify(s => s.SubmitAsync(5, 1), Times.Once);
-        }
-
-        [Test(Description = "TFPAPI004 - POST /api/fichas-producao/{id}/cancel cancela logicamente a ficha quando o request e valido.")]
-        public async Task Cancel_Should_ReturnOkJson_When_RequestIsValid()
-        {
-            // ARRANGE
-            var updated = BuildFichaResponse(id: 9, tipo: TipoFicha.FRE, estado: EstadoFichaProducao.CANCELADA);
-
-            Factory.FichaProducaoService
-                .Setup(s => s.CancelAsync(9, 1))
-                .ReturnsAsync(updated);
-
-            // ACT
-            var response = await Client.PostAsync("/api/fichas-producao/9/cancel", content: null);
-
-            // ASSERT
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-            var body = await response.Content.ReadFromJsonAsync<ResponseFichaProducaoDto>();
-            body.Should().BeEquivalentTo(updated);
-            Factory.FichaProducaoService.Verify(s => s.CancelAsync(9, 1), Times.Once);
-        }
 
         private static ResponseFichaProducaoDto BuildFichaResponse(
             int id,
-            TipoFicha tipo,
-            EstadoFichaProducao estado = EstadoFichaProducao.RASCUNHO) => new()
+            TipoFicha tipo) => new()
             {
                 FichaProducao_id = id,
                 Tipo = tipo,
-                Estado = estado,
                 DataCriacao = DateTime.UtcNow,
-                SubmetidaEm = estado == EstadoFichaProducao.SUBMETIDA ? DateTime.UtcNow : null,
-                Ativa = estado != EstadoFichaProducao.CANCELADA,
                 EncomendaMolde_id = 7
             };
     }

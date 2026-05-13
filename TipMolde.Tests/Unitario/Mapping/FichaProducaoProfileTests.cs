@@ -4,8 +4,7 @@ using TipMolde.Application.Dtos.FichaProducaoDto;
 using TipMolde.Application.Mappings;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Fichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas.Linhas;
+using TipMolde.Domain.Entities.Fichas.Linhas;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 
@@ -34,8 +33,8 @@ public class FichaProducaoProfileTests
         act.Should().NotThrow();
     }
 
-    [Test(Description = "TFPMAP2 - CreateFichaProducaoDto deve mapear para FichaFre preservando EncomendaMolde e ignorando metadados de sistema.")]
-    public void CreateFichaProducaoDto_Should_MapTo_FichaFre()
+    [Test(Description = "TFPMAP2 - CreateFichaProducaoDto deve mapear para FichaProducao preservando EncomendaMolde e ignorando metadados de sistema.")]
+    public void CreateFichaProducaoDto_Should_MapTo_FichaProducao()
     {
         var source = new CreateFichaProducaoDto
         {
@@ -43,7 +42,7 @@ public class FichaProducaoProfileTests
             EncomendaMolde_id = 12
         };
 
-        var result = _mapper.Map<FichaFre>(source);
+        var result = _mapper.Map<FichaProducao>(source);
 
         result.FichaProducao_id.Should().Be(0);
         result.Tipo.Should().Be(TipoFicha.FRE);
@@ -52,40 +51,8 @@ public class FichaProducaoProfileTests
         result.Relatorios.Should().BeEmpty();
     }
 
-    [Test(Description = "TFPMAP3 - CreateFichaProducaoDto deve mapear para FichaFrm ignorando linhas manuais.")]
-    public void CreateFichaProducaoDto_Should_MapTo_FichaFrm()
-    {
-        var source = new CreateFichaProducaoDto
-        {
-            Tipo = TipoFicha.FRM,
-            EncomendaMolde_id = 20
-        };
-
-        var result = _mapper.Map<FichaFrm>(source);
-
-        result.Tipo.Should().Be(TipoFicha.FRM);
-        result.EncomendaMolde_id.Should().Be(20);
-        result.Linhas.Should().BeEmpty();
-    }
-
-    [Test(Description = "TFPMAP4 - CreateFichaProducaoDto deve mapear para FichaFra ignorando linhas manuais.")]
-    public void CreateFichaProducaoDto_Should_MapTo_FichaFra()
-    {
-        var source = new CreateFichaProducaoDto
-        {
-            Tipo = TipoFicha.FRA,
-            EncomendaMolde_id = 21
-        };
-
-        var result = _mapper.Map<FichaFra>(source);
-
-        result.Tipo.Should().Be(TipoFicha.FRA);
-        result.EncomendaMolde_id.Should().Be(21);
-        result.Linhas.Should().BeEmpty();
-    }
-
-    [Test(Description = "TFPMAP5 - CreateFichaProducaoDto deve mapear para FichaFop ignorando linhas manuais.")]
-    public void CreateFichaProducaoDto_Should_MapTo_FichaFop()
+    [Test(Description = "TFPMAP3 - CreateFichaProducaoDto deve preservar o tipo documental na entidade unica.")]
+    public void CreateFichaProducaoDto_Should_PreserveTipo()
     {
         var source = new CreateFichaProducaoDto
         {
@@ -93,11 +60,11 @@ public class FichaProducaoProfileTests
             EncomendaMolde_id = 22
         };
 
-        var result = _mapper.Map<FichaFop>(source);
+        var result = _mapper.Map<FichaProducao>(source);
 
         result.Tipo.Should().Be(TipoFicha.FOP);
         result.EncomendaMolde_id.Should().Be(22);
-        result.Linhas.Should().BeEmpty();
+        result.Relatorios.Should().BeEmpty();
     }
 
     [Test(Description = "TFPMAP6 - DTOs de linha devem mapear para entidades de linha com os campos editaveis.")]
@@ -134,31 +101,27 @@ public class FichaProducaoProfileTests
         frm.Pormenor.Should().Be("Zona lateral");
         frm.Verificado.Should().BeTrue();
         frm.Responsavel_id.Should().Be(5);
-        frm.FichaFrm.Should().BeNull();
+        frm.FichaProducao.Should().BeNull();
 
         fra.Alteracoes.Should().Be("Ajuste de cota");
         fra.Verificado.Should().BeFalse();
         fra.Responsavel_id.Should().Be(6);
-        fra.FichaFra.Should().BeNull();
+        fra.FichaProducao.Should().BeNull();
 
         fop.Ocorrencia.Should().Be("Paragem de maquina");
         fop.Correcao.Should().Be("Rearme executado");
         fop.Responsavel_id.Should().Be(7);
-        fop.FichaFop.Should().BeNull();
+        fop.FichaProducao.Should().BeNull();
     }
 
     [Test(Description = "TFPMAP7 - FichaProducao deve mapear para detalhe com contexto comercial agregado.")]
     public void FichaProducao_Should_MapTo_ResponseFichaProducaoDetalheDto()
     {
-        var source = new FichaFrm
+        var source = new FichaProducao
         {
             FichaProducao_id = 40,
             Tipo = TipoFicha.FRM,
-            Estado = EstadoFichaProducao.SUBMETIDA,
             DataCriacao = new DateTime(2026, 4, 29),
-            SubmetidaEm = new DateTime(2026, 4, 30),
-            SubmetidaPor_user_id = 18,
-            Ativa = true,
             EncomendaMolde_id = 14,
             EncomendaMolde = new EncomendaMolde
             {
@@ -189,8 +152,6 @@ public class FichaProducaoProfileTests
 
         result.FichaProducao_id.Should().Be(40);
         result.Tipo.Should().Be(TipoFicha.FRM);
-        result.Estado.Should().Be(EstadoFichaProducao.SUBMETIDA);
-        result.SubmetidaPor_user_id.Should().Be(18);
         result.EncomendaMolde_id.Should().Be(14);
         result.NumeroMolde.Should().Be("MOL-003");
         result.NomeMolde.Should().Be("Molde Tampa");
@@ -207,7 +168,7 @@ public class FichaProducaoProfileTests
         var linha = new FichaFopLinha
         {
             FichaFopLinha_id = 11,
-            FichaFop_id = 90,
+            FichaProducao_id = 90,
             Data = new DateTime(2026, 5, 4),
             Ocorrencia = "Desalinhamento",
             Correcao = "Reposicionado",

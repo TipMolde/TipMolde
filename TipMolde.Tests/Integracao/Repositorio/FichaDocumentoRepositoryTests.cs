@@ -1,7 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using TipMolde.Domain.Entities.Fichas;
-using TipMolde.Domain.Entities.Fichas.TipoFichas;
 using TipMolde.Domain.Enums;
 using TipMolde.Infrastructure.DB;
 using TipMolde.Infrastructure.Repositorio;
@@ -70,16 +69,16 @@ namespace TipMolde.Tests.Integracao.Repositorio
             ativos.Should().BeEmpty();
         }
 
-        private static async Task<FichaFre> SeedFichaFreAsync(ApplicationDbContext context)
+        private static async Task<FichaProducao> SeedFichaFreAsync(ApplicationDbContext context)
         {
-            var ficha = new FichaFre
+            var ficha = new FichaProducao
             {
                 Tipo = TipoFicha.FRE,
                 DataCriacao = new DateTime(2026, 5, 1, 8, 0, 0, DateTimeKind.Utc),
                 EncomendaMolde_id = 1
             };
 
-            await context.FichasFre.AddAsync(ficha);
+            await context.FichasProducao.AddAsync(ficha);
             await context.SaveChangesAsync();
             return ficha;
         }
