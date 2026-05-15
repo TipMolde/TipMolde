@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -92,6 +93,20 @@ public sealed class ControllerIntegrationTestFactory : WebApplicationFactory<Pro
     {
         builder.UseEnvironment("Testing");
         builder.ConfigureLogging(logging => logging.ClearProviders());
+        builder.ConfigureAppConfiguration((_, configurationBuilder) =>
+        {
+            configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Server=localhost;Port=3306;Database=tipmolde_controller_tests;Uid=root;Pwd=placeholder;",
+                ["Jwt:Issuer"] = "TipMolde.Api.Tests",
+                ["Jwt:Audience"] = "TipMolde.Client.Tests",
+                ["Jwt:SecretKey"] = "ControllerTestsSecretKey_With_At_Least_32_Chars",
+                ["Jwt:ExpirationMinutes"] = "60",
+                ["Storage:FichasRootPath"] = "Storage/Fichas",
+                ["Storage:UploadsRootPath"] = "Storage/Uploads",
+                ["Templates:RootPath"] = "Templates"
+            });
+        });
 
         builder.ConfigureTestServices(services =>
         {

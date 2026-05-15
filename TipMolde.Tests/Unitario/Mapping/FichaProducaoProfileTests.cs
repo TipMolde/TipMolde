@@ -48,7 +48,7 @@ public class FichaProducaoProfileTests
         result.Tipo.Should().Be(TipoFicha.FRE);
         result.EncomendaMolde_id.Should().Be(12);
         result.EncomendaMolde.Should().BeNull();
-        result.Relatorios.Should().BeEmpty();
+        result.Documentos.Should().BeEmpty();
     }
 
     [Test(Description = "TFPMAP3 - CreateFichaProducaoDto deve preservar o tipo documental na entidade unica.")]
@@ -64,7 +64,7 @@ public class FichaProducaoProfileTests
 
         result.Tipo.Should().Be(TipoFicha.FOP);
         result.EncomendaMolde_id.Should().Be(22);
-        result.Relatorios.Should().BeEmpty();
+        result.Documentos.Should().BeEmpty();
     }
 
     [Test(Description = "TFPMAP6 - DTOs de linha devem mapear para entidades de linha com os campos editaveis.")]

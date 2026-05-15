@@ -63,8 +63,8 @@ namespace TipMolde.Infrastructure.DB
             modelBuilder.Entity<FichaFraLinha>().HasKey(x => x.FichaFraLinha_id);
             modelBuilder.Entity<FichaFopLinha>().HasKey(x => x.FichaFopLinha_id);
             modelBuilder.Entity<RevokedToken>().HasKey(x => x.RevokedToken_id);
-            modelBuilder.Entity<Maquina>().HasKey(m => m.Maquina_id);
-            modelBuilder.Entity<ItemPedidoMaterial>().HasKey(i => new { i.PedidoMaterial_id, i.Peca_id });
+            modelBuilder.Entity<Maquina>().HasKey(x => x.Maquina_id);
+            modelBuilder.Entity<ItemPedidoMaterial>().HasKey(x => x.ItemPedidoMaterial_id);
 
 
             modelBuilder.Entity<RevokedToken>()
@@ -88,9 +88,19 @@ namespace TipMolde.Infrastructure.DB
                 .HasIndex(u => u.Email)
                 .IsUnique();
 
+            modelBuilder.Entity<User>()
+                .Property(u => u.Role)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+
             modelBuilder.Entity<Molde>()
                 .HasIndex(m => m.Numero)
                 .IsUnique();
+
+            modelBuilder.Entity<Molde>()
+                .Property(m => m.TipoPedido)
+                .HasConversion<string>()
+                .HasMaxLength(20);
 
             modelBuilder.Entity<Encomenda>()
                 .HasIndex(e => e.NumeroEncomendaCliente)
@@ -109,6 +119,11 @@ namespace TipMolde.Infrastructure.DB
                 .HasOne(e => e.Molde)
                 .WithOne(m => m.Especificacoes)
                 .HasForeignKey<EspecificacoesTecnicas>(e => e.Molde_id);
+
+            modelBuilder.Entity<EspecificacoesTecnicas>()
+                .Property(e => e.Cor)
+                .HasConversion<string>()
+                .HasMaxLength(20);
 
             modelBuilder.Entity<EncomendaMolde>()
                 .HasIndex(em => new { em.Encomenda_id, em.Molde_id })
@@ -158,9 +173,19 @@ namespace TipMolde.Infrastructure.DB
                 .IsUnique();
 
             modelBuilder.Entity<PedidoMaterial>()
+                .Property(p => p.Estado)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            modelBuilder.Entity<PedidoMaterial>()
                 .HasMany(p => p.Itens)
                 .WithOne(i => i.PedidoMaterial)
                 .HasForeignKey(i => i.PedidoMaterial_id);
+
+            modelBuilder.Entity<ItemPedidoMaterial>()
+                .HasOne(i => i.Peca)
+                .WithMany()
+                .HasForeignKey(i => i.Peca_id);
 
             modelBuilder.Entity<Maquina>()
                 .Property(m => m.Estado).HasConversion<string>().HasMaxLength(30);
@@ -178,6 +203,11 @@ namespace TipMolde.Infrastructure.DB
             modelBuilder.Entity<FasesProducao>()
                 .HasIndex(f => f.Nome)
                 .IsUnique();
+
+            modelBuilder.Entity<FasesProducao>()
+                .Property(f => f.Nome)
+                .HasConversion<string>()
+                .HasMaxLength(20);
 
             modelBuilder.Entity<FasesProducao>()
                 .Property(f => f.Descricao)
@@ -202,7 +232,7 @@ namespace TipMolde.Infrastructure.DB
 
             modelBuilder.Entity<FichaDocumento>()
                 .HasOne(x => x.FichaProducao)
-                .WithMany(f => f.Relatorios)
+                .WithMany(f => f.Documentos)
                 .HasForeignKey(x => x.FichaProducao_id);
 
             modelBuilder.Entity<FichaDocumento>()

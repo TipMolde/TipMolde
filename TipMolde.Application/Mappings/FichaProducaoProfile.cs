@@ -37,7 +37,7 @@ namespace TipMolde.Application.Mappings
                 .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
                 .ForMember(dest => dest.DataCriacao, opt => opt.Ignore())
                 .ForMember(dest => dest.EncomendaMolde, opt => opt.Ignore())
-                .ForMember(dest => dest.Relatorios, opt => opt.Ignore());
+                .ForMember(dest => dest.Documentos, opt => opt.Ignore());
         }
 
         private void ConfigureLinhaMaps()

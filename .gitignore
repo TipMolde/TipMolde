@@ -364,3 +364,7 @@ FodyWeavers.xsd
 
 # Local self-hosted runner artifacts
 actions-runner/
+
+# Local Docker environment
+.env
+docker/mysql/data/

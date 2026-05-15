@@ -50,7 +50,7 @@ namespace TipMolde.Infrastructure.Repositorio
                         .ThenInclude(e => e.Cliente)
                 .Include(f => f.EncomendaMolde!)
                     .ThenInclude(em => em.Molde)
-                .Include(f => f.Relatorios)
+                .Include(f => f.Documentos)
                 .FirstOrDefaultAsync(f => f.FichaProducao_id == id);
 
         public async Task<PagedResult<FichaFrmLinha>> GetLinhasFrmByFichaIdAsync(int fichaId, int page, int pageSize)

@@ -48,18 +48,18 @@ public static class DependencyInjection
             .Validate(x => !string.IsNullOrWhiteSpace(x.RootPath), "Templates:RootPath e obrigatorio.")
             .ValidateOnStart();
 
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            throw new InvalidOperationException("Connection string 'DefaultConnection' nao configurada.");
-        }
-
         if (environment.IsEnvironment("Testing"))
         {
             services.AddDbContext<ApplicationDbContext>();
         }
         else
         {
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException("Connection string 'DefaultConnection' nao configurada.");
+            }
+
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
         }

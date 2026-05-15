@@ -33,7 +33,7 @@ namespace TipMolde.Tests.Integracao.Repositorio
                 Tipo = TipoFicha.FRM,
                 DataCriacao = new DateTime(2026, 5, 3, 8, 0, 0, DateTimeKind.Utc),
                 EncomendaMolde_id = link.EncomendaMolde_id,
-                Relatorios =
+                Documentos =
                 {
                     new FichaDocumento
                     {
@@ -81,7 +81,7 @@ namespace TipMolde.Tests.Integracao.Repositorio
             detalhe.EncomendaMolde.Encomenda.Cliente!.Nome.Should().Be("Cliente Repo");
             detalhe.EncomendaMolde.Molde.Should().NotBeNull();
             detalhe.EncomendaMolde.Molde!.Numero.Should().Be("M-REP-01");
-            detalhe.Relatorios.Should().ContainSingle(x => x.NomeFicheiro == "frm.xlsx");
+            detalhe.Documentos.Should().ContainSingle(x => x.NomeFicheiro == "frm.xlsx");
         }
 
         [Test(Description = "TFPREP002 - As operacoes FRM devem adicionar, listar, obter e atualizar linhas manualmente.")]

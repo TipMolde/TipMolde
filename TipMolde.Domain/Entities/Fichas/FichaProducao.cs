@@ -41,6 +41,6 @@ namespace TipMolde.Domain.Entities.Fichas
         /// <summary>
         /// Versoes documentais geradas ou anexadas para esta ficha.
         /// </summary>
-        public ICollection<FichaDocumento> Relatorios { get; set; } = new List<FichaDocumento>();
+        public ICollection<FichaDocumento> Documentos { get; set; } = new List<FichaDocumento>();
     }
 }

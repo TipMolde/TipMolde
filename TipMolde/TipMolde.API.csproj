@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>TipMolde.API</AssemblyName>
     <RootNamespace>TipMolde.API</RootNamespace>
+    <UserSecretsId>TipMolde.API-LocalSecrets</UserSecretsId>
   </PropertyGroup>
 
 	<ItemGroup>

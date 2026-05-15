@@ -6,7 +6,7 @@ using TipMolde.Infrastructure;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
-    .AddApiServices(builder.Configuration)
+    .AddApiServices(builder.Configuration, builder.Environment)
     .AddApplicationServices()
     .AddInfrastructureServices(builder.Configuration, builder.Environment);
 
@@ -19,7 +19,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseCors(TipMolde.API.Extensions.ServiceCollectionExtensions.FrontendCorsPolicyName);
 app.UseAuthentication();
 app.UseAuthorization();
 

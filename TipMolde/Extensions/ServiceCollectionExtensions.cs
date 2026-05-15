@@ -16,6 +16,8 @@ namespace TipMolde.API.Extensions;
 /// </remarks>
 public static class ServiceCollectionExtensions
 {
+    public const string FrontendCorsPolicyName = "Frontend";
+
     /// <summary>
     /// Regista os servicos base da API e configura autenticacao/autorizacao.
     /// </summary>
@@ -31,12 +33,33 @@ public static class ServiceCollectionExtensions
     /// <returns>Colecao de servicos encadeada com a configuracao da camada API aplicada.</returns>
     public static IServiceCollection AddApiServices(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         services.AddControllers();
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
         services.AddProblemDetails();
+
+        var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+
+        services.AddCors(options =>
+        {
+            options.AddPolicy(FrontendCorsPolicyName, policy =>
+            {
+                if (allowedOrigins.Length > 0)
+                {
+                    policy.WithOrigins(allowedOrigins);
+                }
+                else if (environment.IsDevelopment())
+                {
+                    policy.SetIsOriginAllowed(_ => true);
+                }
+
+                policy.AllowAnyHeader();
+                policy.AllowAnyMethod();
+            });
+        });
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
 
