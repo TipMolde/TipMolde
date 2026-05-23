@@ -2,6 +2,8 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace TipMolde.Tests.Integracao.Controller;
 
@@ -14,8 +16,18 @@ namespace TipMolde.Tests.Integracao.Controller;
 /// </remarks>
 public abstract class ControllerHttpTestBase
 {
+    private static readonly JsonSerializerOptions ApiJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     protected ControllerIntegrationTestFactory Factory = null!;
     protected HttpClient Client = null!;
+
+    static ControllerHttpTestBase()
+    {
+        ApiJsonOptions.Converters.Add(new JsonStringEnumConverter());
+    }
 
     [SetUp]
     public void SetUpBase()
@@ -41,6 +53,13 @@ public abstract class ControllerHttpTestBase
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         problem.Should().NotBeNull();
         return problem!;
+    }
+
+    protected static async Task<T> ReadBodyAsync<T>(HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadFromJsonAsync<T>(ApiJsonOptions);
+        body.Should().NotBeNull();
+        return body!;
     }
 
     protected static async Task AssertProblemAsync(

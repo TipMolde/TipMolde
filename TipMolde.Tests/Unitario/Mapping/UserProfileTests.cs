@@ -92,7 +92,7 @@ namespace TipMolde.Tests.Unitario.Mapping
             result.User_id.Should().Be(7);
             result.Nome.Should().Be("Bruno");
             result.Email.Should().Be("bruno@tipmolde.pt");
-            result.Role.Should().Be(UserRole.ADMIN);
+            result.Role.Should().Be("ADMIN");
         }
 
         [Test]

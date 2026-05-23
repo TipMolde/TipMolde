@@ -58,7 +58,7 @@ namespace TipMolde.Tests.Integracao.Controller
             // ASSERT
             response.StatusCode.Should().Be(HttpStatusCode.Created);
 
-            var body = await response.Content.ReadFromJsonAsync<ResponseMoldeDto>();
+            var body = await ReadBodyAsync<ResponseMoldeDto>(response);
             body.Should().BeEquivalentTo(created);
         }
 

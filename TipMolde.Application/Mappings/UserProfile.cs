@@ -48,7 +48,8 @@ namespace TipMolde.Application.Mappings
 
         private void ConfigureResponseMap()
         {
-            CreateMap<User, ResponseUserDto>();
+            CreateMap<User, ResponseUserDto>()
+                .ForMember(dest => dest.Role, opt => opt.MapFrom(src => src.Role.ToString()));
         }
     }
 }

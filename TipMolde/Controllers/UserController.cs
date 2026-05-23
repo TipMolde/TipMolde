@@ -67,7 +67,7 @@ namespace TipMolde.API.Controllers
         /// </summary>
         /// <param name="id">Identificador unico do utilizador.</param>
         /// <returns>Resultado HTTP com utilizador encontrado ou erro de nao encontrado.</returns>
-        [Authorize(Roles = "ADMIN")]
+        [Authorize]
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetUserById(int id)
         {

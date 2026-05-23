@@ -62,7 +62,7 @@ public sealed class UserControllerTests : ControllerHttpTestBase
             User_id = 12,
             Nome = "Ana Silva",
             Email = "ana@tipmolde.pt",
-            Role = UserRole.ADMIN
+            Role = "ADMIN"
         };
 
         Factory.UserManagementService
@@ -99,7 +99,7 @@ public sealed class UserControllerTests : ControllerHttpTestBase
                 User_id = 2,
                 Nome = "Gestor Producao",
                 Email = "gestor@tipmolde.pt",
-                Role = UserRole.GESTOR_PRODUCAO
+                Role = "GESTOR_PRODUCAO"
             });
 
         // ACT
@@ -151,7 +151,7 @@ public sealed class UserControllerTests : ControllerHttpTestBase
                 User_id = 5,
                 Nome = "Gestor Producao",
                 Email = "gestor@tipmolde.pt",
-                Role = UserRole.GESTOR_PRODUCAO
+                Role = "GESTOR_PRODUCAO"
             });
         Factory.UserManagementService
             .Setup(s => s.UpdateAsync(5, It.IsAny<UpdateUserDto>()))
