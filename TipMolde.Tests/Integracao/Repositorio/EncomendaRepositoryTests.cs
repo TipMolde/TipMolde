@@ -29,6 +29,38 @@ namespace TipMolde.Tests.Integracao.Repositorio
             result.Items.Should().ContainSingle(e => e.NumeroEncomendaCliente == "ENC-001");
         }
 
+        [Test(Description = "TENCREP1B - GetEncomendasEmProducao deve excluir apenas concluidas e carregar cliente.")]
+        public async Task GetEncomendasEmProducaoAsync_Should_IncludeCliente_And_ExcludeOnlyConcluidas()
+        {
+            // ARRANGE
+            await using var context = CreateContext();
+            var cliente = new Cliente
+            {
+                Nome = "Cliente Operacional",
+                NIF = "509111111",
+                Sigla = "COP"
+            };
+
+            await context.Clientes.AddAsync(cliente);
+            await context.SaveChangesAsync();
+
+            await context.Encomendas.AddRangeAsync(
+                new Encomenda { NumeroEncomendaCliente = "ENC-101", Estado = EstadoEncomenda.EM_PRODUCAO, Cliente_id = cliente.Cliente_id },
+                new Encomenda { NumeroEncomendaCliente = "ENC-102", Estado = EstadoEncomenda.CANCELADA, Cliente_id = cliente.Cliente_id },
+                new Encomenda { NumeroEncomendaCliente = "ENC-103", Estado = EstadoEncomenda.CONCLUIDA, Cliente_id = cliente.Cliente_id });
+            await context.SaveChangesAsync();
+
+            var repository = new EncomendaRepository(context);
+
+            // ACT
+            var result = await repository.GetEncomendasEmProducaoAsync(page: 1, pageSize: 10);
+
+            // ASSERT
+            result.TotalCount.Should().Be(2);
+            result.Items.Should().OnlyContain(e => e.Estado != EstadoEncomenda.CONCLUIDA);
+            result.Items.Should().OnlyContain(e => e.Cliente != null && e.Cliente.Nome == "Cliente Operacional");
+        }
+
         [Test(Description = "TENCREP2 - GetByNumeroEncomendaCliente deve procurar numero normalizado.")]
         public async Task GetByNumeroEncomendaClienteAsync_Should_ReturnEncomenda_When_NumeroHasSpaces()
         {

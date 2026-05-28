@@ -2,6 +2,7 @@ using AutoMapper;
 using FluentAssertions;
 using Moq;
 using TipMolde.Application.Dtos.ClienteDto;
+using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Comercio.ICliente;
 using TipMolde.Application.Mappings;
@@ -106,7 +107,7 @@ public class ClienteServiceTests
     }
 
     [Test(Description = "T2CLI - Create deve falhar quando NIF ja existe.")]
-    public async Task CreateAsync_Should_ThrowArgumentException_When_NifAlreadyExists()
+    public async Task CreateAsync_Should_ThrowBusinessConflictException_When_NifAlreadyExists()
     {
         // ARRANGE
         var dto = BuildCreateDto();
@@ -116,11 +117,11 @@ public class ClienteServiceTests
         Func<Task> act = () => _sut.CreateAsync(dto);
 
         // ASSERT
-        await act.Should().ThrowAsync<ArgumentException>();
+        await act.Should().ThrowAsync<BusinessConflictException>();
     }
 
     [Test(Description = "T3CLI - Create deve falhar quando sigla ja existe.")]
-    public async Task CreateAsync_Should_ThrowArgumentException_When_SiglaAlreadyExists()
+    public async Task CreateAsync_Should_ThrowBusinessConflictException_When_SiglaAlreadyExists()
     {
         // ARRANGE
         var dto = BuildCreateDto();
@@ -131,7 +132,7 @@ public class ClienteServiceTests
         Func<Task> act = () => _sut.CreateAsync(dto);
 
         // ASSERT
-        await act.Should().ThrowAsync<ArgumentException>();
+        await act.Should().ThrowAsync<BusinessConflictException>();
     }
 
     [TestCase("", "123456789", "SIG", Description = "T4CLI-A - Create deve falhar quando nome obrigatorio esta em falta.")]

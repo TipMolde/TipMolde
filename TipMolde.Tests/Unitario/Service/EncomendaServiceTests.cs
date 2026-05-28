@@ -411,6 +411,25 @@ public class EncomendaServiceTests
         result.Items.Single().Encomenda_id.Should().Be(9);
     }
 
+    [Test(Description = "TENCSRV16B - GetEncomendasEmProducao deve mapear payload paginado.")]
+    public async Task GetEncomendasEmProducaoAsync_Should_MapPagedResult_When_RepositoryReturnsItems()
+    {
+        // ARRANGE
+        var paged = new PagedResult<Encomenda>(
+            new[] { BuildEncomenda(id: 19, numero: "ENC-019", estado: EstadoEncomenda.CANCELADA) },
+            1,
+            1,
+            10);
+        _encomendaRepository.Setup(r => r.GetEncomendasEmProducaoAsync(1, 10)).ReturnsAsync(paged);
+
+        // ACT
+        var result = await _sut.GetEncomendasEmProducaoAsync(1, 10);
+
+        // ASSERT
+        result.TotalCount.Should().Be(1);
+        result.Items.Single().Encomenda_id.Should().Be(19);
+    }
+
     [Test(Description = "TENCSRV17 - GetByNumero deve devolver dto quando encomenda existe.")]
     public async Task GetByNumeroEncomendaClienteAsync_Should_ReturnResponse_When_EncomendaExists()
     {

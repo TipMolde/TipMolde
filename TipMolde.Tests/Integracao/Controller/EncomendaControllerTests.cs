@@ -135,6 +135,17 @@ namespace TipMolde.Tests.Integracao.Controller
             Factory.EncomendaService.Verify(s => s.GetEncomendasPorConcluirAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
         }
 
+        [Test(Description = "TENCAPI8B - GET /api/encomendas/em-producao devolve ProblemDetails quando paginacao e invalida.")]
+        public async Task GetEncomendasEmProducao_Should_ReturnProblemDetails_When_PaginationIsInvalid()
+        {
+            // ACT
+            var response = await Client.GetAsync("/api/encomendas/em-producao?page=0&pageSize=10");
+
+            // ASSERT
+            await AssertProblemAsync(response, HttpStatusCode.BadRequest, "Pedido invalido");
+            Factory.EncomendaService.Verify(s => s.GetEncomendasEmProducaoAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        }
+
         [Test(Description = "TENCAPI9 - PUT /api/encomendas/{id} devolve 204 quando request e valida.")]
         public async Task UpdateEncomenda_Should_ReturnNoContent_When_RequestIsValid()
         {

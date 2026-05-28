@@ -108,6 +108,20 @@ namespace TipMolde.Application.Service
         }
 
         /// <summary>
+        /// Lista encomendas em producao para a UI operacional.
+        /// </summary>
+        /// <remarks>
+        /// Nesta regra operacional, em producao significa todas as encomendas cujo estado seja diferente de CONCLUIDA.
+        /// </remarks>
+        public async Task<PagedResult<ResponseEncomendaDto>> GetEncomendasEmProducaoAsync(int page = 1, int pageSize = 10)
+        {
+            var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+            var result = await _encomendaRepository.GetEncomendasEmProducaoAsync(normalizedPage, normalizedPageSize);
+            var mappedItems = _mapper.Map<IEnumerable<ResponseEncomendaDto>>(result.Items);
+            return new PagedResult<ResponseEncomendaDto>(mappedItems, result.TotalCount, result.CurrentPage, result.PageSize);
+        }
+
+        /// <summary>
         /// Obtem encomenda pelo numero de referencia do cliente.
         /// </summary>
         /// <param name="numero">Numero de encomenda do cliente.</param>

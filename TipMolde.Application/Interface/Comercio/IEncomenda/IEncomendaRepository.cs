@@ -20,6 +20,9 @@ namespace TipMolde.Application.Interface.Comercio.IEncomenda
         /// <summary>Lista encomendas com estado nao terminal.</summary>
         Task<PagedResult<Encomenda>> GetEncomendasPorConcluirAsync(int page, int pageSize);
 
+        /// <summary>Lista encomendas em producao para a UI operacional, incluindo cliente associado.</summary>
+        Task<PagedResult<Encomenda>> GetEncomendasEmProducaoAsync(int page, int pageSize);
+
         /// <summary>
         /// Verifica se ja existe encomenda com o numero informado.
         /// </summary>

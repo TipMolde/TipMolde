@@ -60,6 +60,26 @@ namespace TipMolde.Infrastructure.Repositorio
         }
 
         /// <summary>
+        /// Lista encomendas operacionais para a pagina de encomendas, incluindo cliente e excluindo apenas concluidas.
+        /// </summary>
+        public async Task<PagedResult<Encomenda>> GetEncomendasEmProducaoAsync(int page, int pageSize)
+        {
+            var query = _context.Encomendas
+                .AsNoTracking()
+                .Include(e => e.Cliente)
+                .Where(e => e.Estado != EstadoEncomenda.CONCLUIDA)
+                .OrderByDescending(e => e.DataRegisto);
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<Encomenda>(items, totalCount, page, pageSize);
+        }
+
+        /// <summary>
         /// Obtem encomenda pelo numero do cliente.
         /// </summary>
         public async Task<Encomenda?> GetByNumeroEncomendaClienteAsync(string numero)

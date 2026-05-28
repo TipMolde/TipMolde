@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using TipMolde.Application.Dtos.ClienteDto;
+using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Comercio.ICliente;
 using TipMolde.Domain.Entities.Comercio;
@@ -144,11 +145,11 @@ namespace TipMolde.Application.Service
 
             var nifExists = await _clienteRepository.GetByNifAsync(dto.NIF.Trim());
             if (nifExists != null)
-                throw new ArgumentException("Ja existe cliente com este NIF.");
+                throw new BusinessConflictException("Ja existe cliente com este NIF.");
 
             var siglaExists = await _clienteRepository.GetBySiglaAsync(dto.Sigla.Trim());
             if (siglaExists != null)
-                throw new ArgumentException("Ja existe cliente com esta Sigla.");
+                throw new BusinessConflictException("Ja existe cliente com esta Sigla.");
 
             var entity = _mapper.Map<Cliente>(dto);
             await _clienteRepository.AddAsync(entity);
@@ -222,7 +223,7 @@ namespace TipMolde.Application.Service
 
             var nifExists = await _clienteRepository.GetByNifAsync(normalizedNif!);
             if (nifExists != null && nifExists.Cliente_id != existing.Cliente_id)
-                throw new ArgumentException("Ja existe cliente com este NIF.");
+                throw new BusinessConflictException("Ja existe cliente com este NIF.");
         }
 
         private async Task ValidateUniqueSiglaAsync(string? sigla, Cliente existing)
@@ -233,7 +234,7 @@ namespace TipMolde.Application.Service
 
             var siglaExists = await _clienteRepository.GetBySiglaAsync(normalizedSigla!);
             if (siglaExists != null && siglaExists.Cliente_id != existing.Cliente_id)
-                throw new ArgumentException("Ja existe cliente com esta Sigla.");
+                throw new BusinessConflictException("Ja existe cliente com esta Sigla.");
         }
 
         private static void ApplyUpdates(Cliente existing, UpdateClienteDto dto)

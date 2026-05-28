@@ -23,6 +23,9 @@ namespace TipMolde.Application.Interface.Comercio.IEncomenda
         /// <summary>Lista encomendas por concluir.</summary>
         Task<PagedResult<ResponseEncomendaDto>> GetEncomendasPorConcluirAsync(int page = 1, int pageSize = 10);
 
+        /// <summary>Lista encomendas em producao para a UI operacional.</summary>
+        Task<PagedResult<ResponseEncomendaDto>> GetEncomendasEmProducaoAsync(int page = 1, int pageSize = 10);
+
         /// <summary>Obtem encomenda por numero do cliente.</summary>
         Task<ResponseEncomendaDto?> GetByNumeroEncomendaClienteAsync(string numero);
 

@@ -119,6 +119,26 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Lista encomendas em producao para a pagina operacional.
+        /// </summary>
+        /// <remarks>
+        /// Para esta consulta, em producao significa estado diferente de CONCLUIDA.
+        /// </remarks>
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL")]
+        [HttpGet("em-producao")]
+        public async Task<IActionResult> GetEncomendasEmProducao([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            if (page < 1 || pageSize < 1)
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest,
+                    PedidoInvalido,
+                    "Page e pageSize devem ser >= 1."));
+
+            var encomendas = await _encomendaService.GetEncomendasEmProducaoAsync(page, pageSize);
+            return Ok(encomendas);
+        }
+
+        /// <summary>
         /// Lista encomendas por estado.
         /// </summary>
         /// <param name="estado">Nome do estado a filtrar (ex.: CONFIRMADA, EM_PRODUCAO).</param>
