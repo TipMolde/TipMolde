@@ -42,6 +42,25 @@ namespace TipMolde.Infrastructure.DB
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<User>().ToTable("users");
+            modelBuilder.Entity<Cliente>().ToTable("clientes");
+            modelBuilder.Entity<Encomenda>().ToTable("encomendas");
+            modelBuilder.Entity<EncomendaMolde>().ToTable("encomendasmoldes");
+            modelBuilder.Entity<EspecificacoesTecnicas>().ToTable("especificacoestecnicas");
+            modelBuilder.Entity<FasesProducao>().ToTable("fases_producao");
+            modelBuilder.Entity<FichaDocumento>().ToTable("fichasdocumentos");
+            modelBuilder.Entity<FichaProducao>().ToTable("fichasproducao");
+            modelBuilder.Entity<Fornecedor>().ToTable("fornecedores");
+            modelBuilder.Entity<ItemPedidoMaterial>().ToTable("itenspedidomaterial");
+            modelBuilder.Entity<Maquina>().ToTable("maquinas");
+            modelBuilder.Entity<Molde>().ToTable("moldes");
+            modelBuilder.Entity<Peca>().ToTable("pecas");
+            modelBuilder.Entity<PedidoMaterial>().ToTable("pedidosmaterial");
+            modelBuilder.Entity<Projeto>().ToTable("projetos");
+            modelBuilder.Entity<RegistosProducao>().ToTable("registosproducao");
+            modelBuilder.Entity<RegistoTempoProjeto>().ToTable("registostempoprojeto");
+            modelBuilder.Entity<Revisao>().ToTable("revisoes");
+            modelBuilder.Entity<RevokedToken>().ToTable("revokedtokens");
 
             modelBuilder.Entity<User>().HasKey(x => x.User_id);
             modelBuilder.Entity<Cliente>().HasKey(x => x.Cliente_id);

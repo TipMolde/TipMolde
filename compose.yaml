@@ -1,0 +1,44 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: tipmolde-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: Root123456!
+      MYSQL_DATABASE: tipmolde_test
+      MYSQL_USER: tipmolde
+      MYSQL_PASSWORD: TipMolde2018#
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pRoot123456!"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+
+  backend:
+    image: tipmolde-api:latest
+    container_name: tipmolde-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Server=mysql;Port=3306;Database=tipmolde_test;Uid=tipmolde;Pwd=TipMolde2018#;
+      Jwt__SecretKey: TROCAR_POR_CHAVE_FORTE_COM_32+_CARACTERES
+      Jwt__Issuer: TipMolde.Api
+      Jwt__Audience: TipMolde.Client
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Storage:/app/Storage
+      - ./Templates:/app/Templates
+      - ./DataProtection-Keys:/home/app/.aspnet/DataProtection-Keys
+
+volumes:
+  mysql-data:
