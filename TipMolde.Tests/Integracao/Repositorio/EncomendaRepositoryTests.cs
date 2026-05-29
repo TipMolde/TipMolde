@@ -29,8 +29,8 @@ namespace TipMolde.Tests.Integracao.Repositorio
             result.Items.Should().ContainSingle(e => e.NumeroEncomendaCliente == "ENC-001");
         }
 
-        [Test(Description = "TENCREP1B - GetEncomendasEmProducao deve excluir apenas concluidas e carregar cliente.")]
-        public async Task GetEncomendasEmProducaoAsync_Should_IncludeCliente_And_ExcludeOnlyConcluidas()
+        [Test(Description = "TENCREP1B - GetEncomendasEmProducao deve excluir concluidas e canceladas e carregar cliente.")]
+        public async Task GetEncomendasEmProducaoAsync_Should_IncludeCliente_And_ExcludeClosedStates()
         {
             // ARRANGE
             await using var context = CreateContext();
@@ -56,8 +56,11 @@ namespace TipMolde.Tests.Integracao.Repositorio
             var result = await repository.GetEncomendasEmProducaoAsync(page: 1, pageSize: 10);
 
             // ASSERT
-            result.TotalCount.Should().Be(2);
-            result.Items.Should().OnlyContain(e => e.Estado != EstadoEncomenda.CONCLUIDA);
+            result.TotalCount.Should().Be(1);
+            result.Items.Should().OnlyContain(e =>
+                e.Estado != EstadoEncomenda.CONCLUIDA &&
+                e.Estado != EstadoEncomenda.CANCELADA);
+            result.Items.Should().ContainSingle(e => e.NumeroEncomendaCliente == "ENC-101");
             result.Items.Should().OnlyContain(e => e.Cliente != null && e.Cliente.Nome == "Cliente Operacional");
         }
 

@@ -23,6 +23,9 @@ namespace TipMolde.Application.Interface.Comercio.IEncomenda
         /// <summary>Lista encomendas em producao para a UI operacional, incluindo cliente associado.</summary>
         Task<PagedResult<Encomenda>> GetEncomendasEmProducaoAsync(int page, int pageSize);
 
+        /// <summary>Pesquisa encomendas em producao pelo numero da encomenda do cliente, incluindo cliente associado.</summary>
+        Task<PagedResult<Encomenda>> SearchEncomendasEmProducaoAsync(string searchTerm, int page, int pageSize);
+
         /// <summary>
         /// Verifica se ja existe encomenda com o numero informado.
         /// </summary>

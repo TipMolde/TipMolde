@@ -108,15 +108,34 @@ namespace TipMolde.Application.Service
         }
 
         /// <summary>
-        /// Lista encomendas em producao para a UI operacional.
+        /// Lista encomendas em producao.
         /// </summary>
         /// <remarks>
-        /// Nesta regra operacional, em producao significa todas as encomendas cujo estado seja diferente de CONCLUIDA.
+        /// Nesta regra operacional, em producao significa todas as encomendas cujo estado seja diferente de CONCLUIDA e CANCELADA.
         /// </remarks>
         public async Task<PagedResult<ResponseEncomendaDto>> GetEncomendasEmProducaoAsync(int page = 1, int pageSize = 10)
         {
             var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
             var result = await _encomendaRepository.GetEncomendasEmProducaoAsync(normalizedPage, normalizedPageSize);
+            var mappedItems = _mapper.Map<IEnumerable<ResponseEncomendaDto>>(result.Items);
+            return new PagedResult<ResponseEncomendaDto>(mappedItems, result.TotalCount, result.CurrentPage, result.PageSize);
+        }
+
+        /// <summary>
+        /// Pesquisa encomendas em producao pelo nome da encomenda do cliente.
+        /// </summary>
+        /// <param name="searchTerm">Texto obrigatorio da pesquisa.</param>
+        /// <param name="page">Numero da pagina a consultar.</param>
+        /// <param name="pageSize">Quantidade de itens por pagina.</param>
+        /// <returns>Colecao paginada de encomendas em producao que correspondem ao termo pesquisado.</returns>
+        public async Task<PagedResult<ResponseEncomendaDto>> SearchEncomendasEmProducaoAsync(string searchTerm, int page = 1, int pageSize = 10)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                throw new ArgumentException("O parametro searchTerm e obrigatorio.");
+
+            var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+            var normalizedSearchTerm = searchTerm.Trim();
+            var result = await _encomendaRepository.SearchEncomendasEmProducaoAsync(normalizedSearchTerm, normalizedPage, normalizedPageSize);
             var mappedItems = _mapper.Map<IEnumerable<ResponseEncomendaDto>>(result.Items);
             return new PagedResult<ResponseEncomendaDto>(mappedItems, result.TotalCount, result.CurrentPage, result.PageSize);
         }

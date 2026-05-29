@@ -122,7 +122,7 @@ namespace TipMolde.API.Controllers
         /// Lista encomendas em producao para a pagina operacional.
         /// </summary>
         /// <remarks>
-        /// Para esta consulta, em producao significa estado diferente de CONCLUIDA.
+        /// Para esta consulta, em producao significa estado diferente de CONCLUIDA e CANCELADA.
         /// </remarks>
         [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL")]
         [HttpGet("em-producao")]
@@ -135,6 +135,27 @@ namespace TipMolde.API.Controllers
                     "Page e pageSize devem ser >= 1."));
 
             var encomendas = await _encomendaService.GetEncomendasEmProducaoAsync(page, pageSize);
+            return Ok(encomendas);
+        }
+
+        /// <summary>
+        /// Pesquisa encomendas em producao pelo nome da encomenda do cliente.
+        /// </summary>
+        /// <param name="searchTerm">Texto obrigatorio da pesquisa.</param>
+        /// <param name="page">Numero da pagina (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado HTTP com encomendas em producao que correspondem ao criterio de pesquisa.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL")]
+        [HttpGet("em-producao/search")]
+        public async Task<IActionResult> SearchEncomendasEmProducao([FromQuery] string? searchTerm, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            if (page < 1 || pageSize < 1)
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest,
+                    PedidoInvalido,
+                    "Page e pageSize devem ser >= 1."));
+
+            var encomendas = await _encomendaService.SearchEncomendasEmProducaoAsync(searchTerm ?? string.Empty, page, pageSize);
             return Ok(encomendas);
         }
 

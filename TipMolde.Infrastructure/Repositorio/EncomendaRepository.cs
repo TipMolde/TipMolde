@@ -60,14 +60,37 @@ namespace TipMolde.Infrastructure.Repositorio
         }
 
         /// <summary>
-        /// Lista encomendas operacionais para a pagina de encomendas, incluindo cliente e excluindo apenas concluidas.
+        /// Lista encomendas operacionais para a pagina de encomendas, incluindo cliente e excluindo concluidas e canceladas.
         /// </summary>
         public async Task<PagedResult<Encomenda>> GetEncomendasEmProducaoAsync(int page, int pageSize)
         {
             var query = _context.Encomendas
                 .AsNoTracking()
                 .Include(e => e.Cliente)
-                .Where(e => e.Estado != EstadoEncomenda.CONCLUIDA)
+                .Where(e => e.Estado != EstadoEncomenda.CONCLUIDA
+                         && e.Estado != EstadoEncomenda.CANCELADA)
+                .OrderByDescending(e => e.DataRegisto);
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<Encomenda>(items, totalCount, page, pageSize);
+        }
+
+        /// <summary>
+        /// Pesquisa encomendas operacionais pelo numero da encomenda do cliente, excluindo concluidas e canceladas.
+        /// </summary>
+        public async Task<PagedResult<Encomenda>> SearchEncomendasEmProducaoAsync(string searchTerm, int page, int pageSize)
+        {
+            var query = _context.Encomendas
+                .AsNoTracking()
+                .Include(e => e.Cliente)
+                .Where(e => e.Estado != EstadoEncomenda.CONCLUIDA &&
+                            e.Estado != EstadoEncomenda.CANCELADA &&
+                            e.NumeroEncomendaCliente.Contains(searchTerm))
                 .OrderByDescending(e => e.DataRegisto);
 
             var totalCount = await query.CountAsync();
