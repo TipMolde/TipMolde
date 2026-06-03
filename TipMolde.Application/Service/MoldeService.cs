@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using TipMolde.Application.Dtos.MoldeDto;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Comercio.IEncomenda;
+using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Producao;
@@ -20,6 +21,7 @@ namespace TipMolde.Application.Service
     {
         private readonly IMoldeRepository _moldeRepository;
         private readonly IEncomendaRepository _encomendaRepository;
+        private readonly IPrioridadeGlobalMoldeService _prioridadeGlobalMoldeService;
         private readonly IMapper _mapper;
         private readonly ILogger<MoldeService> _logger;
 
@@ -28,16 +30,19 @@ namespace TipMolde.Application.Service
         /// </summary>
         /// <param name="moldeRepository">Repositorio do agregado Molde.</param>
         /// <param name="encomendaRepository">Repositorio usado para validar a encomenda referenciada na criacao.</param>
+        /// <param name="prioridadeGlobalMoldeService">Servico para recalcular a prioridade global dos moldes.</param>
         /// <param name="mapper">Mapper para conversao entre Dtos e entidades.</param>
         /// <param name="logger">Logger para rastreabilidade das operacoes criticas.</param>
         public MoldeService(
             IMoldeRepository moldeRepository,
             IEncomendaRepository encomendaRepository,
+            IPrioridadeGlobalMoldeService prioridadeGlobalMoldeService,
             IMapper mapper,
             ILogger<MoldeService> logger)
         {
             _moldeRepository = moldeRepository;
             _encomendaRepository = encomendaRepository;
+            _prioridadeGlobalMoldeService = prioridadeGlobalMoldeService;
             _mapper = mapper;
             _logger = logger;
         }
@@ -113,6 +118,7 @@ namespace TipMolde.Application.Service
         /// 1. Valida numero unico.
         /// 2. Valida encomenda referenciada.
         /// 3. Persiste molde, especificacoes e associacao EncomendaMolde na mesma transacao.
+        /// 4. Recalcula a fila global de prioridades dos moldes em aberto.
         /// </remarks>
         /// <param name="dto">Dados de criacao do molde.</param>
         /// <returns>DTO do molde criado.</returns>
@@ -140,6 +146,7 @@ namespace TipMolde.Application.Service
             molde.EncomendasMoldes.Add(link);
 
             await _moldeRepository.AddMoldeWithSpecsAndLinkAsync(molde, specs, link);
+            await _prioridadeGlobalMoldeService.RecalcularAsync();
 
             _logger.LogInformation(
                 "Molde {MoldeId} criado com sucesso e associado a encomenda {EncomendaId}",
@@ -188,6 +195,7 @@ namespace TipMolde.Application.Service
             }
 
             await _moldeRepository.UpdateAsync(existente);
+            await _prioridadeGlobalMoldeService.RecalcularAsync();
 
             _logger.LogInformation("Molde {MoldeId} atualizado com sucesso", id);
         }
@@ -195,6 +203,9 @@ namespace TipMolde.Application.Service
         /// <summary>
         /// Remove um molde existente.
         /// </summary>
+        /// <remarks>
+        /// A remocao obriga a rebalancear a fila global porque um elemento operativo deixa de existir.
+        /// </remarks>
         /// <param name="id">Identificador do molde a remover.</param>
         /// <returns>Task de conclusao da remocao.</returns>
         public async Task DeleteAsync(int id)
@@ -204,6 +215,7 @@ namespace TipMolde.Application.Service
                 throw new KeyNotFoundException($"Molde com ID {id} nao encontrado.");
 
             await _moldeRepository.DeleteAsync(id);
+            await _prioridadeGlobalMoldeService.RecalcularAsync();
 
             _logger.LogInformation("Molde {MoldeId} removido com sucesso", id);
         }

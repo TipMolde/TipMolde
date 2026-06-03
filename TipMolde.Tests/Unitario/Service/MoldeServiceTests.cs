@@ -5,6 +5,7 @@ using Moq;
 using TipMolde.Application.Dtos.MoldeDto;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Comercio.IEncomenda;
+using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Mappings;
 using TipMolde.Application.Service;
@@ -14,6 +15,12 @@ using TipMolde.Domain.Enums;
 
 namespace TipMolde.Tests.Unitario.Service;
 
+/// <summary>
+/// Testes unitarios do servico de Molde.
+/// </summary>
+/// <remarks>
+/// Valida o agregado Molde e o rebalanceamento da fila global apos operacoes criticas.
+/// </remarks>
 [TestFixture]
 [Category("Unit")]
 public class MoldeServiceTests
@@ -22,6 +29,7 @@ public class MoldeServiceTests
 
     private Mock<IMoldeRepository> _moldeRepository = null!;
     private Mock<IEncomendaRepository> _encomendaRepository = null!;
+    private Mock<IPrioridadeGlobalMoldeService> _prioridadeGlobalMoldeService = null!;
     private Mock<ILogger<MoldeService>> _logger = null!;
     private IMapper _mapper = null!;
     private MoldeService _sut = null!;
@@ -31,6 +39,7 @@ public class MoldeServiceTests
     {
         _moldeRepository = new Mock<IMoldeRepository>();
         _encomendaRepository = new Mock<IEncomendaRepository>();
+        _prioridadeGlobalMoldeService = new Mock<IPrioridadeGlobalMoldeService>();
         _logger = new Mock<ILogger<MoldeService>>();
 
         var config = new MapperConfiguration(cfg => cfg.AddProfile<MoldeProfile>());
@@ -39,6 +48,7 @@ public class MoldeServiceTests
         _sut = new MoldeService(
             _moldeRepository.Object,
             _encomendaRepository.Object,
+            _prioridadeGlobalMoldeService.Object,
             _mapper,
             _logger.Object);
     }
@@ -196,6 +206,7 @@ public class MoldeServiceTests
                 l.Quantidade == dto.Quantidade &&
                 l.Prioridade == dto.Prioridade)),
             Times.Once);
+        _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Once);
     }
 
     [Test(Description = "TMOLDSRV5 - Update deve falhar quando nenhum campo e enviado.")]
@@ -238,6 +249,7 @@ public class MoldeServiceTests
             m.TipoPedido == TipoPedido.ALTERACAO &&
             m.Especificacoes != null &&
             m.Especificacoes.MaterialInjecao == "PP")), Times.Once);
+        _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Once);
     }
 
     [Test(Description = "TMOLDSRV7 - Delete deve remover molde quando o registo existe.")]
@@ -251,6 +263,7 @@ public class MoldeServiceTests
 
         // ASSERT
         _moldeRepository.Verify(r => r.DeleteAsync(13), Times.Once);
+        _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Once);
     }
 
     [Test(Description = "TMOLDSRV8 - GetAll deve mapear moldes para DTO paginado.")]

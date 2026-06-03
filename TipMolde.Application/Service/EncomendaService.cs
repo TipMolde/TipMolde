@@ -5,6 +5,7 @@ using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Comercio.ICliente;
 using TipMolde.Application.Interface.Comercio.IEncomenda;
+using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Enums;
 
@@ -20,6 +21,7 @@ namespace TipMolde.Application.Service
     {
         private readonly IEncomendaRepository _encomendaRepository;
         private readonly IClienteRepository _clienteRepository;
+        private readonly IPrioridadeGlobalMoldeService _prioridadeGlobalMoldeService;
         private readonly IMapper _mapper;
         private readonly ILogger<EncomendaService> _logger;
 
@@ -28,16 +30,19 @@ namespace TipMolde.Application.Service
         /// </summary>
         /// <param name="encomendaRepository">Repositorio de encomendas.</param>
         /// <param name="clienteRepository">Repositorio de clientes para validacao de FK.</param>
+        /// <param name="prioridadeGlobalMoldeService">Servico para recalcular a prioridade global dos moldes.</param>
         /// <param name="mapper">Mapper para conversao entre entidades e Dtos.</param>
         /// <param name="logger">Logger para rastreabilidade das operacoes.</param>
         public EncomendaService(
             IEncomendaRepository encomendaRepository,
             IClienteRepository clienteRepository,
+            IPrioridadeGlobalMoldeService prioridadeGlobalMoldeService,
             IMapper mapper,
             ILogger<EncomendaService> logger)
         {
             _encomendaRepository = encomendaRepository;
             _clienteRepository = clienteRepository;
+            _prioridadeGlobalMoldeService = prioridadeGlobalMoldeService;
             _mapper = mapper;
             _logger = logger;
         }
@@ -239,6 +244,10 @@ namespace TipMolde.Application.Service
         /// <summary>
         /// Atualiza o estado de uma encomenda respeitando a maquina de estados.
         /// </summary>
+        /// <remarks>
+        /// Quando a encomenda passa para um estado terminal, a fila global dos moldes e recalculada
+        /// para remover essas associacoes do contexto operacional.
+        /// </remarks>
         /// <param name="id">Identificador da encomenda.</param>
         /// <param name="dto">DTO contendo o novo estado da encomenda.</param>
         /// <returns>Task de conclusao da operacao.</returns>
@@ -261,6 +270,8 @@ namespace TipMolde.Application.Service
             _mapper.Map(dto, encomenda);
 
             await _encomendaRepository.UpdateAsync(encomenda);
+            if (dto.Estado == EstadoEncomenda.CONCLUIDA || dto.Estado == EstadoEncomenda.CANCELADA)
+                await _prioridadeGlobalMoldeService.RecalcularAsync();
         }
 
         /// <summary>

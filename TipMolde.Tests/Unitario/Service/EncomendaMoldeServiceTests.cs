@@ -14,6 +14,12 @@ using TipMolde.Domain.Entities.Producao;
 
 namespace TipMolde.Tests.Unitario.Service;
 
+/// <summary>
+/// Testes unitarios do servico de EncomendaMolde.
+/// </summary>
+/// <remarks>
+/// Cobre validacoes da associacao, mapeamento paginado e integracao com a fila global.
+/// </remarks>
 [TestFixture]
 [Category("Unit")]
 public class EncomendaMoldeServiceTests
@@ -21,6 +27,7 @@ public class EncomendaMoldeServiceTests
     private Mock<IEncomendaMoldeRepository> _repo = null!;
     private Mock<IEncomendaRepository> _encomendaRepo = null!;
     private Mock<IMoldeRepository> _moldeRepo = null!;
+    private Mock<IPrioridadeGlobalMoldeService> _prioridadeGlobalMoldeService = null!;
     private Mock<IMapper> _mapper = null!;
     private Mock<ILogger<EncomendaMoldeService>> _logger = null!;
     private EncomendaMoldeService _sut = null!;
@@ -31,10 +38,17 @@ public class EncomendaMoldeServiceTests
         _repo = new Mock<IEncomendaMoldeRepository>();
         _encomendaRepo = new Mock<IEncomendaRepository>();
         _moldeRepo = new Mock<IMoldeRepository>();
+        _prioridadeGlobalMoldeService = new Mock<IPrioridadeGlobalMoldeService>();
         _mapper = new Mock<IMapper>();
         _logger = new Mock<ILogger<EncomendaMoldeService>>();
 
-        _sut = new EncomendaMoldeService(_repo.Object, _encomendaRepo.Object, _moldeRepo.Object, _mapper.Object, _logger.Object);
+        _sut = new EncomendaMoldeService(
+            _repo.Object,
+            _encomendaRepo.Object,
+            _moldeRepo.Object,
+            _prioridadeGlobalMoldeService.Object,
+            _mapper.Object,
+            _logger.Object);
     }
 
     [Test(Description = "TENCMSRV1 - Create deve falhar com conflito quando ja existe o par Encomenda-Molde.")]
@@ -148,6 +162,43 @@ public class EncomendaMoldeServiceTests
         // ASSERT
         result.TotalCount.Should().Be(1);
         result.Items.Single().Molde_id.Should().Be(9);
+    }
+
+    [Test(Description = "TENCMSRV6A - GetFilaGlobal deve delegar o carregamento ao servico de prioridade global.")]
+    public async Task GetFilaGlobalAsync_Should_DelegateToPriorityService()
+    {
+        // ARRANGE
+        var paged = new PagedResult<FilaGlobalMoldeItemDto>(
+            new[]
+            {
+                new FilaGlobalMoldeItemDto
+                {
+                    EncomendaMolde_id = 9,
+                    Encomenda_id = 2,
+                    Molde_id = 5,
+                    Prioridade = 1,
+                    DataEntregaPrevista = new DateTime(2026, 6, 18),
+                    Quantidade = 3,
+                    NumeroEncomendaCliente = "ENC-002",
+                    NomeCliente = "Cliente A",
+                    NumeroMolde = "M-005",
+                    NomeMolde = "Molde A",
+                    EstadoEncomenda = "EM_PRODUCAO"
+                }
+            },
+            1,
+            2,
+            10);
+
+        _prioridadeGlobalMoldeService
+            .Setup(s => s.GetFilaGlobalAsync(2, 10))
+            .ReturnsAsync(paged);
+
+        // ACT
+        var result = await _sut.GetFilaGlobalAsync(2, 10);
+
+        // ASSERT
+        result.Should().BeEquivalentTo(paged);
     }
 
     [Test(Description = "TENCMSRV7 - Create deve falhar quando encomenda nao existe.")]

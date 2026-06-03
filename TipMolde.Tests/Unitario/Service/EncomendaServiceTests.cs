@@ -7,12 +7,19 @@ using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Comercio.ICliente;
 using TipMolde.Application.Interface.Comercio.IEncomenda;
+using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
 using TipMolde.Application.Service;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Enums;
 
 namespace TipMolde.Tests.Unitario.Service;
 
+/// <summary>
+/// Testes unitarios do servico de Encomenda.
+/// </summary>
+/// <remarks>
+/// Valida regras de criacao, atualizacao, transicao de estado e impacto na fila global.
+/// </remarks>
 [TestFixture]
 [Category("Unit")]
 public class EncomendaServiceTests
@@ -21,6 +28,7 @@ public class EncomendaServiceTests
 
     private Mock<IEncomendaRepository> _encomendaRepository = null!;
     private Mock<IClienteRepository> _clienteRepository = null!;
+    private Mock<IPrioridadeGlobalMoldeService> _prioridadeGlobalMoldeService = null!;
     private Mock<IMapper> _mapper = null!;
     private Mock<ILogger<EncomendaService>> _logger = null!;
     private EncomendaService _sut = null!;
@@ -30,6 +38,7 @@ public class EncomendaServiceTests
     {
         _encomendaRepository = new Mock<IEncomendaRepository>();
         _clienteRepository = new Mock<IClienteRepository>();
+        _prioridadeGlobalMoldeService = new Mock<IPrioridadeGlobalMoldeService>();
         _mapper = new Mock<IMapper>();
         _logger = new Mock<ILogger<EncomendaService>>();
 
@@ -94,6 +103,7 @@ public class EncomendaServiceTests
         _sut = new EncomendaService(
             _encomendaRepository.Object,
             _clienteRepository.Object,
+            _prioridadeGlobalMoldeService.Object,
             _mapper.Object,
             _logger.Object);
     }
@@ -473,5 +483,20 @@ public class EncomendaServiceTests
         _encomendaRepository.Verify(r => r.UpdateAsync(It.Is<Encomenda>(e =>
             e.Encomenda_id == 60 &&
             e.Estado == EstadoEncomenda.EM_PRODUCAO)), Times.Once);
+        _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Never);
+    }
+
+    [Test(Description = "TENCSRV20 - UpdateEstado deve recalcular fila global quando a encomenda passa para estado terminal.")]
+    public async Task UpdateEstadoAsync_Should_RecalculateGlobalPriority_When_StateIsTerminal()
+    {
+        // ARRANGE
+        var encomenda = BuildEncomenda(id: 61, estado: EstadoEncomenda.EM_PRODUCAO);
+        _encomendaRepository.Setup(r => r.GetByIdAsync(61)).ReturnsAsync(encomenda);
+
+        // ACT
+        await _sut.UpdateEstadoAsync(61, new UpdateEstadoEncomendaDto { Estado = EstadoEncomenda.CONCLUIDA });
+
+        // ASSERT
+        _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Once);
     }
 }

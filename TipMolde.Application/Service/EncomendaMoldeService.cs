@@ -21,6 +21,7 @@ namespace TipMolde.Application.Service
         private readonly IEncomendaMoldeRepository _repo;
         private readonly IEncomendaRepository _encomendaRepo;
         private readonly IMoldeRepository _moldeRepo;
+        private readonly IPrioridadeGlobalMoldeService _prioridadeGlobalMoldeService;
         private readonly IMapper _mapper;
         private readonly ILogger<EncomendaMoldeService> _logger;
 
@@ -30,18 +31,21 @@ namespace TipMolde.Application.Service
         /// <param name="repo">Repositorio da relacao Encomenda-Molde.</param>
         /// <param name="encomendaRepo">Repositorio de encomenda para validacao de FK.</param>
         /// <param name="moldeRepo">Repositorio de molde para validacao de FK.</param>
+        /// <param name="prioridadeGlobalMoldeService">Servico para recalcular a prioridade global dos moldes.</param>
         /// <param name="mapper">Mapper para conversao entre entidades e Dtos.</param>
         /// <param name="logger">Logger para rastreabilidade das operacoes criticas.</param>
         public EncomendaMoldeService(
             IEncomendaMoldeRepository repo,
             IEncomendaRepository encomendaRepo,
             IMoldeRepository moldeRepo,
+            IPrioridadeGlobalMoldeService prioridadeGlobalMoldeService,
             IMapper mapper,
             ILogger<EncomendaMoldeService> logger)
         {
             _repo = repo;
             _encomendaRepo = encomendaRepo;
             _moldeRepo = moldeRepo;
+            _prioridadeGlobalMoldeService = prioridadeGlobalMoldeService;
             _mapper = mapper;
             _logger = logger;
         }
@@ -74,6 +78,15 @@ namespace TipMolde.Application.Service
             var mapped = _mapper.Map<IEnumerable<ResponseEncomendaMoldeDto>>(result.Items);
             return new PagedResult<ResponseEncomendaMoldeDto>(mapped, result.TotalCount, result.CurrentPage, result.PageSize);
         }
+
+        /// <summary>
+        /// Lista a fila global de moldes com paginacao.
+        /// </summary>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com Dtos da fila global de moldes.</returns>
+        public Task<PagedResult<FilaGlobalMoldeItemDto>> GetFilaGlobalAsync(int page = 1, int pageSize = 10)
+            => _prioridadeGlobalMoldeService.GetFilaGlobalAsync(page, pageSize);
 
         /// <summary>
         /// Lista associacoes por molde com paginacao.

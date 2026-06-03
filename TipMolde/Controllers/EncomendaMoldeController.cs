@@ -72,6 +72,26 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Obtem a fila global de associacoes Encomenda-Molde com paginacao.
+        /// </summary>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>HTTP 200 com resultado paginado; HTTP 400 para paginacao invalida.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_PRODUCAO")]
+        [HttpGet("fila-global")]
+        public async Task<IActionResult> GetFilaGlobal([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            if (page < 1 || pageSize < 1)
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest, 
+                    PedidoInvalido, 
+                    "Page e pageSize devem ser >= 1."));
+
+            var result = await _service.GetFilaGlobalAsync(page, pageSize);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Lista associacoes por molde com paginacao.
         /// </summary>
         /// <param name="moldeId">Identificador do molde para filtro.</param>

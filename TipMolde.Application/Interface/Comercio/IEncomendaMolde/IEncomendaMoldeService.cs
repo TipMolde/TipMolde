@@ -40,6 +40,14 @@ namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
             int moldeId,
             int page = 1,
             int pageSize = 10);
+        
+        /// <summary>
+        /// Lista a fila global de moldes com paginacao.
+        /// </summary>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com Dtos da fila global de moldes.</returns>
+        Task<PagedResult<FilaGlobalMoldeItemDto>> GetFilaGlobalAsync(int page = 1, int pageSize = 10);
 
         /// <summary>
         /// Cria uma nova associacao Encomenda-Molde.
