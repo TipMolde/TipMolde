@@ -1,4 +1,3 @@
-using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Producao;
 
 namespace TipMolde.Application.Interface.Producao.IMolde
@@ -8,7 +7,7 @@ namespace TipMolde.Application.Interface.Producao.IMolde
     /// </summary>
     /// <remarks>
     /// As queries desta feature devem suportar leituras com especificacoes tecnicas
-    /// e a criacao transacional do agregado principal com a respetiva associacao a encomenda.
+    /// e a criacao transacional do agregado principal com as respetivas especificacoes.
     /// </remarks>
     public interface IMoldeRepository : IGenericRepository<Molde, int>
     {
@@ -29,18 +28,16 @@ namespace TipMolde.Application.Interface.Producao.IMolde
         /// <returns>Resultado paginado com os moldes ligados a encomenda indicada.</returns>
         Task<PagedResult<Molde>> GetByEncomendaIdAsync(int encomendaId, int page, int pageSize);
 
-
         /// <summary>
-        /// Persiste o molde, as especificacoes tecnicas e a associacao inicial a encomenda.
+        /// Persiste o molde e as respetivas especificacoes tecnicas.
         /// </summary>
         /// <remarks>
-        /// Este metodo suporta o contrato de criacao do agregado completo quando a API
-        /// recebe, no mesmo pedido, os dados do molde e da relacao EncomendaMolde.
+        /// Este metodo suporta o contrato de criacao do agregado Molde sem acoplamento
+        /// a uma encomenda no mesmo pedido.
         /// </remarks>
         /// <param name="molde">Entidade principal do agregado.</param>
         /// <param name="specs">Especificacoes tecnicas a associar ao molde criado.</param>
-        /// <param name="link">Associacao inicial entre a encomenda e o molde.</param>
         /// <returns>Task de conclusao da operacao de persistencia.</returns>
-        Task AddMoldeWithSpecsAndLinkAsync(Molde molde, EspecificacoesTecnicas specs, EncomendaMolde link);
+        Task AddMoldeWithSpecsAsync(Molde molde, EspecificacoesTecnicas specs);
     }
 }

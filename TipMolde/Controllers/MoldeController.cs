@@ -111,7 +111,8 @@ namespace TipMolde.API.Controllers
         /// Cria um novo molde.
         /// </summary>
         /// <remarks>
-        /// O contrato cria o agregado Molde com especificacoes tecnicas e associacao inicial a uma encomenda.
+        /// O contrato cria o agregado Molde apenas com as respetivas especificacoes tecnicas.
+        /// A ligacao a encomendas e feita posteriormente pela feature EncomendaMolde.
         /// </remarks>
         /// <param name="dto">Dados de criacao do molde.</param>
         /// <returns>HTTP 201 com o molde criado; HTTP 400 quando o body e invalido.</returns>

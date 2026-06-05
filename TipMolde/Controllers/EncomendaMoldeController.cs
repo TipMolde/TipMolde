@@ -113,6 +113,28 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Lista associacoes Encomenda-Molde cujas encomendas estao confirmadas.
+        /// </summary>
+        /// <remarks>
+        /// Este endpoint serve o modulo de desenho para identificar moldes ja autorizados a iniciar trabalho.
+        /// </remarks>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>HTTP 200 com resultado paginado; HTTP 400 para paginacao invalida.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO")]
+        [HttpGet("encomendas-confirmadas")]
+        public async Task<IActionResult> GetByEncomendasConfirmadas(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (page < 1 || pageSize < 1)
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
+
+            var result = await _service.GetByEncomendasConfirmadasAsync(page, pageSize);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Cria uma nova associacao Encomenda-Molde.
         /// </summary>
         /// <param name="dto">Dados de criacao da associacao.</param>
@@ -148,6 +170,25 @@ namespace TipMolde.API.Controllers
 
             await _service.UpdateAsync(id, dto);
             _logger.LogInformation("Controller: EncomendaMolde {EncomendaMoldeId} atualizado", id);
+
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Atualiza o estado operacional de um molde dentro da encomenda.
+        /// </summary>
+        /// <param name="id">Identificador da associacao a atualizar.</param>
+        /// <param name="dto">Estado de destino do molde.</param>
+        /// <returns>HTTP 204 quando a transicao e aplicada com sucesso.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_PRODUCAO")]
+        [HttpPatch("{id:int}/estado")]
+        public async Task<IActionResult> UpdateEstado(int id, [FromBody] UpdateEstadoEncomendaMoldeDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados de atualizacao invalidos."));
+
+            await _service.UpdateEstadoAsync(id, dto);
+            _logger.LogInformation("Controller: estado do EncomendaMolde {EncomendaMoldeId} atualizado", id);
 
             return NoContent();
         }

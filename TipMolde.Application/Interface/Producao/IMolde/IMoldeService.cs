@@ -1,4 +1,4 @@
-﻿using TipMolde.Application.Dtos.MoldeDto;
+using TipMolde.Application.Dtos.MoldeDto;
 
 namespace TipMolde.Application.Interface.Producao.IMolde
 {
@@ -55,8 +55,7 @@ namespace TipMolde.Application.Interface.Producao.IMolde
         /// <remarks>
         /// Fluxo critico:
         /// 1. Valida numero unico.
-        /// 2. Valida encomenda referenciada.
-        /// 3. Persiste molde, especificacoes e associacao EncomendaMolde na mesma transacao.
+        /// 2. Persiste molde e especificacoes tecnicas na mesma transacao.
         /// </remarks>
         /// <param name="dto">Dados de criacao do molde.</param>
         /// <returns>DTO do molde criado.</returns>

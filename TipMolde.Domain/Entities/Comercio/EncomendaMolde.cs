@@ -1,5 +1,6 @@
 ﻿using TipMolde.Domain.Entities.Fichas;
 using TipMolde.Domain.Entities.Producao;
+using TipMolde.Domain.Enums;
 
 namespace TipMolde.Domain.Entities.Comercio
 {
@@ -25,6 +26,11 @@ namespace TipMolde.Domain.Entities.Comercio
         /// Prioridade relativa deste molde dentro da encomenda.
         /// </summary>
         public int Prioridade { get; set; }
+
+        /// <summary>
+        /// Estado atual do Molde na associacao Encomenda-Molde.
+        /// </summary>
+        public EstadoEncomendaMolde Estado { get; set; } = EstadoEncomendaMolde.PENDENTE;
 
         /// <summary>
         /// Data de entrega prevista para este molde no contexto da encomenda.

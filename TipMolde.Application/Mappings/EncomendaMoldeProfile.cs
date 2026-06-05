@@ -20,6 +20,7 @@ namespace TipMolde.Application.Mappings
         {
             CreateMap<CreateEncomendaMoldeDto, EncomendaMolde>()
                 .ForMember(dest => dest.EncomendaMolde_id, opt => opt.Ignore())
+                .ForMember(dest => dest.Estado, opt => opt.Ignore())
                 .ForMember(dest => dest.Encomenda, opt => opt.Ignore())
                 .ForMember(dest => dest.Molde, opt => opt.Ignore())
                 .ForMember(dest => dest.Fichas, opt => opt.Ignore());
@@ -32,6 +33,7 @@ namespace TipMolde.Application.Mappings
                 .MapValueIfProvided(dest => dest.Prioridade, src => src.Prioridade)
                 .MapValueIfProvided(dest => dest.DataEntregaPrevista, src => src.DataEntregaPrevista)
                 .ForMember(dest => dest.EncomendaMolde_id, opt => opt.Ignore())
+                .ForMember(dest => dest.Estado, opt => opt.Ignore())
                 .ForMember(dest => dest.Encomenda_id, opt => opt.Ignore())
                 .ForMember(dest => dest.Molde_id, opt => opt.Ignore())
                 .ForMember(dest => dest.Encomenda, opt => opt.Ignore())

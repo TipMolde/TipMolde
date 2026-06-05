@@ -1,6 +1,5 @@
-﻿using AutoMapper;
+using AutoMapper;
 using TipMolde.Application.Dtos.MoldeDto;
-using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Producao;
 using static TipMolde.Application.Mappings.MappingProfileExtensions;
 
@@ -21,7 +20,6 @@ namespace TipMolde.Application.Mappings
         {
             ConfigureMoldeCreateMap();
             ConfigureEspecificacoesCreateMap();
-            ConfigureEncomendaMoldeCreateMap();
             ConfigureMoldeUpdateMap();
             ConfigureEspecificacoesUpdateMap();
             ConfigureResponseMap();
@@ -55,17 +53,6 @@ namespace TipMolde.Application.Mappings
                 .MapTrimmedOptional(dest => dest.MaterialInjecao, src => src.MaterialInjecao)
                 .ForMember(dest => dest.LadoFixo, opt => opt.Ignore())
                 .ForMember(dest => dest.LadoMovel, opt => opt.Ignore());
-        }
-
-        private void ConfigureEncomendaMoldeCreateMap()
-        {
-            CreateMap<CreateMoldeDto, EncomendaMolde>()
-                .ForMember(dest => dest.EncomendaMolde_id, opt => opt.Ignore())
-                .ForMember(dest => dest.Encomenda_id, opt => opt.MapFrom(src => src.EncomendaId))
-                .ForMember(dest => dest.Molde_id, opt => opt.Ignore())
-                .ForMember(dest => dest.Encomenda, opt => opt.Ignore())
-                .ForMember(dest => dest.Molde, opt => opt.Ignore())
-                .ForMember(dest => dest.Fichas, opt => opt.Ignore());
         }
 
         private void ConfigureMoldeUpdateMap()

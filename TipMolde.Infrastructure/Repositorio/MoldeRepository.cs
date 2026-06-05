@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Producao.IMolde;
-using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Infrastructure.DB;
 
@@ -100,13 +99,12 @@ namespace TipMolde.Infrastructure.Repositorio
 
 
         /// <summary>
-        /// Persiste molde, especificacoes tecnicas e associacao EncomendaMolde na mesma transacao.
+        /// Persiste molde e especificacoes tecnicas na mesma transacao.
         /// </summary>
         /// <param name="molde">Entidade principal do agregado.</param>
         /// <param name="specs">Especificacoes tecnicas do molde.</param>
-        /// <param name="link">Associacao inicial entre encomenda e molde.</param>
         /// <returns>Task de conclusao da operacao.</returns>
-        public async Task AddMoldeWithSpecsAndLinkAsync(Molde molde, EspecificacoesTecnicas specs, EncomendaMolde link)
+        public async Task AddMoldeWithSpecsAsync(Molde molde, EspecificacoesTecnicas specs)
         {
             using var tx = await _context.Database.BeginTransactionAsync();
 
@@ -115,9 +113,6 @@ namespace TipMolde.Infrastructure.Repositorio
 
             specs.Molde_id = molde.Molde_id;
             await _context.EspecificacoesTecnicas.AddAsync(specs);
-
-            link.Molde_id = molde.Molde_id;
-            await _context.EncomendasMoldes.AddAsync(link);
 
             await _context.SaveChangesAsync();
             await tx.CommitAsync();

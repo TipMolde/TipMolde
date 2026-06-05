@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.Extensions.Logging;
 using TipMolde.Application.Dtos.EncomendaMoldeDto;
 using TipMolde.Application.Exceptions;
@@ -7,6 +7,7 @@ using TipMolde.Application.Interface.Comercio.IEncomenda;
 using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Domain.Entities.Comercio;
+using TipMolde.Domain.Enums;
 
 namespace TipMolde.Application.Service
 {
@@ -107,6 +108,22 @@ namespace TipMolde.Application.Service
         }
 
         /// <summary>
+        /// Lista associacoes Encomenda-Molde cujas encomendas estao confirmadas.
+        /// </summary>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com Dtos prontos para consumo pelo modulo de desenho.</returns>
+        public async Task<PagedResult<ResponseEncomendaMoldeDto>> GetByEncomendasConfirmadasAsync(
+            int page = 1,
+            int pageSize = 10)
+        {
+            var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+            var result = await _repo.GetByEncomendasConfirmadasAsync(normalizedPage, normalizedPageSize);
+            var mapped = _mapper.Map<IEnumerable<ResponseEncomendaMoldeDto>>(result.Items);
+            return new PagedResult<ResponseEncomendaMoldeDto>(mapped, result.TotalCount, result.CurrentPage, result.PageSize);
+        }
+
+        /// <summary>
         /// Cria uma associacao Encomenda-Molde.
         /// </summary>
         /// <remarks>
@@ -171,6 +188,40 @@ namespace TipMolde.Application.Service
         }
 
         /// <summary>
+        /// Atualiza o estado operacional de um molde dentro da encomenda e reflete o agregado da encomenda.
+        /// </summary>
+        /// <remarks>
+        /// Quando um molde e concluido:
+        /// 1. Se ainda existirem outros moldes nao concluidos na mesma encomenda, a encomenda passa para PARCIALMENTE_ENTREGUE.
+        /// 2. Caso contrario, a encomenda passa para CONCLUIDA.
+        /// </remarks>
+        /// <param name="id">Identificador da associacao a atualizar.</param>
+        /// <param name="dto">Estado de destino do molde.</param>
+        /// <returns>Task de conclusao da atualizacao.</returns>
+        public async Task UpdateEstadoAsync(int id, UpdateEstadoEncomendaMoldeDto dto)
+        {
+            var existente = await _repo.GetByIdWithEncomendaAsync(id);
+            if (existente == null)
+                throw new KeyNotFoundException($"EncomendaMolde com ID {id} nao encontrada.");
+
+            _logger.LogInformation(
+                "Alteracao de estado do EncomendaMolde {EncomendaMoldeId}: {EstadoAtual} -> {NovoEstado}",
+                id,
+                existente.Estado,
+                dto.Estado);
+
+            ValidarTransicaoEstado(existente.Estado, dto.Estado);
+
+            existente.Estado = dto.Estado;
+            await AtualizarEstadoEncomendaAssociadaAsync(existente);
+
+            await _repo.UpdateAsync(existente);
+
+            if (dto.Estado == EstadoEncomendaMolde.CONCLUIDO)
+                await _prioridadeGlobalMoldeService.RecalcularAsync();
+        }
+
+        /// <summary>
         /// Remove uma associacao Encomenda-Molde.
         /// </summary>
         /// <param name="id">Identificador da associacao a remover.</param>
@@ -183,6 +234,58 @@ namespace TipMolde.Application.Service
 
             await _repo.DeleteAsync(id);
             _logger.LogInformation("EncomendaMolde {EncomendaMoldeId} removido com sucesso", id);
+        }
+
+        /// <summary>
+        /// Propaga para a encomenda o estado agregado resultante da alteracao do molde.
+        /// </summary>
+        /// <param name="encomendaMolde">Associacao em tracking ja com novo estado aplicado.</param>
+        /// <returns>Task de conclusao da logica de propagacao.</returns>
+        private async Task AtualizarEstadoEncomendaAssociadaAsync(EncomendaMolde encomendaMolde)
+        {
+            var encomenda = encomendaMolde.Encomenda;
+            if (encomenda == null)
+                return;
+
+            if (encomenda.Estado == EstadoEncomenda.CANCELADA || encomenda.Estado == EstadoEncomenda.CONCLUIDA)
+                return;
+
+            if (encomendaMolde.Estado == EstadoEncomendaMolde.EM_PRODUCAO &&
+                encomenda.Estado == EstadoEncomenda.CONFIRMADA)
+            {
+                encomenda.Estado = EstadoEncomenda.EM_PRODUCAO;
+                return;
+            }
+
+            if (encomendaMolde.Estado != EstadoEncomendaMolde.CONCLUIDO)
+                return;
+
+            var existemOutrosPorConcluir = await _repo.HasMoldesNaoConcluidosAsync(
+                encomendaMolde.Encomenda_id,
+                encomendaMolde.EncomendaMolde_id);
+
+            encomenda.Estado = existemOutrosPorConcluir
+                ? EstadoEncomenda.PARCIALMENTE_ENTREGUE
+                : EstadoEncomenda.CONCLUIDA;
+        }
+
+        /// <summary>
+        /// Valida as transicoes permitidas para o estado do molde na encomenda.
+        /// </summary>
+        /// <param name="estadoAtual">Estado atual da associacao.</param>
+        /// <param name="novoEstado">Estado alvo.</param>
+        private static void ValidarTransicaoEstado(EstadoEncomendaMolde estadoAtual, EstadoEncomendaMolde novoEstado)
+        {
+            var transicoesValidas = new Dictionary<EstadoEncomendaMolde, List<EstadoEncomendaMolde>>
+            {
+                { EstadoEncomendaMolde.PENDENTE, new() { EstadoEncomendaMolde.EM_PRODUCAO, EstadoEncomendaMolde.CONCLUIDO } },
+                { EstadoEncomendaMolde.EM_PRODUCAO, new() { EstadoEncomendaMolde.CONCLUIDO } },
+                { EstadoEncomendaMolde.CONCLUIDO, new() }
+            };
+
+            if (!transicoesValidas[estadoAtual].Contains(novoEstado))
+                throw new ArgumentException(
+                    $"Transicao de estado invalida: nao e possivel passar de {estadoAtual} para {novoEstado}.");
         }
     }
 }

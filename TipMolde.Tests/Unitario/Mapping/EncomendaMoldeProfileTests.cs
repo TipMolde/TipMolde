@@ -4,6 +4,7 @@ using TipMolde.Application.Dtos.EncomendaMoldeDto;
 using TipMolde.Application.Mappings;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Producao;
+using TipMolde.Domain.Enums;
 
 namespace TipMolde.Tests.Unitario.Mapping;
 
@@ -44,6 +45,7 @@ public class EncomendaMoldeProfileTests
             Molde_id = 20,
             Quantidade = 30,
             Prioridade = 1,
+            Estado = EstadoEncomendaMolde.PENDENTE,
             DataEntregaPrevista = new DateTime(2026, 5, 1),
             Encomenda = new Encomenda { Encomenda_id = 10, NumeroEncomendaCliente = "ENC-10" },
             Molde = new Molde { Molde_id = 20, Numero = "M-20" }
@@ -54,6 +56,7 @@ public class EncomendaMoldeProfileTests
 
         // ASSERT
         result.EncomendaMolde_id.Should().Be(5);
+        result.Estado.Should().Be(EstadoEncomendaMolde.PENDENTE);
         result.NumeroEncomendaCliente.Should().Be("ENC-10");
         result.NumeroMolde.Should().Be("M-20");
     }

@@ -40,6 +40,16 @@ namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
             int moldeId,
             int page = 1,
             int pageSize = 10);
+
+        /// <summary>
+        /// Lista associacoes Encomenda-Molde cujas encomendas estao confirmadas.
+        /// </summary>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com Dtos de associacao aptos para o modulo de desenho.</returns>
+        Task<PagedResult<ResponseEncomendaMoldeDto>> GetByEncomendasConfirmadasAsync(
+            int page = 1,
+            int pageSize = 10);
         
         /// <summary>
         /// Lista a fila global de moldes com paginacao.
@@ -63,6 +73,14 @@ namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
         /// <param name="dto">Dados de atualizacao parcial.</param>
         /// <returns>Task de conclusao da atualizacao.</returns>
         Task UpdateAsync(int id, UpdateEncomendaMoldeDto dto);
+
+        /// <summary>
+        /// Atualiza o estado operacional de uma associacao Encomenda-Molde.
+        /// </summary>
+        /// <param name="id">Identificador da associacao a atualizar.</param>
+        /// <param name="dto">Estado de destino do molde dentro da encomenda.</param>
+        /// <returns>Task de conclusao da atualizacao.</returns>
+        Task UpdateEstadoAsync(int id, UpdateEstadoEncomendaMoldeDto dto);
 
         /// <summary>
         /// Remove uma associacao Encomenda-Molde por identificador.

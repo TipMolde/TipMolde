@@ -45,11 +45,7 @@ namespace TipMolde.Tests.Integracao.Controller
             {
                 numero = "M-001",
                 numero_cavidades = 2,
-                tipoPedido = TipoPedido.NOVO_MOLDE,
-                encomendaId = 1,
-                quantidade = 1,
-                prioridade = 1,
-                dataEntregaPrevista = new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc)
+                tipoPedido = TipoPedido.NOVO_MOLDE
             };
 
             // ACT

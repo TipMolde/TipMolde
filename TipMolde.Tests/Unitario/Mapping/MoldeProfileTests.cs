@@ -78,29 +78,31 @@ public class MoldeProfileTests
         result.Cor.Should().Be(CorMolde.BICOLOR);
     }
 
-    [Test(Description = "TMOLDMAP3 - CreateMoldeDto deve mapear para EncomendaMolde com dados da associacao inicial.")]
-    public void CreateMoldeDTO_Should_MapTo_EncomendaMolde()
+    [Test(Description = "TMOLDMAP3 - CreateMoldeDto deve mapear para Molde sem acoplamento a encomendas.")]
+    public void CreateMoldeDTO_Should_MapTo_Molde()
     {
         // ARRANGE
         var source = new CreateMoldeDto
         {
-            Numero = "MOL-010",
+            Numero = " MOL-010 ",
+            NumeroMoldeCliente = " CLI-010 ",
+            Nome = " Molde 10 ",
             Numero_cavidades = 2,
             TipoPedido = TipoPedido.NOVO_MOLDE,
-            EncomendaId = 20,
-            Quantidade = 50,
-            Prioridade = 3,
-            DataEntregaPrevista = new DateTime(2026, 6, 1)
+            Descricao = " Descricao "
         };
 
         // ACT
-        var result = _mapper.Map<Domain.Entities.Comercio.EncomendaMolde>(source);
+        var result = _mapper.Map<Molde>(source);
 
         // ASSERT
-        result.Encomenda_id.Should().Be(20);
-        result.Quantidade.Should().Be(50);
-        result.Prioridade.Should().Be(3);
-        result.DataEntregaPrevista.Should().Be(new DateTime(2026, 6, 1));
+        result.Numero.Should().Be("MOL-010");
+        result.NumeroMoldeCliente.Should().Be("CLI-010");
+        result.Nome.Should().Be("Molde 10");
+        result.Descricao.Should().Be("Descricao");
+        result.Numero_cavidades.Should().Be(2);
+        result.TipoPedido.Should().Be(TipoPedido.NOVO_MOLDE);
+        result.EncomendasMoldes.Should().BeEmpty();
     }
 
     [Test(Description = "TMOLDMAP4 - UpdateMoldeDto deve atualizar apenas campos preenchidos e preservar os restantes.")]

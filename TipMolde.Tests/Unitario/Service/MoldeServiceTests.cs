@@ -4,12 +4,10 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using TipMolde.Application.Dtos.MoldeDto;
 using TipMolde.Application.Interface;
-using TipMolde.Application.Interface.Comercio.IEncomenda;
 using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Mappings;
 using TipMolde.Application.Service;
-using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 
@@ -28,7 +26,6 @@ public class MoldeServiceTests
     private static readonly int[] ExpectedMoldeIds = [1, 2];
 
     private Mock<IMoldeRepository> _moldeRepository = null!;
-    private Mock<IEncomendaRepository> _encomendaRepository = null!;
     private Mock<IPrioridadeGlobalMoldeService> _prioridadeGlobalMoldeService = null!;
     private Mock<ILogger<MoldeService>> _logger = null!;
     private IMapper _mapper = null!;
@@ -38,7 +35,6 @@ public class MoldeServiceTests
     public void SetUp()
     {
         _moldeRepository = new Mock<IMoldeRepository>();
-        _encomendaRepository = new Mock<IEncomendaRepository>();
         _prioridadeGlobalMoldeService = new Mock<IPrioridadeGlobalMoldeService>();
         _logger = new Mock<ILogger<MoldeService>>();
 
@@ -47,7 +43,6 @@ public class MoldeServiceTests
 
         _sut = new MoldeService(
             _moldeRepository.Object,
-            _encomendaRepository.Object,
             _prioridadeGlobalMoldeService.Object,
             _mapper,
             _logger.Object);
@@ -76,11 +71,7 @@ public class MoldeServiceTests
             MaterialMacho = "P20",
             MaterialCavidade = "H13",
             MaterialMovimentos = "420",
-            MaterialInjecao = "ABS",
-            EncomendaId = 7,
-            Quantidade = 10,
-            Prioridade = 1,
-            DataEntregaPrevista = new DateTime(2026, 5, 10)
+            MaterialInjecao = "ABS"
         };
     }
 
@@ -146,42 +137,19 @@ public class MoldeServiceTests
             .WithMessage("*Ja existe um molde com este numero*");
     }
 
-    [Test(Description = "TMOLDSRV3 - Create deve falhar quando a encomenda referenciada nao existe.")]
-    public async Task CreateAsync_Should_ThrowKeyNotFoundException_When_EncomendaDoesNotExist()
+    [Test(Description = "TMOLDSRV3 - Create deve persistir apenas molde e especificacoes quando dados sao validos.")]
+    public async Task CreateAsync_Should_PersistMoldeAndSpecs_When_DataIsValid()
     {
         // ARRANGE
         var dto = BuildCreateDto();
         _moldeRepository.Setup(r => r.GetByNumeroAsync("MOL-001")).ReturnsAsync((Molde?)null);
-        _encomendaRepository.Setup(r => r.GetByIdAsync(dto.EncomendaId)).ReturnsAsync((Encomenda?)null);
-
-        // ACT
-        Func<Task> act = () => _sut.CreateAsync(dto);
-
-        // ASSERT
-        await act.Should().ThrowAsync<KeyNotFoundException>()
-            .WithMessage($"*{dto.EncomendaId}*");
-    }
-
-    [Test(Description = "TMOLDSRV4 - Create deve persistir molde, especificacoes e associacao quando dados sao validos.")]
-    public async Task CreateAsync_Should_PersistMoldeSpecsAndLink_When_DataIsValid()
-    {
-        // ARRANGE
-        var dto = BuildCreateDto();
-        _moldeRepository.Setup(r => r.GetByNumeroAsync("MOL-001")).ReturnsAsync((Molde?)null);
-        _encomendaRepository.Setup(r => r.GetByIdAsync(dto.EncomendaId))
-            .ReturnsAsync(new Encomenda
-            {
-                Encomenda_id = dto.EncomendaId,
-                NumeroEncomendaCliente = "ENC-007"
-            });
 
         _moldeRepository
-            .Setup(r => r.AddMoldeWithSpecsAndLinkAsync(It.IsAny<Molde>(), It.IsAny<EspecificacoesTecnicas>(), It.IsAny<EncomendaMolde>()))
-            .Callback<Molde, EspecificacoesTecnicas, EncomendaMolde>((molde, specs, link) =>
+            .Setup(r => r.AddMoldeWithSpecsAsync(It.IsAny<Molde>(), It.IsAny<EspecificacoesTecnicas>()))
+            .Callback<Molde, EspecificacoesTecnicas>((molde, specs) =>
             {
                 molde.Molde_id = 25;
                 specs.Molde_id = 25;
-                link.Molde_id = 25;
             })
             .Returns(Task.CompletedTask);
 
@@ -193,20 +161,16 @@ public class MoldeServiceTests
         result.Numero.Should().Be("MOL-001");
         result.NumeroMoldeCliente.Should().Be("CLI-001");
 
-        _moldeRepository.Verify(r => r.AddMoldeWithSpecsAndLinkAsync(
+        _moldeRepository.Verify(r => r.AddMoldeWithSpecsAsync(
             It.Is<Molde>(m =>
                 m.Numero == "MOL-001" &&
                 m.NumeroMoldeCliente == "CLI-001" &&
                 m.Numero_cavidades == 4),
             It.Is<EspecificacoesTecnicas>(s =>
                 s.Largura == 10 &&
-                s.MaterialInjecao == "ABS"),
-            It.Is<EncomendaMolde>(l =>
-                l.Encomenda_id == dto.EncomendaId &&
-                l.Quantidade == dto.Quantidade &&
-                l.Prioridade == dto.Prioridade)),
+                s.MaterialInjecao == "ABS")),
             Times.Once);
-        _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Once);
+        _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Never);
     }
 
     [Test(Description = "TMOLDSRV5 - Update deve falhar quando nenhum campo e enviado.")]

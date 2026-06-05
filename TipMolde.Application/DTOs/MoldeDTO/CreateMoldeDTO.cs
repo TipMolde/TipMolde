@@ -7,8 +7,8 @@ namespace TipMolde.Application.Dtos.MoldeDto
     /// Representa os dados de criacao do agregado Molde.
     /// </summary>
     /// <remarks>
-    /// O contrato de criacao inclui os dados do molde, as especificacoes tecnicas
-    /// e a associacao inicial a uma encomenda.
+    /// O contrato de criacao inclui apenas os dados do molde e as especificacoes tecnicas.
+    /// A associacao a encomendas e tratada pela feature EncomendaMolde.
     /// </remarks>
     public class CreateMoldeDto
     {
@@ -73,20 +73,5 @@ namespace TipMolde.Application.Dtos.MoldeDto
 
         [MaxLength(50)]
         public string? MaterialInjecao { get; set; }
-
-        [Required]
-        [Range(1, int.MaxValue)]
-        public int EncomendaId { get; set; }
-
-        [Required]
-        [Range(1, 999999)]
-        public int Quantidade { get; set; }
-
-        [Required]
-        [Range(1, 9999)]
-        public int Prioridade { get; set; }
-
-        [Required]
-        public DateTime DataEntregaPrevista { get; set; }
     }
 }

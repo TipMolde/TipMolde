@@ -35,6 +35,21 @@ namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
             int pageSize);
 
         /// <summary>
+        /// Lista associacoes Encomenda-Molde cujas encomendas estao confirmadas.
+        /// </summary>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com associacoes aptas para inicio do desenho.</returns>
+        Task<PagedResult<EncomendaMolde>> GetByEncomendasConfirmadasAsync(int page, int pageSize);
+
+        /// <summary>
+        /// Obtem uma associacao por ID com a encomenda associada carregada.
+        /// </summary>
+        /// <param name="id">Identificador da associacao.</param>
+        /// <returns>Associacao com a encomenda carregada ou nulo quando nao existe.</returns>
+        Task<EncomendaMolde?> GetByIdWithEncomendaAsync(int id);
+
+        /// <summary>
         /// Verifica se ja existe associacao para o par Encomenda_id + Molde_id.
         /// </summary>
         /// <param name="encomendaId">Identificador da encomenda da associacao.</param>
@@ -45,6 +60,14 @@ namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
             int encomendaId,
             int moldeId,
             int? excludeEncomendaMoldeId = null);
+
+        /// <summary>
+        /// Indica se a encomenda ainda tem moldes por concluir.
+        /// </summary>
+        /// <param name="encomendaId">Identificador da encomenda.</param>
+        /// <param name="excludeEncomendaMoldeId">Associacao opcional a ignorar na contagem.</param>
+        /// <returns>True quando ainda existe pelo menos um molde nao concluido.</returns>
+        Task<bool> HasMoldesNaoConcluidosAsync(int encomendaId, int? excludeEncomendaMoldeId = null);
 
         /// <summary>
         /// Obtem todas as associacoes Encomenda-Molde pertencentes a encomendas em aberto

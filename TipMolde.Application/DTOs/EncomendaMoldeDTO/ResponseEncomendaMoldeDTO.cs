@@ -1,4 +1,6 @@
-﻿namespace TipMolde.Application.Dtos.EncomendaMoldeDto
+using TipMolde.Domain.Enums;
+
+namespace TipMolde.Application.Dtos.EncomendaMoldeDto
 {
     public class ResponseEncomendaMoldeDto
     {
@@ -7,6 +9,7 @@
         public int Molde_id { get; set; }
         public int Quantidade { get; set; }
         public int Prioridade { get; set; }
+        public EstadoEncomendaMolde Estado { get; set; }
         public DateTime DataEntregaPrevista { get; set; }
 
         public string? NumeroEncomendaCliente { get; set; }

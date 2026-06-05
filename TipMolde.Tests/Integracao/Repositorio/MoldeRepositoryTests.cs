@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
@@ -120,34 +120,24 @@ namespace TipMolde.Tests.Integracao.Repositorio
             result!.Especificacoes!.MaterialCavidade.Should().Be("H13");
         }
 
-        [Test(Description = "TMOLREP5 - AddMoldeWithSpecsAndLink deve persistir molde, especificacoes e associacao.")]
-        public async Task AddMoldeWithSpecsAndLinkAsync_Should_PersistAggregateParts()
+        [Test(Description = "TMOLREP5 - AddMoldeWithSpecs deve persistir molde e especificacoes.")]
+        public async Task AddMoldeWithSpecsAsync_Should_PersistAggregateParts()
         {
             // ARRANGE
             await using var context = CreateContext();
-            var encomenda = new Encomenda { NumeroEncomendaCliente = "ENC-ADD" };
-            await context.Encomendas.AddAsync(encomenda);
-            await context.SaveChangesAsync();
 
             var molde = new Molde { Numero = "M-ADD", Numero_cavidades = 2, TipoPedido = TipoPedido.NOVO_MOLDE };
             var specs = new EspecificacoesTecnicas { MaterialMacho = "P20" };
-            var link = new EncomendaMolde
-            {
-                Encomenda_id = encomenda.Encomenda_id,
-                Quantidade = 1,
-                Prioridade = 1,
-                DataEntregaPrevista = DateTime.UtcNow.AddDays(10)
-            };
 
             var repository = new MoldeRepository(context);
 
             // ACT
-            await repository.AddMoldeWithSpecsAndLinkAsync(molde, specs, link);
+            await repository.AddMoldeWithSpecsAsync(molde, specs);
 
             // ASSERT
             molde.Molde_id.Should().BeGreaterThan(0);
             context.EspecificacoesTecnicas.Should().ContainSingle(e => e.Molde_id == molde.Molde_id && e.MaterialMacho == "P20");
-            context.EncomendasMoldes.Should().ContainSingle(em => em.Encomenda_id == encomenda.Encomenda_id && em.Molde_id == molde.Molde_id);
+            context.EncomendasMoldes.Should().BeEmpty();
         }
     }
 }

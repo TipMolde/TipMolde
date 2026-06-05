@@ -84,6 +84,45 @@ namespace TipMolde.Infrastructure.Repositorio
         }
 
         /// <summary>
+        /// Lista associacoes Encomenda-Molde cujas encomendas estao confirmadas.
+        /// </summary>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com associacoes aptas para inicio do desenho.</returns>
+        public async Task<PagedResult<EncomendaMolde>> GetByEncomendasConfirmadasAsync(int page, int pageSize)
+        {
+            var query = _context.EncomendasMoldes
+                .AsNoTracking()
+                .Include(em => em.Encomenda)
+                .Include(em => em.Molde)
+                .Where(em => em.Encomenda != null && em.Encomenda.Estado == EstadoEncomenda.CONFIRMADA)
+                .OrderBy(em => em.DataEntregaPrevista.Date)
+                .ThenBy(em => em.Prioridade)
+                .ThenBy(em => em.EncomendaMolde_id);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<EncomendaMolde>(items, totalCount, page, pageSize);
+        }
+
+        /// <summary>
+        /// Obtem uma associacao por ID com a encomenda associada carregada em tracking.
+        /// </summary>
+        /// <param name="id">Identificador da associacao.</param>
+        /// <returns>Associacao encontrada ou nulo quando nao existe.</returns>
+        public Task<EncomendaMolde?> GetByIdWithEncomendaAsync(int id)
+        {
+            return _context.EncomendasMoldes
+                .Include(em => em.Encomenda)
+                .FirstOrDefaultAsync(em => em.EncomendaMolde_id == id);
+        }
+
+        /// <summary>
         /// Verifica se existe associacao duplicada para o par Encomenda-Molde.
         /// </summary>
         /// <param name="encomendaId">Identificador da encomenda.</param>
@@ -102,6 +141,20 @@ namespace TipMolde.Infrastructure.Repositorio
         }
 
         /// <summary>
+        /// Indica se a encomenda ainda tem moldes nao concluidos.
+        /// </summary>
+        /// <param name="encomendaId">Identificador da encomenda.</param>
+        /// <param name="excludeEncomendaMoldeId">Associacao opcional a ignorar.</param>
+        /// <returns>True quando ainda existe pelo menos um molde nao concluido.</returns>
+        public Task<bool> HasMoldesNaoConcluidosAsync(int encomendaId, int? excludeEncomendaMoldeId = null)
+        {
+            return _context.EncomendasMoldes.AnyAsync(
+                em => em.Encomenda_id == encomendaId &&
+                      em.Estado != EstadoEncomendaMolde.CONCLUIDO &&
+                      (!excludeEncomendaMoldeId.HasValue || em.EncomendaMolde_id != excludeEncomendaMoldeId.Value));
+        }
+
+        /// <summary>
         /// Obtem a base completa da fila global de moldes, incluindo encomenda, cliente e molde.
         /// </summary>
         /// <returns>Colecao materializada de associacoes pertencentes a encomendas em aberto.</returns>
@@ -112,6 +165,7 @@ namespace TipMolde.Infrastructure.Repositorio
                     .ThenInclude(e => e.Cliente)
                 .Include(em => em.Molde)
                 .Where(em => em.Encomenda != null &&
+                             em.Estado != EstadoEncomendaMolde.CONCLUIDO &&
                              em.Encomenda!.Estado != EstadoEncomenda.CONCLUIDA &&
                              em.Encomenda!.Estado != EstadoEncomenda.CANCELADA)
                 .ToListAsync();
