@@ -33,7 +33,7 @@ public class PrioridadeGlobalMoldeService : IPrioridadeGlobalMoldeService
         var items = await _repo.GetFilaGlobalAbertosAsync();
 
         var ordered = items
-            .OrderBy(x => x.DataEntregaPrevista.Date)
+            .OrderBy(x => x.DataEntregaPrevista)
             .ThenBy(x => x.EncomendaMolde_id)
             .ToList();
 

@@ -125,7 +125,7 @@ namespace TipMolde.API.Controllers
         /// </remarks>
         /// <param name="id">Identificador do pedido a marcar como recebido.</param>
         /// <returns>Resultado HTTP sem conteudo quando a rececao e concluida.</returns>
-        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_PRODUCAO")]
+        [Authorize]
         [HttpPut("{id:int}/rececao")]
         public async Task<IActionResult> RegistarRececao(int id)
         {

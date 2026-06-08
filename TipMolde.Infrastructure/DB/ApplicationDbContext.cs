@@ -149,6 +149,11 @@ namespace TipMolde.Infrastructure.DB
                 .IsUnique();
 
             modelBuilder.Entity<EncomendaMolde>()
+                .Property(em => em.Estado)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+
+            modelBuilder.Entity<EncomendaMolde>()
                 .HasOne(em => em.Encomenda)
                 .WithMany(e => e.EncomendasMoldes)
                 .HasForeignKey(em => em.Encomenda_id);

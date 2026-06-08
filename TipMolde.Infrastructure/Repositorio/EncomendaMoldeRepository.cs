@@ -96,7 +96,7 @@ namespace TipMolde.Infrastructure.Repositorio
                 .Include(em => em.Encomenda)
                 .Include(em => em.Molde)
                 .Where(em => em.Encomenda != null && em.Encomenda.Estado == EstadoEncomenda.CONFIRMADA)
-                .OrderBy(em => em.DataEntregaPrevista.Date)
+                .OrderBy(em => em.DataEntregaPrevista)
                 .ThenBy(em => em.Prioridade)
                 .ThenBy(em => em.EncomendaMolde_id);
 
@@ -188,7 +188,7 @@ namespace TipMolde.Infrastructure.Repositorio
                              em.Encomenda!.Estado != EstadoEncomenda.CONCLUIDA &&
                              em.Encomenda!.Estado != EstadoEncomenda.CANCELADA)
                 .OrderBy(em => em.Prioridade)
-                .ThenBy(em => em.DataEntregaPrevista.Date)
+                .ThenBy(em => em.DataEntregaPrevista)
                 .ThenBy(em => em.EncomendaMolde_id);
 
             var totalCount = await query.CountAsync();

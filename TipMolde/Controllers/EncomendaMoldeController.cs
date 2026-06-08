@@ -77,7 +77,7 @@ namespace TipMolde.API.Controllers
         /// <param name="page">Pagina atual (>= 1).</param>
         /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
         /// <returns>HTTP 200 com resultado paginado; HTTP 400 para paginacao invalida.</returns>
-        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_PRODUCAO")]
+        [Authorize]
         [HttpGet("fila-global")]
         public async Task<IActionResult> GetFilaGlobal([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
