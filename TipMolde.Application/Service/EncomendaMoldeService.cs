@@ -30,7 +30,7 @@ namespace TipMolde.Application.Service
         /// Construtor de EncomendaMoldeService.
         /// </summary>
         /// <param name="repo">Repositorio da relacao Encomenda-Molde.</param>
-        /// <param name="encomendaRepo">Repositorio de encomenda para validacao de FK.</param>
+        /// <param name="encomendaRepo">Repositorio de encomenda para validacao de FK e atualizacao do agregado.</param>
         /// <param name="moldeRepo">Repositorio de molde para validacao de FK.</param>
         /// <param name="prioridadeGlobalMoldeService">Servico para recalcular a prioridade global dos moldes.</param>
         /// <param name="mapper">Mapper para conversao entre entidades e Dtos.</param>
@@ -149,6 +149,7 @@ namespace TipMolde.Application.Service
                 throw new BusinessConflictException($"Ja existe associacao para Encomenda_id={dto.Encomenda_id} e Molde_id={dto.Molde_id}.");
 
             var entity = _mapper.Map<EncomendaMolde>(dto);
+            entity.Estado = EstadoEncomendaMolde.PENDENTE;
             await _repo.AddAsync(entity);
 
             _logger.LogInformation(
@@ -191,16 +192,16 @@ namespace TipMolde.Application.Service
         /// Atualiza o estado operacional de um molde dentro da encomenda e reflete o agregado da encomenda.
         /// </summary>
         /// <remarks>
-        /// Quando um molde e concluido:
-        /// 1. Se ainda existirem outros moldes nao concluidos na mesma encomenda, a encomenda passa para PARCIALMENTE_ENTREGUE.
-        /// 2. Caso contrario, a encomenda passa para CONCLUIDA.
+        /// O backend autoriza a mudanca manual para EM_PRODUCAO apenas quando todas as pecas
+        /// do molde ja receberam material. A mudanca manual para CONCLUIDO so e autorizada
+        /// quando todas as pecas estao concluidas na fase de montagem.
         /// </remarks>
         /// <param name="id">Identificador da associacao a atualizar.</param>
         /// <param name="dto">Estado de destino do molde.</param>
         /// <returns>Task de conclusao da atualizacao.</returns>
         public async Task UpdateEstadoAsync(int id, UpdateEstadoEncomendaMoldeDto dto)
         {
-            var existente = await _repo.GetByIdWithEncomendaAsync(id);
+            var existente = await _repo.GetByIdAsync(id);
             if (existente == null)
                 throw new KeyNotFoundException($"EncomendaMolde com ID {id} nao encontrada.");
 
@@ -212,10 +213,23 @@ namespace TipMolde.Application.Service
 
             ValidarTransicaoEstado(existente.Estado, dto.Estado);
 
-            existente.Estado = dto.Estado;
-            await AtualizarEstadoEncomendaAssociadaAsync(existente);
+            if (dto.Estado == EstadoEncomendaMolde.EM_PRODUCAO &&
+                !await PodeEntrarEmProducaoAsync(existente.Molde_id))
+            {
+                throw new ArgumentException(
+                    "Nao e possivel colocar o molde em producao: todas as pecas devem ter MaterialRecebido = true.");
+            }
 
+            if (dto.Estado == EstadoEncomendaMolde.CONCLUIDO &&
+                !await PodeConcluirAsync(existente.Molde_id))
+            {
+                throw new ArgumentException(
+                    "Nao e possivel concluir o molde: todas as pecas devem estar concluidas na fase MONTAGEM.");
+            }
+
+            existente.Estado = dto.Estado;
             await _repo.UpdateAsync(existente);
+            await AtualizarEstadoEncomendaAssociadaAsync(existente.Encomenda_id);
 
             if (dto.Estado == EstadoEncomendaMolde.CONCLUIDO)
                 await _prioridadeGlobalMoldeService.RecalcularAsync();
@@ -237,36 +251,65 @@ namespace TipMolde.Application.Service
         }
 
         /// <summary>
-        /// Propaga para a encomenda o estado agregado resultante da alteracao do molde.
+        /// Indica se o molde pode entrar manualmente em producao.
         /// </summary>
-        /// <param name="encomendaMolde">Associacao em tracking ja com novo estado aplicado.</param>
+        /// <param name="moldeId">Identificador do molde a validar.</param>
+        /// <returns>True quando todas as pecas do molde possuem material recebido.</returns>
+        private Task<bool> PodeEntrarEmProducaoAsync(int moldeId)
+            => _repo.TodasPecasTemMaterialRecebidoAsync(moldeId);
+
+        /// <summary>
+        /// Indica se o molde pode ser marcado manualmente como concluido.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde a validar.</param>
+        /// <returns>True quando todas as pecas estao concluidas na fase MONTAGEM.</returns>
+        private Task<bool> PodeConcluirAsync(int moldeId)
+            => _repo.TodasPecasConcluidasNaMontagemAsync(moldeId);
+
+        /// <summary>
+        /// Recalcula o estado agregado da encomenda com base em todos os moldes associados.
+        /// </summary>
+        /// <param name="encomendaId">Identificador da encomenda a recalcular.</param>
         /// <returns>Task de conclusao da logica de propagacao.</returns>
-        private async Task AtualizarEstadoEncomendaAssociadaAsync(EncomendaMolde encomendaMolde)
+        private async Task AtualizarEstadoEncomendaAssociadaAsync(int encomendaId)
         {
-            var encomenda = encomendaMolde.Encomenda;
+            var encomenda = await _encomendaRepo.GetByIdAsync(encomendaId);
             if (encomenda == null)
                 return;
 
             if (encomenda.Estado == EstadoEncomenda.CANCELADA || encomenda.Estado == EstadoEncomenda.CONCLUIDA)
                 return;
 
-            if (encomendaMolde.Estado == EstadoEncomendaMolde.EM_PRODUCAO &&
-                encomenda.Estado == EstadoEncomenda.CONFIRMADA)
-            {
-                encomenda.Estado = EstadoEncomenda.EM_PRODUCAO;
-                return;
-            }
-
-            if (encomendaMolde.Estado != EstadoEncomendaMolde.CONCLUIDO)
+            var estados = await _repo.GetEstadosByEncomendaIdAsync(encomendaId);
+            if (estados.Count == 0)
                 return;
 
-            var existemOutrosPorConcluir = await _repo.HasMoldesNaoConcluidosAsync(
-                encomendaMolde.Encomenda_id,
-                encomendaMolde.EncomendaMolde_id);
+            var novoEstado = DeterminarEstadoEncomenda(estados);
+            if (encomenda.Estado == novoEstado)
+                return;
 
-            encomenda.Estado = existemOutrosPorConcluir
-                ? EstadoEncomenda.PARCIALMENTE_ENTREGUE
-                : EstadoEncomenda.CONCLUIDA;
+            encomenda.Estado = novoEstado;
+            await _encomendaRepo.UpdateAsync(encomenda);
+        }
+
+        /// <summary>
+        /// Determina o estado agregado da encomenda a partir dos estados dos moldes.
+        /// </summary>
+        /// <param name="estados">Estados atuais de todos os moldes da encomenda.</param>
+        /// <returns>Estado agregado que a encomenda deve assumir.</returns>
+        private static EstadoEncomenda DeterminarEstadoEncomenda(List<EstadoEncomendaMolde> estados)
+        {
+            if (estados.All(e => e == EstadoEncomendaMolde.CONCLUIDO))
+                return EstadoEncomenda.CONCLUIDA;
+
+            if (estados.Any(e => e == EstadoEncomendaMolde.EM_PRODUCAO))
+                return EstadoEncomenda.EM_PRODUCAO;
+
+            var concluidos = estados.Count(e => e == EstadoEncomendaMolde.CONCLUIDO);
+            if (concluidos > 0 && concluidos < estados.Count)
+                return EstadoEncomenda.PARCIALMENTE_ENTREGUE;
+
+            return EstadoEncomenda.CONFIRMADA;
         }
 
         /// <summary>
@@ -278,7 +321,7 @@ namespace TipMolde.Application.Service
         {
             var transicoesValidas = new Dictionary<EstadoEncomendaMolde, List<EstadoEncomendaMolde>>
             {
-                { EstadoEncomendaMolde.PENDENTE, new() { EstadoEncomendaMolde.EM_PRODUCAO, EstadoEncomendaMolde.CONCLUIDO } },
+                { EstadoEncomendaMolde.PENDENTE, new() { EstadoEncomendaMolde.EM_PRODUCAO } },
                 { EstadoEncomendaMolde.EM_PRODUCAO, new() { EstadoEncomendaMolde.CONCLUIDO } },
                 { EstadoEncomendaMolde.CONCLUIDO, new() }
             };

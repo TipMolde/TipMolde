@@ -304,7 +304,7 @@ public class EncomendaMoldeServiceTests
     public async Task UpdateEstadoAsync_Should_ThrowKeyNotFoundException_When_LinkDoesNotExist()
     {
         // ARRANGE
-        _repo.Setup(r => r.GetByIdWithEncomendaAsync(88)).ReturnsAsync((EncomendaMolde?)null);
+        _repo.Setup(r => r.GetByIdAsync(88)).ReturnsAsync((EncomendaMolde?)null);
 
         // ACT
         Func<Task> act = () => _sut.UpdateEstadoAsync(88, new UpdateEstadoEncomendaMoldeDto
@@ -316,7 +316,59 @@ public class EncomendaMoldeServiceTests
         await act.Should().ThrowAsync<KeyNotFoundException>();
     }
 
-    [Test(Description = "TENCMSRV9B - UpdateEstado deve colocar a encomenda como parcialmente entregue quando ainda existem outros moldes por concluir.")]
+    [Test(Description = "TENCMSRV9B - UpdateEstado deve falhar quando o molde ainda nao tem todas as pecas com material recebido.")]
+    public async Task UpdateEstadoAsync_Should_ThrowArgumentException_When_MoldeCannotEnterProduction()
+    {
+        // ARRANGE
+        var link = new EncomendaMolde
+        {
+            EncomendaMolde_id = 12,
+            Encomenda_id = 2,
+            Molde_id = 7,
+            Estado = EstadoEncomendaMolde.PENDENTE
+        };
+
+        _repo.Setup(r => r.GetByIdAsync(12)).ReturnsAsync(link);
+        _repo.Setup(r => r.TodasPecasTemMaterialRecebidoAsync(7)).ReturnsAsync(false);
+
+        // ACT
+        Func<Task> act = () => _sut.UpdateEstadoAsync(12, new UpdateEstadoEncomendaMoldeDto
+        {
+            Estado = EstadoEncomendaMolde.EM_PRODUCAO
+        });
+
+        // ASSERT
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*MaterialRecebido = true*");
+    }
+
+    [Test(Description = "TENCMSRV9C - UpdateEstado deve falhar quando o molde ainda nao esta 100 por cento concluido na montagem.")]
+    public async Task UpdateEstadoAsync_Should_ThrowArgumentException_When_MoldeCannotBeConcluded()
+    {
+        // ARRANGE
+        var link = new EncomendaMolde
+        {
+            EncomendaMolde_id = 13,
+            Encomenda_id = 2,
+            Molde_id = 9,
+            Estado = EstadoEncomendaMolde.EM_PRODUCAO
+        };
+
+        _repo.Setup(r => r.GetByIdAsync(13)).ReturnsAsync(link);
+        _repo.Setup(r => r.TodasPecasConcluidasNaMontagemAsync(9)).ReturnsAsync(false);
+
+        // ACT
+        Func<Task> act = () => _sut.UpdateEstadoAsync(13, new UpdateEstadoEncomendaMoldeDto
+        {
+            Estado = EstadoEncomendaMolde.CONCLUIDO
+        });
+
+        // ASSERT
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*fase MONTAGEM*");
+    }
+
+    [Test(Description = "TENCMSRV9D - UpdateEstado deve colocar a encomenda como parcialmente entregue quando ainda existem outros moldes por concluir.")]
     public async Task UpdateEstadoAsync_Should_SetEncomendaToParcialmenteEntregue_When_OtherMoldesRemain()
     {
         // ARRANGE
@@ -331,13 +383,15 @@ public class EncomendaMoldeServiceTests
         {
             EncomendaMolde_id = 15,
             Encomenda_id = 3,
-            Encomenda = encomenda,
             Molde_id = 8,
             Estado = EstadoEncomendaMolde.EM_PRODUCAO
         };
 
-        _repo.Setup(r => r.GetByIdWithEncomendaAsync(15)).ReturnsAsync(link);
-        _repo.Setup(r => r.HasMoldesNaoConcluidosAsync(3, 15)).ReturnsAsync(true);
+        _repo.Setup(r => r.GetByIdAsync(15)).ReturnsAsync(link);
+        _repo.Setup(r => r.TodasPecasConcluidasNaMontagemAsync(8)).ReturnsAsync(true);
+        _repo.Setup(r => r.GetEstadosByEncomendaIdAsync(3))
+            .ReturnsAsync(new List<EstadoEncomendaMolde> { EstadoEncomendaMolde.CONCLUIDO, EstadoEncomendaMolde.PENDENTE });
+        _encomendaRepo.Setup(r => r.GetByIdAsync(3)).ReturnsAsync(encomenda);
 
         // ACT
         await _sut.UpdateEstadoAsync(15, new UpdateEstadoEncomendaMoldeDto
@@ -346,17 +400,18 @@ public class EncomendaMoldeServiceTests
         });
 
         // ASSERT
-        encomenda.Estado.Should().Be(EstadoEncomenda.PARCIALMENTE_ENTREGUE);
         link.Estado.Should().Be(EstadoEncomendaMolde.CONCLUIDO);
+        encomenda.Estado.Should().Be(EstadoEncomenda.PARCIALMENTE_ENTREGUE);
         _repo.Verify(r => r.UpdateAsync(It.Is<EncomendaMolde>(e =>
             e.EncomendaMolde_id == 15 &&
-            e.Estado == EstadoEncomendaMolde.CONCLUIDO &&
-            e.Encomenda != null &&
-            e.Encomenda.Estado == EstadoEncomenda.PARCIALMENTE_ENTREGUE)), Times.Once);
+            e.Estado == EstadoEncomendaMolde.CONCLUIDO)), Times.Once);
+        _encomendaRepo.Verify(r => r.UpdateAsync(It.Is<Encomenda>(e =>
+            e.Encomenda_id == 3 &&
+            e.Estado == EstadoEncomenda.PARCIALMENTE_ENTREGUE)), Times.Once);
         _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Once);
     }
 
-    [Test(Description = "TENCMSRV9C - UpdateEstado deve concluir a encomenda quando o molde atualizado e o ultimo por concluir.")]
+    [Test(Description = "TENCMSRV9E - UpdateEstado deve concluir a encomenda quando o molde atualizado e o ultimo por concluir.")]
     public async Task UpdateEstadoAsync_Should_SetEncomendaToConcluida_When_LastMoldeIsDelivered()
     {
         // ARRANGE
@@ -371,13 +426,15 @@ public class EncomendaMoldeServiceTests
         {
             EncomendaMolde_id = 21,
             Encomenda_id = 4,
-            Encomenda = encomenda,
             Molde_id = 11,
             Estado = EstadoEncomendaMolde.EM_PRODUCAO
         };
 
-        _repo.Setup(r => r.GetByIdWithEncomendaAsync(21)).ReturnsAsync(link);
-        _repo.Setup(r => r.HasMoldesNaoConcluidosAsync(4, 21)).ReturnsAsync(false);
+        _repo.Setup(r => r.GetByIdAsync(21)).ReturnsAsync(link);
+        _repo.Setup(r => r.TodasPecasConcluidasNaMontagemAsync(11)).ReturnsAsync(true);
+        _repo.Setup(r => r.GetEstadosByEncomendaIdAsync(4))
+            .ReturnsAsync(new List<EstadoEncomendaMolde> { EstadoEncomendaMolde.CONCLUIDO, EstadoEncomendaMolde.CONCLUIDO });
+        _encomendaRepo.Setup(r => r.GetByIdAsync(4)).ReturnsAsync(encomenda);
 
         // ACT
         await _sut.UpdateEstadoAsync(21, new UpdateEstadoEncomendaMoldeDto
@@ -387,15 +444,13 @@ public class EncomendaMoldeServiceTests
 
         // ASSERT
         encomenda.Estado.Should().Be(EstadoEncomenda.CONCLUIDA);
-        _repo.Verify(r => r.UpdateAsync(It.Is<EncomendaMolde>(e =>
-            e.EncomendaMolde_id == 21 &&
-            e.Estado == EstadoEncomendaMolde.CONCLUIDO &&
-            e.Encomenda != null &&
-            e.Encomenda.Estado == EstadoEncomenda.CONCLUIDA)), Times.Once);
+        _encomendaRepo.Verify(r => r.UpdateAsync(It.Is<Encomenda>(e =>
+            e.Encomenda_id == 4 &&
+            e.Estado == EstadoEncomenda.CONCLUIDA)), Times.Once);
         _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Once);
     }
 
-    [Test(Description = "TENCMSRV9D - UpdateEstado deve colocar a encomenda em producao quando o primeiro molde arranca.")]
+    [Test(Description = "TENCMSRV9F - UpdateEstado deve colocar a encomenda em producao quando o primeiro molde arranca.")]
     public async Task UpdateEstadoAsync_Should_SetEncomendaToEmProducao_When_FirstMoldeStarts()
     {
         // ARRANGE
@@ -410,12 +465,15 @@ public class EncomendaMoldeServiceTests
         {
             EncomendaMolde_id = 30,
             Encomenda_id = 5,
-            Encomenda = encomenda,
             Molde_id = 14,
             Estado = EstadoEncomendaMolde.PENDENTE
         };
 
-        _repo.Setup(r => r.GetByIdWithEncomendaAsync(30)).ReturnsAsync(link);
+        _repo.Setup(r => r.GetByIdAsync(30)).ReturnsAsync(link);
+        _repo.Setup(r => r.TodasPecasTemMaterialRecebidoAsync(14)).ReturnsAsync(true);
+        _repo.Setup(r => r.GetEstadosByEncomendaIdAsync(5))
+            .ReturnsAsync(new List<EstadoEncomendaMolde> { EstadoEncomendaMolde.EM_PRODUCAO, EstadoEncomendaMolde.PENDENTE });
+        _encomendaRepo.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(encomenda);
 
         // ACT
         await _sut.UpdateEstadoAsync(30, new UpdateEstadoEncomendaMoldeDto
@@ -424,12 +482,11 @@ public class EncomendaMoldeServiceTests
         });
 
         // ASSERT
+        link.Estado.Should().Be(EstadoEncomendaMolde.EM_PRODUCAO);
         encomenda.Estado.Should().Be(EstadoEncomenda.EM_PRODUCAO);
-        _repo.Verify(r => r.UpdateAsync(It.Is<EncomendaMolde>(e =>
-            e.EncomendaMolde_id == 30 &&
-            e.Estado == EstadoEncomendaMolde.EM_PRODUCAO &&
-            e.Encomenda != null &&
-            e.Encomenda.Estado == EstadoEncomenda.EM_PRODUCAO)), Times.Once);
+        _encomendaRepo.Verify(r => r.UpdateAsync(It.Is<Encomenda>(e =>
+            e.Encomenda_id == 5 &&
+            e.Estado == EstadoEncomenda.EM_PRODUCAO)), Times.Once);
         _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Never);
     }
 

@@ -155,13 +155,89 @@ namespace TipMolde.Infrastructure.Repositorio
         }
 
         /// <summary>
+        /// Indica se todas as pecas do molde ja receberam material.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde a validar.</param>
+        /// <returns>True quando o molde tem pecas e todas possuem MaterialRecebido = true.</returns>
+        public async Task<bool> TodasPecasTemMaterialRecebidoAsync(int moldeId)
+        {
+            var totalPecas = await _context.Pecas
+                .AsNoTracking()
+                .CountAsync(p => p.Molde_id == moldeId);
+
+            if (totalPecas == 0)
+                return false;
+
+            var totalComMaterialRecebido = await _context.Pecas
+                .AsNoTracking()
+                .CountAsync(p => p.Molde_id == moldeId && p.MaterialRecebido);
+
+            return totalPecas == totalComMaterialRecebido;
+        }
+
+        /// <summary>
+        /// Indica se todas as pecas do molde estao concluidas na fase de montagem.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde a validar.</param>
+        /// <returns>True quando cada peca tem como ultimo registo a fase MONTAGEM em estado CONCLUIDO.</returns>
+        public async Task<bool> TodasPecasConcluidasNaMontagemAsync(int moldeId)
+        {
+            var faseMontagemId = await _context.Fases_Producao
+                .AsNoTracking()
+                .Where(f => f.Nome == NomeFases.MONTAGEM)
+                .Select(f => (int?)f.Fases_producao_id)
+                .FirstOrDefaultAsync();
+
+            if (!faseMontagemId.HasValue)
+                return false;
+
+            var pecaIds = await _context.Pecas
+                .AsNoTracking()
+                .Where(p => p.Molde_id == moldeId)
+                .Select(p => p.Peca_id)
+                .ToListAsync();
+
+            if (pecaIds.Count == 0)
+                return false;
+
+            var ultimosRegistosPorPeca = await _context.RegistosProducao
+                .AsNoTracking()
+                .Where(r => pecaIds.Contains(r.Peca_id))
+                .GroupBy(r => r.Peca_id)
+                .Select(g => g.OrderByDescending(r => r.Data_hora).First())
+                .ToListAsync();
+
+            if (ultimosRegistosPorPeca.Count != pecaIds.Count)
+                return false;
+
+            return ultimosRegistosPorPeca.All(r =>
+                r.Fase_id == faseMontagemId.Value &&
+                r.Estado_producao == EstadoProducao.CONCLUIDO);
+        }
+
+        /// <summary>
+        /// Obtem o conjunto de estados atuais dos moldes associados a uma encomenda.
+        /// </summary>
+        /// <param name="encomendaId">Identificador da encomenda.</param>
+        /// <returns>Lista materializada com os estados correntes dos moldes da encomenda.</returns>
+        public async Task<List<EstadoEncomendaMolde>> GetEstadosByEncomendaIdAsync(int encomendaId)
+        {
+            return await _context.EncomendasMoldes
+                .AsNoTracking()
+                .Where(em => em.Encomenda_id == encomendaId)
+                .OrderBy(em => em.EncomendaMolde_id)
+                .Select(em => em.Estado)
+                .ToListAsync();
+        }
+
+        /// <summary>
         /// Obtem a base completa da fila global de moldes, incluindo encomenda, cliente e molde.
         /// </summary>
         /// <returns>Colecao materializada de associacoes pertencentes a encomendas em aberto.</returns>
         public async Task<List<EncomendaMolde>> GetFilaGlobalAbertosAsync()
         {
             return await _context.EncomendasMoldes
-                .Include(em => em.Encomenda)
+                .Include(em => em.Encomenda!)
                     .ThenInclude(e => e.Cliente)
                 .Include(em => em.Molde)
                 .Where(em => em.Encomenda != null &&
@@ -181,7 +257,7 @@ namespace TipMolde.Infrastructure.Repositorio
         {
             var query = _context.EncomendasMoldes
                 .AsNoTracking()
-                .Include(em => em.Encomenda)
+                .Include(em => em.Encomenda!)
                     .ThenInclude(e => e.Cliente)
                 .Include(em => em.Molde)
                 .Where(em => em.Encomenda != null &&

@@ -1,4 +1,5 @@
-﻿using TipMolde.Domain.Entities.Comercio;
+using TipMolde.Domain.Entities.Comercio;
+using TipMolde.Domain.Enums;
 
 namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
 {
@@ -6,7 +7,7 @@ namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
     /// Define operacoes de persistencia especificas da relacao Encomenda-Molde.
     /// </summary>
     /// <remarks>
-    /// Expõe consultas paginadas por FK e validacao de unicidade da associacao.
+    /// Expoe consultas paginadas por FK e validacao de unicidade da associacao.
     /// </remarks>
     public interface IEncomendaMoldeRepository : IGenericRepository<EncomendaMolde, int>
     {
@@ -68,6 +69,27 @@ namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
         /// <param name="excludeEncomendaMoldeId">Associacao opcional a ignorar na contagem.</param>
         /// <returns>True quando ainda existe pelo menos um molde nao concluido.</returns>
         Task<bool> HasMoldesNaoConcluidosAsync(int encomendaId, int? excludeEncomendaMoldeId = null);
+
+        /// <summary>
+        /// Indica se todas as pecas do molde ja receberam material.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde a validar.</param>
+        /// <returns>True quando o molde tem pecas e todas possuem MaterialRecebido = true.</returns>
+        Task<bool> TodasPecasTemMaterialRecebidoAsync(int moldeId);
+
+        /// <summary>
+        /// Indica se todas as pecas do molde estao concluidas na fase de montagem.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde a validar.</param>
+        /// <returns>True quando cada peca tem como ultimo registo a fase MONTAGEM em estado CONCLUIDO.</returns>
+        Task<bool> TodasPecasConcluidasNaMontagemAsync(int moldeId);
+
+        /// <summary>
+        /// Obtem o conjunto de estados atuais dos moldes associados a uma encomenda.
+        /// </summary>
+        /// <param name="encomendaId">Identificador da encomenda.</param>
+        /// <returns>Lista materializada com os estados correntes dos moldes da encomenda.</returns>
+        Task<List<EstadoEncomendaMolde>> GetEstadosByEncomendaIdAsync(int encomendaId);
 
         /// <summary>
         /// Obtem todas as associacoes Encomenda-Molde pertencentes a encomendas em aberto
