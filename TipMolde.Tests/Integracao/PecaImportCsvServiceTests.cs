@@ -39,11 +39,13 @@ public class PecaImportCsvServiceTests
 
         var pecaRepository = new PecaRepository(ctx);
         var moldeRepository = new MoldeRepository(ctx);
+        var fasesRepository = new FasesProducaoRepository(ctx);
         var logger = new Mock<ILogger<PecaService>>();
 
         return new PecaService(
             pecaRepository,
             moldeRepository,
+            fasesRepository,
             mapperConfig.CreateMapper(),
             logger.Object);
     }

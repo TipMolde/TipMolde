@@ -50,7 +50,8 @@ namespace TipMolde.Application.Interface.Producao.IRegistosProducao
         /// </summary>
         /// <param name="registo">Registo de producao a criar.</param>
         /// <param name="maquinaToUpdate">Maquina a atualizar; nulo quando nao ha alteracao de maquina.</param>
+        /// <param name="pecaToUpdate">Peca a atualizar; nulo quando nao ha alteracao de planeamento.</param>
         /// <returns>Registo persistido.</returns>
-        Task<RegistosProducao> AddWithMachineStateAsync(RegistosProducao registo, Maquina? maquinaToUpdate);
+        Task<RegistosProducao> AddWithMachineStateAsync(RegistosProducao registo, Maquina? maquinaToUpdate, Peca? pecaToUpdate);
     }
 }

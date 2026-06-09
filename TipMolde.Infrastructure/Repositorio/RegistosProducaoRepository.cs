@@ -116,8 +116,9 @@ namespace TipMolde.Infrastructure.Repositorio
         /// </remarks>
         /// <param name="registo">Registo de producao a criar.</param>
         /// <param name="maquinaToUpdate">Maquina a atualizar; nulo quando nao ha alteracao de maquina.</param>
+        /// <param name="pecaToUpdate">Peca a atualizar; nulo quando nao ha alteracao de planeamento.</param>
         /// <returns>Registo persistido.</returns>
-        public async Task<RegistosProducao> AddWithMachineStateAsync(RegistosProducao registo, Maquina? maquinaToUpdate)
+        public async Task<RegistosProducao> AddWithMachineStateAsync(RegistosProducao registo, Maquina? maquinaToUpdate, Peca? pecaToUpdate)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -125,6 +126,9 @@ namespace TipMolde.Infrastructure.Repositorio
             {
                 if (maquinaToUpdate != null)
                     _context.Maquinas.Update(maquinaToUpdate);
+
+                if (pecaToUpdate != null)
+                    _context.Pecas.Update(pecaToUpdate);
 
                 await _context.RegistosProducao.AddAsync(registo);
                 await _context.SaveChangesAsync();

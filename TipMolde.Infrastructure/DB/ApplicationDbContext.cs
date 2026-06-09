@@ -192,6 +192,12 @@ namespace TipMolde.Infrastructure.DB
                 .Property(p => p.Observacao)
                 .HasMaxLength(100);
 
+            modelBuilder.Entity<Peca>()
+                .HasOne(p => p.ProximaFase)
+                .WithMany()
+                .HasForeignKey(p => p.ProximaFase_id)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<Fornecedor>()
                 .HasIndex(f => f.NIF)
                 .IsUnique();

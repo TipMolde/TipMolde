@@ -149,42 +149,69 @@ namespace TipMolde.Infrastructure.Repositorio
                 .AsNoTracking()
                 .ToDictionaryAsync(f => f.Fases_producao_id, f => f.Nome);
 
-            var ultimosPorPecaEFase = registos
-                .GroupBy(r => new { r.Peca_id, r.Fase_id })
-                .Select(g => g.OrderByDescending(x => x.Data_hora).First())
-                .ToList();
-
             var ultimosPorPeca = registos
                 .GroupBy(r => r.Peca_id)
                 .Select(g => g.OrderByDescending(x => x.Data_hora).First())
                 .ToList();
+            var ultimosPorPecaMap = ultimosPorPeca.ToDictionary(r => r.Peca_id, r => r);
 
-            int CountDistinctPiecesByPhase(NomeFases fase) =>
-                ultimosPorPecaEFase
-                    .Where(r => fases.TryGetValue(r.Fase_id, out var nome) &&
-                                nome == fase &&
-                                r.Estado_producao != EstadoProducao.PENDENTE)
-                    .Select(r => r.Peca_id)
-                    .Distinct()
-                    .Count();
+            var maquinacao = 0;
+            var erosao = 0;
+            var montagem = 0;
+            var emEspera = 0;
+            var emTrabalho = 0;
+            var concluidas = 0;
 
-            var pecasEmMontagem = ultimosPorPeca
-                .Where(r => fases.TryGetValue(r.Fase_id, out var nome) &&
-                            nome == NomeFases.MONTAGEM)
-                .Select(r => r.Peca_id)
-                .Distinct()
-                .Count();
+            foreach (var peca in pecas)
+            {
+                if (!peca.MaterialRecebido)
+                    continue;
 
-            var concluidas = ultimosPorPecaEFase
-                .Where(r => fases.TryGetValue(r.Fase_id, out var nome) &&
-                            nome == NomeFases.MONTAGEM &&
-                            r.Estado_producao == EstadoProducao.CONCLUIDO)
-                .Select(r => r.Peca_id)
-                .Distinct()
-                .Count();
+                if (!ultimosPorPecaMap.TryGetValue(peca.Peca_id, out var ultimo))
+                {
+                    emEspera++;
+                    continue;
+                }
 
-            var emTrabalho = ultimosPorPecaEFase.Count(r =>
-                r.Estado_producao is EstadoProducao.PREPARACAO or EstadoProducao.EM_CURSO or EstadoProducao.PAUSADO);
+                var nomeFaseAtual = fases.TryGetValue(ultimo.Fase_id, out var faseAtual)
+                    ? faseAtual
+                    : (NomeFases?)null;
+
+                var estadoAtual = ultimo.Estado_producao;
+                var estaAtivaAgora = estadoAtual is EstadoProducao.PREPARACAO or EstadoProducao.EM_CURSO;
+
+                if (estaAtivaAgora)
+                {
+                    emTrabalho++;
+
+                    switch (nomeFaseAtual)
+                    {
+                        case NomeFases.MAQUINACAO:
+                            maquinacao++;
+                            break;
+                        case NomeFases.EROSAO:
+                            erosao++;
+                            break;
+                        case NomeFases.MONTAGEM:
+                            montagem++;
+                            break;
+                        default:
+                            emEspera++;
+                            break;
+                    }
+
+                    continue;
+                }
+
+                if (nomeFaseAtual == NomeFases.MONTAGEM && estadoAtual == EstadoProducao.CONCLUIDO)
+                {
+                    montagem++;
+                    concluidas++;
+                    continue;
+                }
+
+                emEspera++;
+            }
 
             var dto = new MoldeCicloVidaRelatorioDto
             {
@@ -206,20 +233,21 @@ namespace TipMolde.Infrastructure.Repositorio
                 TotalProjetos = projetos.Count,
                 TotalRevisoes = totalRevisoes,
                 UltimaRevisaoEm = ultimaRevisaoEm,
-                Maquinacao = CountDistinctPiecesByPhase(NomeFases.MAQUINACAO),
-                Erosao = CountDistinctPiecesByPhase(NomeFases.EROSAO),
-                Montagem = pecasEmMontagem,
+                Maquinacao = maquinacao,
+                Erosao = erosao,
+                Montagem = montagem,
+                EmEspera = emEspera,
                 EmTrabalho = emTrabalho,
                 Concluidas = concluidas,
                 PercentagemConclusao = pecas.Count == 0
                     ? 0
-                    : Math.Round((decimal)pecasEmMontagem / pecas.Count * 100m, 2),
+                    : Math.Round((decimal)concluidas / pecas.Count * 100m, 2),
                 Projetos = projetos,
                 Fases =
                 [
-                    new MoldeFaseResumoDto { NomeFase = NomeFases.MAQUINACAO.ToString(), PecasComMovimento = CountDistinctPiecesByPhase(NomeFases.MAQUINACAO) },
-                    new MoldeFaseResumoDto { NomeFase = NomeFases.EROSAO.ToString(), PecasComMovimento = CountDistinctPiecesByPhase(NomeFases.EROSAO) },
-                    new MoldeFaseResumoDto { NomeFase = NomeFases.MONTAGEM.ToString(), PecasComMovimento = pecasEmMontagem }
+                    new MoldeFaseResumoDto { NomeFase = NomeFases.MAQUINACAO.ToString(), PecasComMovimento = maquinacao },
+                    new MoldeFaseResumoDto { NomeFase = NomeFases.EROSAO.ToString(), PecasComMovimento = erosao },
+                    new MoldeFaseResumoDto { NomeFase = NomeFases.MONTAGEM.ToString(), PecasComMovimento = montagem }
                 ]
             };
 

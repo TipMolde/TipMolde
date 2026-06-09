@@ -557,12 +557,13 @@ namespace TipMolde.Tests.Integracao
             relatorio.TotalProjetos.Should().Be(2);
             relatorio.TotalRevisoes.Should().Be(3);
             relatorio.UltimaRevisaoEm.Should().Be(new DateTime(2026, 04, 12, 0, 0, 0, DateTimeKind.Utc));
-            relatorio.Maquinacao.Should().Be(3);
-            relatorio.Erosao.Should().Be(2);
+            relatorio.Maquinacao.Should().Be(0);
+            relatorio.Erosao.Should().Be(0);
             relatorio.Montagem.Should().Be(2);
-            relatorio.EmTrabalho.Should().Be(3);
+            relatorio.EmEspera.Should().Be(1);
+            relatorio.EmTrabalho.Should().Be(1);
             relatorio.Concluidas.Should().Be(1);
-            relatorio.PercentagemConclusao.Should().Be(50.00m);
+            relatorio.PercentagemConclusao.Should().Be(25.00m);
             relatorio.Projetos.Should().HaveCount(2);
             relatorio.Fases.Should().HaveCount(3);
         }
@@ -584,12 +585,13 @@ namespace TipMolde.Tests.Integracao
             dashboard.NumeroMolde.Should().Be("M-010");
             dashboard.TotalPecas.Should().Be(4);
             dashboard.MaterialPendente.Should().Be(1);
-            dashboard.Maquinacao.Should().Be(3);
-            dashboard.Erosao.Should().Be(2);
+            dashboard.Maquinacao.Should().Be(0);
+            dashboard.Erosao.Should().Be(0);
             dashboard.Montagem.Should().Be(2);
-            dashboard.EmTrabalho.Should().Be(3);
+            dashboard.EmEspera.Should().Be(1);
+            dashboard.EmTrabalho.Should().Be(1);
             dashboard.Concluidas.Should().Be(1);
-            dashboard.PercentagemConclusao.Should().Be(50.00m);
+            dashboard.PercentagemConclusao.Should().Be(25.00m);
             result.Content.Should().NotBeNullOrEmpty();
             result.FileName.Should().Be($"ciclo_vida_molde_{moldeId}.pdf");
             result.Content.Length.Should().BeGreaterThan(500);

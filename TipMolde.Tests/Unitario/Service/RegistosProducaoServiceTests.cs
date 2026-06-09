@@ -117,8 +117,8 @@ public class RegistosProducaoServiceTests
     private void SetupPersistCreated()
     {
         _registosRepository
-            .Setup(r => r.AddWithMachineStateAsync(It.IsAny<RegistosProducao>(), It.IsAny<Maquina?>()))
-            .ReturnsAsync((RegistosProducao registo, Maquina? _) =>
+            .Setup(r => r.AddWithMachineStateAsync(It.IsAny<RegistosProducao>(), It.IsAny<Maquina?>(), It.IsAny<Peca?>()))
+            .ReturnsAsync((RegistosProducao registo, Maquina? _, Peca? __) =>
             {
                 registo.Registo_Producao_id = 10;
                 return registo;
@@ -217,7 +217,8 @@ public class RegistosProducaoServiceTests
         _maquinaRepository.Verify(r => r.UpdateAsync(It.IsAny<Maquina>()), Times.Never);
         _registosRepository.Verify(r => r.AddWithMachineStateAsync(
             It.IsAny<RegistosProducao>(),
-            It.Is<Maquina>(m => m.Estado == EstadoMaquina.EM_USO)), Times.Once);
+            It.Is<Maquina>(m => m.Estado == EstadoMaquina.EM_USO),
+            It.IsAny<Peca?>()), Times.Once);
     }
 
     [Test(Description = "TRP007 - PREPARACAO falha quando a maquina nao pertence a fase.")]
@@ -276,7 +277,8 @@ public class RegistosProducaoServiceTests
         _maquinaRepository.Verify(r => r.UpdateAsync(It.IsAny<Maquina>()), Times.Never);
         _registosRepository.Verify(r => r.AddWithMachineStateAsync(
             It.Is<RegistosProducao>(rp => rp.Maquina_id == 1),
-            It.Is<Maquina>(m => m.Estado == EstadoMaquina.DISPONIVEL)), Times.Once);
+            It.Is<Maquina>(m => m.Estado == EstadoMaquina.DISPONIVEL),
+            It.IsAny<Peca?>()), Times.Once);
     }
 
     [Test(Description = "TRP010 - Criacao falha quando a transicao de estado e invalida.")]
@@ -314,7 +316,8 @@ public class RegistosProducaoServiceTests
         result.Estado_producao.Should().Be(EstadoProducao.PENDENTE);
         _registosRepository.Verify(r => r.AddWithMachineStateAsync(
             It.Is<RegistosProducao>(rp => rp.Fase_id == 2 && rp.Estado_producao == EstadoProducao.PENDENTE),
-            null), Times.Once);
+            null,
+            It.IsAny<Peca?>()), Times.Once);
     }
 
     [Test(Description = "TRP012 - MONTAGEM EM_CURSO falha quando nem todas as pecas do molde ja estao em montagem.")]

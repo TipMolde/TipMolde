@@ -16,6 +16,8 @@
         public string? Massa { get; set; }
         public string? Observacao { get; set; }
         public bool MaterialRecebido { get; set; }
+        public int? ProximaFase_id { get; set; }
+        public string? ProximaFaseNome { get; set; }
         public int Molde_id { get; set; }
     }
 }

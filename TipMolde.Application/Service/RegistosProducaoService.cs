@@ -158,7 +158,8 @@ namespace TipMolde.Application.Service
             registo.Data_hora = DateTime.UtcNow;
 
             var maquinaToUpdate = await ResolveMaquinaToUpdateAsync(dto, ultimo, registo);
-            var created = await _rpRepository.AddWithMachineStateAsync(registo, maquinaToUpdate);
+            var pecaToUpdate = await ResolvePecaToUpdateAsync(dto, peca);
+            var created = await _rpRepository.AddWithMachineStateAsync(registo, maquinaToUpdate, pecaToUpdate);
 
             _logger.LogInformation(
                 "Registo de producao {RegistoId} criado para peca {PecaId}, fase {FaseId}, estado {Estado}.",
@@ -233,10 +234,10 @@ namespace TipMolde.Application.Service
         /// <param name="dto">Dados de entrada do registo de producao.</param>
         /// <param name="ultimo">Ultimo registo conhecido para a peca/fase.</param>
         /// <returns>Maquina marcada como em uso.</returns>
-        private async Task<Maquina> ResolveMaquinaEntradaAsync(CreateRegistosProducaoDto dto, RegistosProducao? ultimo)
+        private async Task<Maquina?> ResolveMaquinaEntradaAsync(CreateRegistosProducaoDto dto, RegistosProducao? ultimo)
         {
             if (!dto.Maquina_id.HasValue)
-                throw new ArgumentException("Maquina e obrigatoria para PREPARACAO e EM_CURSO.");
+                return null;
 
             var maquina = await _maquinaRepository.GetByIdUnicoAsync(dto.Maquina_id.Value)
                 ?? throw new KeyNotFoundException($"Maquina com ID {dto.Maquina_id.Value} nao encontrada.");
@@ -254,6 +255,19 @@ namespace TipMolde.Application.Service
                 return maquina;
 
             throw new ArgumentException("Maquina indisponivel.");
+        }
+
+        private async Task<Peca?> ResolvePecaToUpdateAsync(CreateRegistosProducaoDto dto, Peca peca)
+        {
+            if (!dto.ProximaFase_id.HasValue)
+                return null;
+
+            var proximaFase = await _fpRepository.GetByIdAsync(dto.ProximaFase_id.Value)
+                ?? throw new KeyNotFoundException($"Fase com ID {dto.ProximaFase_id.Value} nao encontrada.");
+
+            peca.ProximaFase_id = proximaFase.Fases_producao_id;
+            peca.ProximaFase = proximaFase;
+            return peca;
         }
 
         /// <summary>

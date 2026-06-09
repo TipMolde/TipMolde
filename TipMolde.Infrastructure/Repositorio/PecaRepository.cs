@@ -19,6 +19,30 @@ namespace TipMolde.Infrastructure.Repositorio
         {
         }
 
+        public new async Task<PagedResult<Peca>> GetAllAsync(int page, int pageSize)
+        {
+            var query = _context.Pecas
+                .AsNoTracking()
+                .Include(p => p.ProximaFase);
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .OrderBy(p => p.Peca_id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<Peca>(items, totalCount, page, pageSize);
+        }
+
+        public new Task<Peca?> GetByIdAsync(int id)
+        {
+            return _context.Pecas
+                .AsNoTracking()
+                .Include(p => p.ProximaFase)
+                .FirstOrDefaultAsync(p => p.Peca_id == id);
+        }
+
         /// <summary>
         /// Lista pecas associadas a um molde.
         /// </summary>
@@ -30,6 +54,8 @@ namespace TipMolde.Infrastructure.Repositorio
         {
 
             var query = _context.Pecas
+                .AsNoTracking()
+                .Include(p => p.ProximaFase)
                 .Where(p => p.Molde_id == moldeId);
 
             var totalCount = await query.CountAsync();
@@ -50,6 +76,8 @@ namespace TipMolde.Infrastructure.Repositorio
         public async Task<IReadOnlyList<Peca>> GetAllByMoldeIdAsync(int moldeId)
         {
             return await _context.Pecas
+                .AsNoTracking()
+                .Include(p => p.ProximaFase)
                 .Where(p => p.Molde_id == moldeId)
                 .OrderBy(p => p.Peca_id)
                 .ToListAsync();
@@ -64,6 +92,8 @@ namespace TipMolde.Infrastructure.Repositorio
         public Task<Peca?> GetByDesignacaoAsync(string designacao, int moldeId)
         {
             return _context.Pecas
+                .AsNoTracking()
+                .Include(p => p.ProximaFase)
                 .FirstOrDefaultAsync(p => p.Designacao == designacao && p.Molde_id == moldeId);
         }
 
@@ -76,6 +106,8 @@ namespace TipMolde.Infrastructure.Repositorio
         public Task<Peca?> GetByNumeroPecaAsync(string numeroPeca, int moldeId)
         {
             return _context.Pecas
+                .AsNoTracking()
+                .Include(p => p.ProximaFase)
                 .FirstOrDefaultAsync(p => p.NumeroPeca == numeroPeca && p.Molde_id == moldeId);
         }
 
@@ -89,6 +121,8 @@ namespace TipMolde.Infrastructure.Repositorio
             var idList = ids.Distinct().ToList();
 
             return await _context.Pecas
+                .AsNoTracking()
+                .Include(p => p.ProximaFase)
                 .Where(p => idList.Contains(p.Peca_id))
                 .OrderBy(p => p.Peca_id)
                 .ToListAsync();

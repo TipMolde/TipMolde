@@ -61,6 +61,20 @@
         /// </summary>
         public bool MaterialRecebido { get; set; }
 
+        /// <summary>
+        /// Identificador da proxima fase planeada para a peca.
+        /// </summary>
+        /// <remarks>
+        /// Este campo representa o proximo posto de trabalho esperado e pode ser
+        /// ajustado manualmente para suportar reentrada em fases anteriores.
+        /// </remarks>
+        public int? ProximaFase_id { get; set; }
+
+        /// <summary>
+        /// Navegacao para a proxima fase planeada da peca.
+        /// </summary>
+        public FasesProducao? ProximaFase { get; set; }
+
         public int Molde_id { get; set; }
         public Molde? Molde { get; set; }
     }

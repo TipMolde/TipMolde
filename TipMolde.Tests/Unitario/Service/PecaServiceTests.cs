@@ -5,6 +5,7 @@ using Moq;
 using System.Text;
 using TipMolde.Application.Dtos.PecaDto;
 using TipMolde.Application.Interface;
+using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Interface.Producao.IPeca;
 using TipMolde.Application.Mappings;
@@ -22,6 +23,7 @@ public class PecaServiceTests
 
     private Mock<IPecaRepository> _pecaRepository = null!;
     private Mock<IMoldeRepository> _moldeRepository = null!;
+    private Mock<IFasesProducaoRepository> _fasesProducaoRepository = null!;
     private Mock<ILogger<PecaService>> _logger = null!;
     private PecaService _sut = null!;
 
@@ -31,6 +33,7 @@ public class PecaServiceTests
         // ARRANGE
         _pecaRepository = new Mock<IPecaRepository>();
         _moldeRepository = new Mock<IMoldeRepository>();
+        _fasesProducaoRepository = new Mock<IFasesProducaoRepository>();
         _logger = new Mock<ILogger<PecaService>>();
 
         var mapperConfig = new MapperConfiguration(cfg =>
@@ -43,6 +46,7 @@ public class PecaServiceTests
         _sut = new PecaService(
             _pecaRepository.Object,
             _moldeRepository.Object,
+            _fasesProducaoRepository.Object,
             mapper,
             _logger.Object);
     }

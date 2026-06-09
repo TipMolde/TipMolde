@@ -4,10 +4,12 @@ using System.Globalization;
 using System.Text;
 using TipMolde.Application.Dtos.PecaDto;
 using TipMolde.Application.Interface;
+using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Interface.Producao.IPeca;
 using TipMolde.Application.Mappings;
 using TipMolde.Domain.Entities.Producao;
+using TipMolde.Domain.Enums;
 
 namespace TipMolde.Application.Service
 {
@@ -34,6 +36,7 @@ namespace TipMolde.Application.Service
 
         private readonly IPecaRepository _pecaRepository;
         private readonly IMoldeRepository _moldeRepository;
+        private readonly IFasesProducaoRepository _fasesProducaoRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<PecaService> _logger;
 
@@ -47,11 +50,13 @@ namespace TipMolde.Application.Service
         public PecaService(
             IPecaRepository pecaRepository,
             IMoldeRepository moldeRepository,
+            IFasesProducaoRepository fasesProducaoRepository,
             IMapper mapper,
             ILogger<PecaService> logger)
         {
             _pecaRepository = pecaRepository;
             _moldeRepository = moldeRepository;
+            _fasesProducaoRepository = fasesProducaoRepository;
             _mapper = mapper;
             _logger = logger;
         }
@@ -136,6 +141,7 @@ namespace TipMolde.Application.Service
 
             var numeroPecaNormalizado = MappingProfileExtensions.NormalizeOptionalString(dto.NumeroPeca);
             var designacaoNormalizada = dto.Designacao.Trim();
+            var proximaFaseId = await ResolveProximaFaseIdAsync(dto.ProximaFase_id);
 
             await ValidateUniquePecaAsync(dto.Molde_id, numeroPecaNormalizado, designacaoNormalizada, null);
 
@@ -143,6 +149,10 @@ namespace TipMolde.Application.Service
             peca.NumeroPeca = numeroPecaNormalizado;
             peca.Designacao = designacaoNormalizada;
             peca.Quantidade = dto.Quantidade;
+            peca.ProximaFase_id = proximaFaseId;
+
+            if (proximaFaseId.HasValue)
+                peca.ProximaFase = await _fasesProducaoRepository.GetByIdAsync(proximaFaseId.Value);
 
             await _pecaRepository.AddAsync(peca);
 
@@ -179,10 +189,14 @@ namespace TipMolde.Application.Service
                 throw new ArgumentException("Quantidade deve ser maior ou igual a 1.");
 
             await ValidateUniquePecaAsync(existente.Molde_id, numeroPecaFuturo, designacaoFutura, id);
+            await ValidateProximaFaseAsync(dto.ProximaFase_id);
 
             _mapper.Map(dto, existente);
             existente.NumeroPeca = numeroPecaFuturo;
             existente.Designacao = designacaoFutura;
+
+            if (dto.ProximaFase_id.HasValue)
+                existente.ProximaFase = await _fasesProducaoRepository.GetByIdAsync(dto.ProximaFase_id.Value);
 
             await _pecaRepository.UpdateAsync(existente);
 
@@ -243,6 +257,13 @@ namespace TipMolde.Application.Service
                 ValidateCsvGroupConsistency(grupo.NumeroPeca, linhasGrupo);
 
                 var pecaConsolidada = BuildPecaFromCsvGroup(moldeId, prioridadeAtual, linhasGrupo);
+                pecaConsolidada.ProximaFase_id = await ResolveProximaFaseIdAsync(null);
+
+                if (pecaConsolidada.ProximaFase_id.HasValue)
+                {
+                    pecaConsolidada.ProximaFase = await _fasesProducaoRepository.GetByIdAsync(pecaConsolidada.ProximaFase_id.Value);
+                }
+
                 await ValidateUniquePecaAsync(moldeId, pecaConsolidada.NumeroPeca, pecaConsolidada.Designacao, null);
 
                 pecasConsolidadas.Add(pecaConsolidada);
@@ -362,7 +383,35 @@ namespace TipMolde.Application.Service
                 || dto.TratamentoTermico != null
                 || dto.Massa != null
                 || dto.Observacao != null
-                || dto.MaterialRecebido.HasValue;
+                || dto.MaterialRecebido.HasValue
+                || dto.ProximaFase_id.HasValue;
+        }
+
+        private async Task ValidateProximaFaseAsync(int? proximaFaseId)
+        {
+            if (!proximaFaseId.HasValue)
+                return;
+
+            if (await _fasesProducaoRepository.GetByIdAsync(proximaFaseId.Value) == null)
+                throw new KeyNotFoundException($"Fase com ID {proximaFaseId.Value} nao encontrada.");
+        }
+
+        private async Task<int?> ResolveProximaFaseIdAsync(int? requestedProximaFaseId)
+        {
+            if (requestedProximaFaseId.HasValue)
+            {
+                await ValidateProximaFaseAsync(requestedProximaFaseId);
+                return requestedProximaFaseId;
+            }
+
+            foreach (var nomeFase in new[] { NomeFases.MAQUINACAO, NomeFases.EROSAO, NomeFases.MONTAGEM })
+            {
+                var fase = await _fasesProducaoRepository.GetByNomeAsync(nomeFase);
+                if (fase is not null)
+                    return fase.Fases_producao_id;
+            }
+
+            return null;
         }
 
         /// <summary>

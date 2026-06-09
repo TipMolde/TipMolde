@@ -39,5 +39,8 @@ namespace TipMolde.Application.Dtos.PecaDto
         public string? Observacao { get; set; }
 
         public bool? MaterialRecebido { get; set; }
+
+        [Range(1, int.MaxValue)]
+        public int? ProximaFase_id { get; set; }
     }
 }

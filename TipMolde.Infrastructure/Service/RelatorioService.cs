@@ -111,10 +111,12 @@ namespace TipMolde.Infrastructure.Service
                         AddSection(column, "Producao", [
                             ("Total de pecas", relatorio.TotalPecas.ToString()),
                             ("Material pendente", relatorio.MaterialPendente.ToString()),
-                            ("Pecas com movimento em maquinacao", relatorio.Maquinacao.ToString()),
-                            ("Pecas com movimento em erosao", relatorio.Erosao.ToString()),
-                            ("Pecas com movimento em montagem", relatorio.Montagem.ToString()),
+                            ("Pecas ativas em maquinacao", relatorio.Maquinacao.ToString()),
+                            ("Pecas ativas em erosao", relatorio.Erosao.ToString()),
+                            ("Pecas em montagem", relatorio.Montagem.ToString()),
+                            ("Pecas em espera", relatorio.EmEspera.ToString()),
                             ("Registos em trabalho", relatorio.EmTrabalho.ToString()),
+                            ("Pecas concluidas", relatorio.Concluidas.ToString()),
                             ("Percentagem de conclusao", $"{relatorio.PercentagemConclusao:N2}%")
                         ]);
                     });
@@ -147,6 +149,7 @@ namespace TipMolde.Infrastructure.Service
                 Maquinacao = relatorio.Maquinacao,
                 Erosao = relatorio.Erosao,
                 Montagem = relatorio.Montagem,
+                EmEspera = relatorio.EmEspera,
                 EmTrabalho = relatorio.EmTrabalho,
                 Concluidas = relatorio.Concluidas,
                 MaterialPendente = relatorio.MaterialPendente,

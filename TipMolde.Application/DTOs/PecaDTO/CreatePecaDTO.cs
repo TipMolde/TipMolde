@@ -43,6 +43,9 @@ namespace TipMolde.Application.Dtos.PecaDto
         public bool MaterialRecebido { get; set; }
 
         [Range(1, int.MaxValue)]
+        public int? ProximaFase_id { get; set; }
+
+        [Range(1, int.MaxValue)]
         public int Molde_id { get; set; }
     }
 }

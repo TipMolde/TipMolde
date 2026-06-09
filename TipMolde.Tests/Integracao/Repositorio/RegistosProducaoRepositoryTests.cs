@@ -104,7 +104,7 @@ namespace TipMolde.Tests.Integracao.Repositorio
             var repository = new RegistosProducaoRepository(context);
 
             // ACT
-            var result = await repository.AddWithMachineStateAsync(registo, maquina);
+            var result = await repository.AddWithMachineStateAsync(registo, maquina, pecaToUpdate: null);
 
             // ASSERT
             result.Registo_Producao_id.Should().BeGreaterThan(0);
@@ -144,7 +144,7 @@ namespace TipMolde.Tests.Integracao.Repositorio
             var repository = new RegistosProducaoRepository(context);
 
             // ACT
-            var result = await repository.AddWithMachineStateAsync(registo, maquinaToUpdate: null);
+            var result = await repository.AddWithMachineStateAsync(registo, maquinaToUpdate: null, pecaToUpdate: null);
 
             // ASSERT
             result.Registo_Producao_id.Should().BeGreaterThan(0);

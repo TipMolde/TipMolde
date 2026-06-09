@@ -25,6 +25,7 @@ namespace TipMolde.Application.Dtos.RelatorioDto
         public int Maquinacao { get; set; }
         public int Erosao { get; set; }
         public int Montagem { get; set; }
+        public int EmEspera { get; set; }
         public int EmTrabalho { get; set; }
         public int Concluidas { get; set; }
         public decimal PercentagemConclusao { get; set; }

@@ -30,8 +30,8 @@ namespace TipMolde.Application.Dtos.RegistoProducaoDto
         /// Identificador opcional da maquina associada ao registo.
         /// </summary>
         /// <remarks>
-        /// Obrigatorio funcionalmente em PREPARACAO e EM_CURSO; em PAUSADO e CONCLUIDO
-        /// pode ser inferido pelo ultimo registo da peca na fase.
+        /// Opcional para suportar trabalho manual. Em PAUSADO e CONCLUIDO pode ser
+        /// inferido pelo ultimo registo da peca na fase quando exista.
         /// </remarks>
         [Range(1, int.MaxValue)]
         public int? Maquina_id { get; set; }
@@ -51,5 +51,15 @@ namespace TipMolde.Application.Dtos.RegistoProducaoDto
         /// </remarks>
         [Required]
         public EstadoProducao? Estado_producao { get; set; }
+
+        /// <summary>
+        /// Identificador opcional da proxima fase planeada para a peca.
+        /// </summary>
+        /// <remarks>
+        /// Quando informado, o planeamento da peca e atualizado em conjunto com o
+        /// registo de producao para refletir o proximo passo escolhido pelo utilizador.
+        /// </remarks>
+        [Range(1, int.MaxValue)]
+        public int? ProximaFase_id { get; set; }
     }
 }
