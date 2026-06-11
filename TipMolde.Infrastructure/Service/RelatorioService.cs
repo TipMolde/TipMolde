@@ -437,17 +437,46 @@ namespace TipMolde.Infrastructure.Service
             out IXLWorksheet worksheet)
         {
             var rootPath = ResolvePath(_templateOptions.RootPath);
-            var templatePath = Path.Combine(rootPath, templateFileName);
+            var templatePath = ResolveTemplatePath(rootPath, templateFileName);
             var finalWorksheetName = string.IsNullOrWhiteSpace(worksheetName) ? defaultSheetName : worksheetName;
-
-            if (!File.Exists(templatePath))
-                throw new FileNotFoundException($"Template nao encontrado: {templatePath}");
 
             var workbook = new XLWorkbook(templatePath);
             worksheet = workbook.Worksheet(finalWorksheetName)
                 ?? throw new KeyNotFoundException($"Folha '{finalWorksheetName}' nao encontrada no template.");
 
             return workbook;
+        }
+
+        /// <summary>
+        /// Resolve o template Excel a usar e tolera a troca acidental entre FLT e FTL.
+        /// </summary>
+        /// <param name="rootPath">Pasta raiz onde os templates estao armazenados.</param>
+        /// <param name="templateFileName">Nome configurado do template.</param>
+        /// <returns>Caminho absoluto do primeiro template encontrado.</returns>
+        private static string ResolveTemplatePath(string rootPath, string templateFileName)
+        {
+            var candidateFileNames = new List<string> { templateFileName };
+            var upperTemplate = templateFileName.ToUpperInvariant();
+
+            if (upperTemplate.Contains("FLT", StringComparison.Ordinal))
+                candidateFileNames.Add(templateFileName.Replace("FLT", "FTL", StringComparison.OrdinalIgnoreCase));
+
+            if (upperTemplate.Contains("FTL", StringComparison.Ordinal))
+                candidateFileNames.Add(templateFileName.Replace("FTL", "FLT", StringComparison.OrdinalIgnoreCase));
+
+            var attemptedPaths = new List<string>();
+
+            foreach (var candidateFileName in candidateFileNames.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var candidatePath = Path.Combine(rootPath, candidateFileName);
+                attemptedPaths.Add(candidatePath);
+
+                if (File.Exists(candidatePath))
+                    return candidatePath;
+            }
+
+            throw new FileNotFoundException(
+                $"Template nao encontrado. Caminhos tentados: {string.Join(" | ", attemptedPaths)}");
         }
 
         /// <summary>

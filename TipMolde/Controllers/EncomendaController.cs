@@ -41,7 +41,7 @@ namespace TipMolde.API.Controllers
         /// <param name="page">Numero da pagina (>= 1).</param>
         /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
         /// <returns>Resultado HTTP com metadados de paginacao e itens.</returns>
-        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL")]
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
         [HttpGet]
         public async Task<IActionResult> GetAllEncomendas([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
@@ -124,7 +124,7 @@ namespace TipMolde.API.Controllers
         /// <remarks>
         /// Para esta consulta, em producao significa estado diferente de CONCLUIDA e CANCELADA.
         /// </remarks>
-        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL")]
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
         [HttpGet("em-producao")]
         public async Task<IActionResult> GetEncomendasEmProducao([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {

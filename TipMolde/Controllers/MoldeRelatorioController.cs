@@ -48,7 +48,7 @@ namespace TipMolde.API.Controllers
         /// </summary>
         /// <param name="moldeId">Identificador interno do molde.</param>
         /// <returns>Dados do dashboard do ciclo de vida do molde.</returns>
-        [Authorize(Roles = "ADMIN")]
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
         [HttpGet("dashboard-ciclo-vida")]
         public async Task<IActionResult> GetDashboardCicloVida(int moldeId)
         {

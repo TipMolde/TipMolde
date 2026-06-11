@@ -146,6 +146,19 @@ namespace TipMolde.API.Controllers
                     "Dados de atualizacao invalidos para a maquina."));
             }
 
+            var isAdmin = User.IsInRole("ADMIN");
+            var isGestorProducao = User.IsInRole("GESTOR_PRODUCAO");
+
+            if (!isAdmin && isGestorProducao && HasRestrictedFieldsForGestorProducao(dto))
+            {
+                return StatusCode(
+                    StatusCodes.Status403Forbidden,
+                    this.CreateProblem(
+                        StatusCodes.Status403Forbidden,
+                        "Operacao nao permitida",
+                        "O gestor de producao so pode atualizar o estado operacional da maquina."));
+            }
+
             await _service.UpdateAsync(id, dto);
 
             _logger.LogInformation("Controller: maquina {MaquinaId} atualizada.", id);
@@ -167,6 +180,14 @@ namespace TipMolde.API.Controllers
             _logger.LogInformation("Controller: maquina {MaquinaId} removida.", id);
 
             return NoContent();
+        }
+
+        private static bool HasRestrictedFieldsForGestorProducao(UpdateMaquinaDto dto)
+        {
+            return dto.Numero.HasValue
+                   || !string.IsNullOrWhiteSpace(dto.NomeModelo)
+                   || !string.IsNullOrWhiteSpace(dto.IpAddress)
+                   || dto.FaseDedicada_id.HasValue;
         }
     }
 }

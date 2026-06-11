@@ -213,7 +213,7 @@ namespace TipMolde.API.Controllers
         /// </summary>
         /// <param name="id">Identificador do cliente a remover.</param>
         /// <returns>Resultado HTTP sem conteudo quando a remocao e concluida.</returns>
-        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL")]
+        [Authorize(Roles = "ADMIN")]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteCliente(int id)
         {

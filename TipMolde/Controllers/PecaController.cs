@@ -54,7 +54,7 @@ namespace TipMolde.API.Controllers
         /// </summary>
         /// <param name="id">Identificador interno da peca.</param>
         /// <returns>HTTP 200 com a peca; HTTP 404 quando nao encontrada.</returns>
-        [Authorize(Roles = "ADMIN,GESTOR_DESENHO")]
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -72,7 +72,7 @@ namespace TipMolde.API.Controllers
         /// <param name="page">Pagina atual.</param>
         /// <param name="pageSize">Tamanho da pagina.</param>
         /// <returns>HTTP 200 com resultado paginado; HTTP 400 para paginacao invalida.</returns>
-        [Authorize(Roles = "ADMIN,GESTOR_DESENHO")]
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
         [HttpGet("por-molde/{moldeId:int}")]
         public async Task<IActionResult> GetByMoldeId(int moldeId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
@@ -89,7 +89,7 @@ namespace TipMolde.API.Controllers
         /// <param name="designacao">Designacao funcional da peca.</param>
         /// <param name="moldeId">Identificador do molde.</param>
         /// <returns>HTTP 200 com a peca; HTTP 400 quando a query e invalida; HTTP 404 quando nao encontrada.</returns>
-        [Authorize(Roles = "ADMIN,GESTOR_DESENHO")]
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
         [HttpGet("por-designacao")]
         public async Task<IActionResult> GetByDesignacao([FromQuery] string? designacao, [FromQuery] int moldeId)
         {
@@ -163,6 +163,34 @@ namespace TipMolde.API.Controllers
             await _pecaService.UpdateAsync(id, dto);
 
             _logger.LogInformation("Controller: Peca {PecaId} atualizada", id);
+
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Atualiza o estado de rececao de material de uma peca.
+        /// </summary>
+        /// <param name="id">Identificador da peca a atualizar.</param>
+        /// <param name="dto">Novo estado de rececao de material.</param>
+        /// <returns>HTTP 204 quando a atualizacao e concluida; HTTP 400 quando o body e invalido.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
+        [HttpPatch("{id:int}/material-recebido")]
+        public async Task<IActionResult> UpdateMaterialRecebido(int id, [FromBody] UpdateMaterialRecebidoDto dto)
+        {
+            if (dto.MaterialRecebido is null)
+            {
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest,
+                    PedidoInvalido,
+                    "O campo MaterialRecebido e obrigatorio."));
+            }
+
+            await _pecaService.UpdateAsync(id, new UpdatePecaDto
+            {
+                MaterialRecebido = dto.MaterialRecebido.Value
+            });
+
+            _logger.LogInformation("Controller: rececao de material da peca {PecaId} atualizada", id);
 
             return NoContent();
         }
