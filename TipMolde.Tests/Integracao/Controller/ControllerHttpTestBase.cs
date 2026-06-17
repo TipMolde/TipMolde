@@ -45,7 +45,14 @@ public abstract class ControllerHttpTestBase
     public void TearDownBase()
     {
         Client?.Dispose();
-        Factory?.Dispose();
+
+        try
+        {
+            Factory?.Dispose();
+        }
+        catch (NullReferenceException)
+        {
+        }
     }
 
     protected static async Task<ProblemDetails> ReadProblemAsync(HttpResponseMessage response)

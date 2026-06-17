@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -95,6 +96,9 @@ public sealed class ControllerIntegrationTestFactory : WebApplicationFactory<Pro
         builder.ConfigureLogging(logging => logging.ClearProviders());
         builder.ConfigureAppConfiguration((_, configurationBuilder) =>
         {
+            foreach (var jsonSource in configurationBuilder.Sources.OfType<JsonConfigurationSource>())
+                jsonSource.ReloadOnChange = false;
+
             configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = "Server=localhost;Port=3306;Database=tipmolde_controller_tests;Uid=root;Pwd=placeholder;",
