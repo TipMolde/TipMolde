@@ -84,6 +84,42 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Lista pecas de um molde que ainda nao foram incluídas em qualquer pedido de material.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>HTTP 200 com resultado paginado; HTTP 400 para paginacao invalida.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
+        [HttpGet("por-molde/{moldeId:int}/sem-pedido-material")]
+        public async Task<IActionResult> GetByMoldeIdWithoutPedidoMaterial(int moldeId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            if (page < 1 || pageSize < 1)
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
+
+            var result = await _pecaService.GetByMoldeIdWithoutPedidoMaterialAsync(moldeId, page, pageSize);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Lista pecas de um molde com pedido de material ainda pendente de rececao.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>HTTP 200 com resultado paginado; HTTP 400 para paginacao invalida.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
+        [HttpGet("por-molde/{moldeId:int}/pendentes-rececao-material")]
+        public async Task<IActionResult> GetByMoldeIdPendingMaterialReceipt(int moldeId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            if (page < 1 || pageSize < 1)
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
+
+            var result = await _pecaService.GetByMoldeIdPendingMaterialReceiptAsync(moldeId, page, pageSize);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Obtem uma peca pela designacao dentro de um molde.
         /// </summary>
         /// <param name="designacao">Designacao funcional da peca.</param>

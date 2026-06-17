@@ -108,6 +108,9 @@ namespace TipMolde.Infrastructure.Repositorio
         {
             using var tx = await _context.Database.BeginTransactionAsync();
 
+            molde.Especificacoes = null;
+            specs.Molde = null;
+
             await _context.Moldes.AddAsync(molde);
             await _context.SaveChangesAsync();
 
@@ -115,6 +118,8 @@ namespace TipMolde.Infrastructure.Repositorio
             await _context.EspecificacoesTecnicas.AddAsync(specs);
 
             await _context.SaveChangesAsync();
+            molde.Especificacoes = specs;
+            specs.Molde = molde;
             await tx.CommitAsync();
         }
     }

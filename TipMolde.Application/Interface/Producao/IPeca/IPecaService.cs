@@ -35,6 +35,24 @@ namespace TipMolde.Application.Interface.Producao.IPeca
         Task<PagedResult<ResponsePecaDto>> GetByMoldeIdAsync(int moldeId, int page = 1, int pageSize = 10);
 
         /// <summary>
+        /// Lista pecas de um molde que ainda nao foram adicionadas a qualquer pedido de material.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>Resultado paginado com pecas elegiveis para pedido de material.</returns>
+        Task<PagedResult<ResponsePecaDto>> GetByMoldeIdWithoutPedidoMaterialAsync(int moldeId, int page = 1, int pageSize = 10);
+
+        /// <summary>
+        /// Lista pecas de um molde que possuem pedido de material pendente de rececao.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>Resultado paginado com pecas que aguardam rececao de material.</returns>
+        Task<PagedResult<ResponsePecaDto>> GetByMoldeIdPendingMaterialReceiptAsync(int moldeId, int page = 1, int pageSize = 10);
+
+        /// <summary>
         /// Obtem uma peca pela designacao dentro de um molde.
         /// </summary>
         /// <param name="designacao">Designacao funcional da peca.</param>

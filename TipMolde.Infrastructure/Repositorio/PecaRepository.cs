@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Producao.IPeca;
 using TipMolde.Domain.Entities.Producao;
+using TipMolde.Domain.Enums;
 using TipMolde.Infrastructure.DB;
 
 namespace TipMolde.Infrastructure.Repositorio
@@ -57,6 +58,61 @@ namespace TipMolde.Infrastructure.Repositorio
                 .AsNoTracking()
                 .Include(p => p.ProximaFase)
                 .Where(p => p.Molde_id == moldeId);
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .OrderBy(p => p.Peca_id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<Peca>(items, totalCount, page, pageSize);
+        }
+
+        /// <summary>
+        /// Lista pecas de um molde que ainda nao foram adicionadas a qualquer pedido de material.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde.</param>
+        /// <param name="page">Numero da pagina a consultar.</param>
+        /// <param name="pageSize">Quantidade de itens por pagina.</param>
+        /// <returns>Resultado paginado com pecas elegiveis para pedido de material.</returns>
+        public async Task<PagedResult<Peca>> GetByMoldeIdWithoutPedidoMaterialAsync(int moldeId, int page, int pageSize)
+        {
+            var query = _context.Pecas
+                .AsNoTracking()
+                .Include(p => p.ProximaFase)
+                .Where(p => p.Molde_id == moldeId &&
+                            !p.MaterialRecebido &&
+                            !_context.ItensPedidoMaterial.Any(i => i.Peca_id == p.Peca_id));
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .OrderBy(p => p.Peca_id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<Peca>(items, totalCount, page, pageSize);
+        }
+
+        /// <summary>
+        /// Lista pecas de um molde com pedido de material pendente de rececao.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde.</param>
+        /// <param name="page">Numero da pagina a consultar.</param>
+        /// <param name="pageSize">Quantidade de itens por pagina.</param>
+        /// <returns>Resultado paginado com pecas que aguardam rececao de material.</returns>
+        public async Task<PagedResult<Peca>> GetByMoldeIdPendingMaterialReceiptAsync(int moldeId, int page, int pageSize)
+        {
+            var query = _context.Pecas
+                .AsNoTracking()
+                .Include(p => p.ProximaFase)
+                .Where(p => p.Molde_id == moldeId &&
+                            !p.MaterialRecebido &&
+                            _context.ItensPedidoMaterial.Any(i =>
+                                i.Peca_id == p.Peca_id &&
+                                i.PedidoMaterial != null &&
+                                i.PedidoMaterial.Estado == EstadoPedido.PENDENTE));
 
             var totalCount = await query.CountAsync();
             var items = await query
