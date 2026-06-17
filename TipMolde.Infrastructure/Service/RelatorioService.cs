@@ -676,21 +676,44 @@ namespace TipMolde.Infrastructure.Service
         /// <returns>Caminho fisico absoluto pronto a ser consumido pelo ClosedXML.</returns>
         private string ResolveImagePath(string? imagePathRaw)
         {
-            if (string.IsNullOrWhiteSpace(imagePathRaw))
-                throw new ArgumentNullException(nameof(imagePathRaw), "Imagem sem caminho.");
+            var attemptedPaths = new List<string>();
 
-            var imagePath = imagePathRaw;
-            if (!Path.IsPathRooted(imagePath))
-                imagePath = Path.Combine(ResolvePath(_storageOptions.UploadsRootPath), imagePath.TrimStart('\\', '/'));
+            foreach (var candidatePath in GetImageCandidates(imagePathRaw))
+            {
+                attemptedPaths.Add(candidatePath);
 
-            if (!File.Exists(imagePath))
-                throw new FileNotFoundException($"Imagem nao encontrada: {imagePath}");
+                if (!File.Exists(candidatePath))
+                    continue;
 
-            var ext = Path.GetExtension(imagePath).ToLowerInvariant();
-            if (ext != ".png" && ext != ".jpg" && ext != ".jpeg")
-                throw new InvalidOperationException("Formato de imagem nao suportado.");
+                var ext = Path.GetExtension(candidatePath).ToLowerInvariant();
+                if (ext != ".png" && ext != ".jpg" && ext != ".jpeg")
+                    throw new InvalidOperationException("Formato de imagem nao suportado.");
 
-            return imagePath;
+                return candidatePath;
+            }
+
+            throw new FileNotFoundException(
+                $"Imagem nao encontrada. Caminhos tentados: {string.Join(" | ", attemptedPaths)}");
+        }
+
+        private IEnumerable<string> GetImageCandidates(string? imagePathRaw)
+        {
+            if (!string.IsNullOrWhiteSpace(imagePathRaw))
+            {
+                var imagePath = imagePathRaw.Trim().Replace('\\', '/');
+
+                if (Path.IsPathRooted(imagePath))
+                {
+                    yield return imagePath;
+                }
+                else
+                {
+                    yield return Path.GetFullPath(Path.Combine(_environment.ContentRootPath, imagePath));
+                    yield return Path.Combine(ResolvePath(_storageOptions.UploadsRootPath), imagePath.TrimStart('\\', '/'));
+                }
+            }
+
+            yield return Path.Combine(ResolvePath(_templateOptions.RootPath), "image.png");
         }
 
         /// <summary>

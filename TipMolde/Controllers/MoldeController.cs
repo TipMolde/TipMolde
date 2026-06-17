@@ -118,6 +118,7 @@ namespace TipMolde.API.Controllers
         /// <returns>HTTP 201 com o molde criado; HTTP 400 quando o body e invalido.</returns>
         [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL")]
         [HttpPost]
+        [Consumes("application/json")]
         public async Task<IActionResult> Create([FromBody] CreateMoldeDto dto)
         {
             if (!ModelState.IsValid)
@@ -126,6 +127,38 @@ namespace TipMolde.API.Controllers
             var created = await _moldeService.CreateAsync(dto);
 
             _logger.LogInformation("Controller: Molde {MoldeId} criado", created.MoldeId);
+
+            return CreatedAtAction(nameof(GetById), new { id = created.MoldeId }, created);
+        }
+
+        /// <summary>
+        /// Cria um novo molde com a imagem enviada no mesmo request.
+        /// </summary>
+        /// <param name="dto">Dados de criacao do molde.</param>
+        /// <param name="imagemCapa">Imagem opcional enviada pelo utilizador.</param>
+        /// <returns>HTTP 201 com o molde criado.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL")]
+        [HttpPost]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> Create([FromForm] CreateMoldeDto dto, [FromForm] IFormFile? imagemCapa = null)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Dados de criacao invalidos."));
+
+            byte[]? imagemContent = null;
+            string? imagemFileName = null;
+
+            if (imagemCapa is not null && imagemCapa.Length > 0)
+            {
+                await using var memory = new MemoryStream();
+                await imagemCapa.CopyToAsync(memory);
+                imagemContent = memory.ToArray();
+                imagemFileName = imagemCapa.FileName;
+            }
+
+            var created = await _moldeService.CreateAsync(dto, imagemContent, imagemFileName);
+
+            _logger.LogInformation("Controller: Molde {MoldeId} criado com imagem opcional", created.MoldeId);
 
             return CreatedAtAction(nameof(GetById), new { id = created.MoldeId }, created);
         }

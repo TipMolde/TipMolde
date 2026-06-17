@@ -62,6 +62,19 @@ namespace TipMolde.Application.Interface.Producao.IMolde
         Task<ResponseMoldeDto> CreateAsync(CreateMoldeDto dto);
 
         /// <summary>
+        /// Cria um novo agregado Molde com imagem opcional enviada no mesmo pedido.
+        /// </summary>
+        /// <remarks>
+        /// Quando a imagem nao e fornecida, o service associa a imagem default
+        /// armazenada em Templates/image.png.
+        /// </remarks>
+        /// <param name="dto">Dados de criacao do molde.</param>
+        /// <param name="imageContent">Conteudo binario da imagem de capa.</param>
+        /// <param name="fileName">Nome original do ficheiro enviado.</param>
+        /// <returns>DTO do molde criado.</returns>
+        Task<ResponseMoldeDto> CreateAsync(CreateMoldeDto dto, byte[]? imageContent, string? fileName);
+
+        /// <summary>
         /// Atualiza parcialmente um molde existente.
         /// </summary>
         /// <remarks>

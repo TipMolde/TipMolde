@@ -58,6 +58,40 @@ namespace TipMolde.Tests.Integracao.Controller
             body.Should().BeEquivalentTo(created);
         }
 
+        [Test(Description = "TMOLAPI3 - POST multipart /api/moldes devolve 201 quando request e valida.")]
+        public async Task CreateMultipart_Should_ReturnCreatedJson_When_RequestIsValid()
+        {
+            // ARRANGE
+            var created = new ResponseMoldeDto
+            {
+                MoldeId = 10,
+                Numero = "M-002",
+                Numero_cavidades = 3,
+                TipoPedido = TipoPedido.NOVO_MOLDE,
+                ImagemCapaPath = "Templates/image.png"
+            };
+
+            Factory.MoldeService
+                .Setup(s => s.CreateAsync(It.IsAny<CreateMoldeDto>(), It.IsAny<byte[]?>(), It.IsAny<string?>()))
+                .ReturnsAsync(created);
+
+            using var content = new MultipartFormDataContent
+            {
+                { new StringContent("M-002"), "numero" },
+                { new StringContent("3"), "numero_cavidades" },
+                { new StringContent(TipoPedido.NOVO_MOLDE.ToString()), "tipoPedido" }
+            };
+
+            // ACT
+            var response = await Client.PostAsync("/api/moldes", content);
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+            var body = await ReadBodyAsync<ResponseMoldeDto>(response);
+            body.Should().BeEquivalentTo(created);
+        }
+
         [Test(Description = "TMOLAPI3 - GET /api/moldes devolve ProblemDetails quando paginacao e invalida.")]
         public async Task GetAll_Should_ReturnProblemDetails_When_PaginationIsInvalid()
         {

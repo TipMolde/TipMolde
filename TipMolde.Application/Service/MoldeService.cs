@@ -17,6 +17,9 @@ namespace TipMolde.Application.Service
     /// </remarks>
     public class MoldeService : IMoldeService
     {
+        private const string DefaultImagePath = "Templates/image.png";
+        private const string DefaultImageFileName = "imagem.png";
+
         private readonly IMoldeRepository _moldeRepository;
         private readonly IPrioridadeGlobalMoldeService _prioridadeGlobalMoldeService;
         private readonly IMoldeImageService _moldeImageStorage;
@@ -119,6 +122,25 @@ namespace TipMolde.Application.Service
         /// <returns>DTO do molde criado.</returns>
         public async Task<ResponseMoldeDto> CreateAsync(CreateMoldeDto dto)
         {
+            return await CreateAsync(dto, null, null);
+        }
+
+        /// <summary>
+        /// Cria um novo agregado Molde com imagem opcional enviada no mesmo pedido.
+        /// </summary>
+        /// <remarks>
+        /// Fluxo critico:
+        /// 1. Valida numero unico.
+        /// 2. Persiste molde e especificacoes tecnicas na mesma transacao.
+        /// 3. Se existir imagem, grava-a no storage e atualiza o caminho guardado na BD.
+        /// 4. Se nao existir imagem, associa a imagem default de Templates.
+        /// </remarks>
+        /// <param name="dto">Dados de criacao do molde.</param>
+        /// <param name="imageContent">Conteudo binario da imagem de capa.</param>
+        /// <param name="fileName">Nome original do ficheiro enviado.</param>
+        /// <returns>DTO do molde criado.</returns>
+        public async Task<ResponseMoldeDto> CreateAsync(CreateMoldeDto dto, byte[]? imageContent, string? fileName)
+        {
             if (string.IsNullOrWhiteSpace(dto.Numero))
                 throw new ArgumentException("Numero do molde e obrigatorio.");
 
@@ -132,9 +154,29 @@ namespace TipMolde.Application.Service
             var specs = _mapper.Map<EspecificacoesTecnicas>(dto);
 
             molde.Numero = numeroNormalizado;
+            molde.ImagemCapaPath = DefaultImagePath;
             molde.Especificacoes = specs;
 
             await _moldeRepository.AddMoldeWithSpecsAsync(molde, specs);
+
+            if (HasImageContent(imageContent))
+            {
+                var imagemFileName = string.IsNullOrWhiteSpace(fileName)
+                    ? DefaultImageFileName
+                    : fileName;
+                var imagemNova = await _moldeImageStorage.SaveAsync(molde.Molde_id, imagemFileName, imageContent!);
+
+                try
+                {
+                    molde.ImagemCapaPath = imagemNova;
+                    await _moldeRepository.UpdateAsync(molde);
+                }
+                catch
+                {
+                    await _moldeImageStorage.DeleteIfExistsAsync(imagemNova);
+                    throw;
+                }
+            }
 
             _logger.LogInformation("Molde {MoldeId} criado com sucesso", molde.Molde_id);
 
@@ -286,6 +328,11 @@ namespace TipMolde.Application.Service
                 || !string.IsNullOrWhiteSpace(dto.MaterialCavidade)
                 || !string.IsNullOrWhiteSpace(dto.MaterialMovimentos)
                 || !string.IsNullOrWhiteSpace(dto.MaterialInjecao);
+        }
+
+        private static bool HasImageContent(byte[]? content)
+        {
+            return content is { Length: > 0 };
         }
     }
 }

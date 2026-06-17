@@ -167,6 +167,7 @@ public class MoldeServiceTests
         result.MoldeId.Should().Be(25);
         result.Numero.Should().Be("MOL-001");
         result.NumeroMoldeCliente.Should().Be("CLI-001");
+        result.ImagemCapaPath.Should().Be("Templates/image.png");
 
         _moldeRepository.Verify(r => r.AddMoldeWithSpecsAsync(
             It.Is<Molde>(m =>
@@ -178,6 +179,35 @@ public class MoldeServiceTests
                 s.MaterialInjecao == "ABS")),
             Times.Once);
         _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Never);
+    }
+
+    [Test(Description = "TMOLDSRV4 - Create deve guardar a imagem enviada e atualizar o caminho armazenado.")]
+    public async Task CreateAsync_Should_SaveUploadedImage_When_ImageIsProvided()
+    {
+        // ARRANGE
+        var dto = BuildCreateDto();
+        _moldeRepository.Setup(r => r.GetByNumeroAsync("MOL-001")).ReturnsAsync((Molde?)null);
+
+        _moldeRepository
+            .Setup(r => r.AddMoldeWithSpecsAsync(It.IsAny<Molde>(), It.IsAny<EspecificacoesTecnicas>()))
+            .Callback<Molde, EspecificacoesTecnicas>((molde, specs) =>
+            {
+                molde.Molde_id = 25;
+                specs.Molde_id = 25;
+            })
+            .Returns(Task.CompletedTask);
+
+        _moldeRepository.Setup(r => r.UpdateAsync(It.IsAny<Molde>())).Returns(Task.CompletedTask);
+
+        var imageContent = new byte[] { 1, 2, 3, 4 };
+
+        // ACT
+        var result = await _sut.CreateAsync(dto, imageContent, "capa.png");
+
+        // ASSERT
+        result.ImagemCapaPath.Should().Be("Moldes/25/capa.png");
+        _moldeImageStorage.Verify(s => s.SaveAsync(25, "capa.png", imageContent), Times.Once);
+        _moldeRepository.Verify(r => r.UpdateAsync(It.Is<Molde>(m => m.ImagemCapaPath == "Moldes/25/capa.png")), Times.Once);
     }
 
     [Test(Description = "TMOLDSRV5 - Update deve falhar quando nenhum campo e enviado.")]

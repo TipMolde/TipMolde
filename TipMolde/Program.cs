@@ -2,6 +2,9 @@ using TipMolde.API.Extensions;
 using TipMolde.API.Middleware;
 using TipMolde.Application;
 using TipMolde.Infrastructure;
+using TipMolde.Infrastructure.Settings;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +26,19 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
+
+var storageOptions = app.Services.GetRequiredService<IOptions<StorageOptions>>().Value;
+var uploadsRoot = Path.IsPathRooted(storageOptions.UploadsRootPath)
+    ? storageOptions.UploadsRootPath
+    : Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, storageOptions.UploadsRootPath));
+
+Directory.CreateDirectory(uploadsRoot);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsRoot),
+    RequestPath = "/uploads"
+});
 
 app.UseCors(TipMolde.API.Extensions.ServiceCollectionExtensions.FrontendCorsPolicyName);
 app.UseAuthentication();
