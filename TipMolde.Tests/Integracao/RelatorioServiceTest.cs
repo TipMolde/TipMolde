@@ -27,9 +27,6 @@ namespace TipMolde.Tests.Integracao
     [Category("Integration")]
     public class RelatorioServiceTests
     {
-        private const string MockOutputDirectory = @"C:\Users\HP\Documents\TipMolde\RelatoriosMock";
-        private const string TemplatesRootDirectory = @"C:\Users\HP\Documents\TipMolde\Templates";
-
         private static ApplicationDbContext CreateContext()
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -39,12 +36,12 @@ namespace TipMolde.Tests.Integracao
             return new ApplicationDbContext(options);
         }
 
-        private static RelatorioService CreateSut(ApplicationDbContext ctx)
+        private static RelatorioService CreateSut(ApplicationDbContext ctx, TestWorkspace workspace)
         {
             var repo = new RelatorioRepository(ctx);
             var templateOptions = Options.Create(new TemplateOptions
             {
-                RootPath = TemplatesRootDirectory,
+                RootPath = "Templates",
                 FichaFLT = "FLT.xlsx",
                 FichaFRE = "FRE.xlsx",
                 FichaFRM = "FRM.xlsx",
@@ -58,11 +55,11 @@ namespace TipMolde.Tests.Integracao
             });
             var storageOptions = Options.Create(new StorageOptions
             {
-                FichasRootPath = @"C:\Users\HP\Documents\TipMolde\Storage\Fichas",
-                UploadsRootPath = @"C:\Users\HP\Documents\TipMolde\Storage\Uploads"
+                FichasRootPath = "Storage/Fichas",
+                UploadsRootPath = "Storage/Uploads"
             });
             var environmentMock = new Mock<IHostEnvironment>();
-            environmentMock.SetupGet(e => e.ContentRootPath).Returns(@"C:\Users\HP\Documents\TipMolde\Aplicacao\TipMolde\TipMolde");
+            environmentMock.SetupGet(e => e.ContentRootPath).Returns(workspace.RootPath);
 
             var fichaDocServiceMock = new Mock<IFichaDocumentoService>();
 
@@ -93,6 +90,43 @@ namespace TipMolde.Tests.Integracao
                 templateOptions,
                 storageOptions,
                 environmentMock.Object);
+        }
+
+        private static TestWorkspace CreateWorkspace()
+        {
+            var sourceTemplatesRoot = GetSourceTemplatesRoot();
+            var workspaceRoot = Path.Combine(TestContext.CurrentContext.WorkDirectory, "relatorio-integration", Guid.NewGuid().ToString("N"));
+            var templatesRoot = Path.Combine(workspaceRoot, "Templates");
+            var uploadsRoot = Path.Combine(workspaceRoot, "Storage", "Uploads");
+            var outputRoot = Path.Combine(workspaceRoot, "RelatoriosMock");
+
+            Directory.CreateDirectory(templatesRoot);
+            Directory.CreateDirectory(uploadsRoot);
+            Directory.CreateDirectory(outputRoot);
+            CopyDirectory(sourceTemplatesRoot, templatesRoot);
+
+            return new TestWorkspace(workspaceRoot, templatesRoot, uploadsRoot, outputRoot);
+        }
+
+        private static string GetSourceTemplatesRoot()
+        {
+            var testDirectory = TestContext.CurrentContext.TestDirectory;
+            var projectRoot = Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "..", ".."));
+            var templatesRoot = Path.Combine(projectRoot, "Templates");
+
+            if (!Directory.Exists(templatesRoot))
+                throw new DirectoryNotFoundException($"Pasta de templates nao encontrada: {templatesRoot}");
+
+            return templatesRoot;
+        }
+
+        private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
+        {
+            foreach (var filePath in Directory.GetFiles(sourceDirectory))
+            {
+                var destinationPath = Path.Combine(destinationDirectory, Path.GetFileName(filePath));
+                File.Copy(filePath, destinationPath, overwrite: true);
+            }
         }
 
         private static async Task<int> SeedMoldeAsync(ApplicationDbContext ctx, string numero = "M-001")
@@ -324,13 +358,12 @@ namespace TipMolde.Tests.Integracao
             return molde.Molde_id;
         }
 
-        private static async Task WriteMockArtifactAsync(string fileName, byte[] content)
+        private static async Task WriteMockArtifactAsync(TestWorkspace workspace, string fileName, byte[] content)
         {
-            Directory.CreateDirectory(MockOutputDirectory);
-            await File.WriteAllBytesAsync(Path.Combine(MockOutputDirectory, fileName), content);
+            await File.WriteAllBytesAsync(Path.Combine(workspace.OutputRootPath, fileName), content);
         }
 
-        private static async Task<int> SeedFichaAsync(ApplicationDbContext ctx, TipoFicha tipo, int fichaId = 1)
+        private static async Task<int> SeedFichaAsync(ApplicationDbContext ctx, TipoFicha tipo, TestWorkspace workspace, int fichaId = 1)
         {
             var cliente = new Cliente
             {
@@ -357,12 +390,17 @@ namespace TipMolde.Tests.Integracao
                 Numero = $"M-{fichaId:000}",
                 Nome = $"Molde {fichaId:000}",
                 NumeroMoldeCliente = "Molde Teste - 001",
-                ImagemCapaPath = @"C:\Users\HP\Documents\TipMolde\Templates\Imagem_Template.png",
+                ImagemCapaPath = Path.Combine("Moldes", $"M-{fichaId:000}", "capa.png").Replace('\\', '/'),
                 Numero_cavidades = 2,
                 TipoPedido = TipoPedido.NOVO_MOLDE
             };
             await ctx.Moldes.AddAsync(molde);
             await ctx.SaveChangesAsync();
+
+            var relativeImagePath = molde.ImagemCapaPath!;
+            var physicalImagePath = Path.Combine(workspace.UploadsRootPath, relativeImagePath.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(physicalImagePath)!);
+            await File.WriteAllBytesAsync(physicalImagePath, BuildPlaceholderImageBytes());
 
             var specs = new EspecificacoesTecnicas
             {
@@ -403,6 +441,12 @@ namespace TipMolde.Tests.Integracao
             await ctx.SaveChangesAsync();
 
             return ficha.FichaProducao_id;
+        }
+
+        private static byte[] BuildPlaceholderImageBytes()
+        {
+            return Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO8L5pQAAAAASUVORK5CYII=");
         }
 
         private static async Task SeedResponsavelAsync(ApplicationDbContext ctx, int userId, string nome)
@@ -502,6 +546,31 @@ namespace TipMolde.Tests.Integracao
             await ctx.SaveChangesAsync();
         }
 
+        private sealed class TestWorkspace : IDisposable
+        {
+            public TestWorkspace(string rootPath, string templatesRootPath, string uploadsRootPath, string outputRootPath)
+            {
+                RootPath = rootPath;
+                TemplatesRootPath = templatesRootPath;
+                UploadsRootPath = uploadsRootPath;
+                OutputRootPath = outputRootPath;
+            }
+
+            public string RootPath { get; }
+
+            public string TemplatesRootPath { get; }
+
+            public string UploadsRootPath { get; }
+
+            public string OutputRootPath { get; }
+
+            public void Dispose()
+            {
+                if (Directory.Exists(RootPath))
+                    Directory.Delete(RootPath, recursive: true);
+            }
+        }
+
         private static Task<(byte[] Content, string FileName)> GerarFichaExcelAsync(RelatorioService sut, TipoFicha tipo, int fichaId)
         {
             return tipo switch
@@ -574,12 +643,13 @@ namespace TipMolde.Tests.Integracao
             // ARRANGE
             await using var ctx = CreateContext();
             var moldeId = await SeedMoldeCicloVidaCompletoAsync(ctx, "M-010");
-            var sut = CreateSut(ctx);
+            using var workspace = CreateWorkspace();
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             var dashboard = await sut.ObterDashboardMoldeAsync(moldeId);
             var result = await sut.GerarCicloVidaMoldePdfAsync(moldeId);
-            await WriteMockArtifactAsync(result.FileName, result.Content);
+            await WriteMockArtifactAsync(workspace, result.FileName, result.Content);
 
             // ASSERT
             dashboard.NumeroMolde.Should().Be("M-010");
@@ -602,7 +672,8 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var sut = CreateSut(ctx);
+            using var workspace = CreateWorkspace();
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             Func<Task> act = () => sut.GerarCicloVidaMoldePdfAsync(999);
@@ -616,16 +687,17 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FLT, 30);
+            using var workspace = CreateWorkspace();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FLT, workspace, 30);
             var encomendaMoldeId = await ctx.FichasProducao
                 .Where(f => f.FichaProducao_id == fichaId)
                 .Select(f => f.EncomendaMolde_id)
                 .SingleAsync();
-            var sut = CreateSut(ctx);
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             var result = await sut.GerarFichaExcelFLTAsync(encomendaMoldeId, 1);
-            await WriteMockArtifactAsync(result.FileName, result.Content);
+            await WriteMockArtifactAsync(workspace, result.FileName, result.Content);
 
             // ASSERT
             result.Content.Should().NotBeNullOrEmpty();
@@ -654,12 +726,13 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRE, 31);
-            var sut = CreateSut(ctx);
+            using var workspace = CreateWorkspace();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRE, workspace, 31);
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             var result = await sut.GerarFichaExcelFREAsync(fichaId, 1);
-            await WriteMockArtifactAsync(result.FileName, result.Content);
+            await WriteMockArtifactAsync(workspace, result.FileName, result.Content);
 
             // ASSERT
             result.Content.Should().NotBeNullOrEmpty();
@@ -687,12 +760,13 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRM, 32);
-            var sut = CreateSut(ctx);
+            using var workspace = CreateWorkspace();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRM, workspace, 32);
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             var result = await sut.GerarFichaExcelFRMAsync(fichaId, 1);
-            await WriteMockArtifactAsync(result.FileName, result.Content);
+            await WriteMockArtifactAsync(workspace, result.FileName, result.Content);
 
             // ASSERT
             result.Content.Should().NotBeNullOrEmpty();
@@ -706,12 +780,13 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRA, 33);
-            var sut = CreateSut(ctx);
+            using var workspace = CreateWorkspace();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRA, workspace, 33);
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             var result = await sut.GerarFichaExcelFRAAsync(fichaId, 1);
-            await WriteMockArtifactAsync(result.FileName, result.Content);
+            await WriteMockArtifactAsync(workspace, result.FileName, result.Content);
 
             // ASSERT
             result.Content.Should().NotBeNullOrEmpty();
@@ -725,12 +800,13 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FOP, 34);
-            var sut = CreateSut(ctx);
+            using var workspace = CreateWorkspace();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FOP, workspace, 34);
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             var result = await sut.GerarFichaExcelFOPAsync(fichaId, 1);
-            await WriteMockArtifactAsync(result.FileName, result.Content);
+            await WriteMockArtifactAsync(workspace, result.FileName, result.Content);
 
             // ASSERT
             result.Content.Should().NotBeNullOrEmpty();
@@ -746,8 +822,9 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, tipo, 80 + (int)tipo);
-            var sut = CreateSut(ctx);
+            using var workspace = CreateWorkspace();
+            var fichaId = await SeedFichaAsync(ctx, tipo, workspace, 80 + (int)tipo);
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             var result = await GerarFichaExcelAsync(sut, tipo, fichaId);
@@ -765,13 +842,14 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRM, 132);
+            using var workspace = CreateWorkspace();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRM, workspace, 132);
             await SeedFrmLinhasAsync(ctx, fichaId);
-            var sut = CreateSut(ctx);
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             var result = await sut.GerarFichaExcelFRMAsync(fichaId, 1);
-            await WriteMockArtifactAsync(result.FileName, result.Content);
+            await WriteMockArtifactAsync(workspace, result.FileName, result.Content);
 
             // ASSERT
             using var workbook = OpenWorkbook(result.Content);
@@ -799,13 +877,14 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRA, 133);
+            using var workspace = CreateWorkspace();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FRA, workspace, 133);
             await SeedFraLinhasAsync(ctx, fichaId);
-            var sut = CreateSut(ctx);
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             var result = await sut.GerarFichaExcelFRAAsync(fichaId, 1);
-            await WriteMockArtifactAsync(result.FileName, result.Content);
+            await WriteMockArtifactAsync(workspace, result.FileName, result.Content);
 
             // ASSERT
             using var workbook = OpenWorkbook(result.Content);
@@ -831,13 +910,14 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FOP, 134);
+            using var workspace = CreateWorkspace();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FOP, workspace, 134);
             await SeedFopLinhasAsync(ctx, fichaId);
-            var sut = CreateSut(ctx);
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             var result = await sut.GerarFichaExcelFOPAsync(fichaId, 1);
-            await WriteMockArtifactAsync(result.FileName, result.Content);
+            await WriteMockArtifactAsync(workspace, result.FileName, result.Content);
 
             // ASSERT
             using var workbook = OpenWorkbook(result.Content);
@@ -863,7 +943,8 @@ namespace TipMolde.Tests.Integracao
         {
             // ARRANGE
             await using var ctx = CreateContext();
-            var sut = CreateSut(ctx);
+            using var workspace = CreateWorkspace();
+            var sut = CreateSut(ctx, workspace);
 
             // ACT
             Func<Task> act = () => sut.GerarFichaExcelFLTAsync(999, 1);

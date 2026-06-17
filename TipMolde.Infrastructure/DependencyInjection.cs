@@ -90,6 +90,7 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IRelatorioService, RelatorioService>();
         services.AddScoped<IFichaDocumentoService, FichaDocumentoService>();
+        services.AddScoped<IMoldeImageService, MoldeImageService>();
         services.AddScoped<IFichaDocumentoStorage, FichaDocumentoFileStorage>();
         services.AddScoped<IFichaDocumentoUnitOfWork, FichaDocumentoUnitOfWork>();
 

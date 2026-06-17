@@ -73,6 +73,15 @@ namespace TipMolde.Application.Interface.Producao.IMolde
         Task UpdateAsync(int id, UpdateMoldeDto dto);
 
         /// <summary>
+        /// Atualiza a imagem de capa do molde.
+        /// </summary>
+        /// <param name="id">Identificador do molde.</param>
+        /// <param name="content">Conteudo binario da imagem.</param>
+        /// <param name="fileName">Nome original do ficheiro.</param>
+        /// <returns>DTO do molde atualizado.</returns>
+        Task<ResponseMoldeDto> UpdateImagemCapaAsync(int id, byte[] content, string fileName);
+
+        /// <summary>
         /// Remove um molde existente.
         /// </summary>
         /// <param name="id">Identificador do molde a remover.</param>

@@ -154,6 +154,30 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Atualiza a imagem de capa de um molde.
+        /// </summary>
+        /// <param name="id">Identificador do molde.</param>
+        /// <param name="file">Imagem enviada pelo utilizador.</param>
+        /// <returns>HTTP 200 com o molde atualizado.</returns>
+        [Authorize(Roles = "ADMIN")]
+        [HttpPost("{id:int}/imagem-capa")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UpdateImagemCapa(int id, IFormFile? file = null)
+        {
+            if (file is null || file.Length == 0)
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "A imagem de capa e obrigatoria."));
+
+            await using var memory = new MemoryStream();
+            await file.CopyToAsync(memory);
+
+            var updated = await _moldeService.UpdateImagemCapaAsync(id, memory.ToArray(), file.FileName);
+
+            _logger.LogInformation("Controller: imagem de capa do Molde {MoldeId} atualizada", id);
+
+            return Ok(updated);
+        }
+
+        /// <summary>
         /// Remove um molde.
         /// </summary>
         /// <param name="id">Identificador do molde a remover.</param>

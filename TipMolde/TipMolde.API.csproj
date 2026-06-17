@@ -10,9 +10,16 @@
     <UserSecretsId>TipMolde.API-LocalSecrets</UserSecretsId>
   </PropertyGroup>
 
-	<ItemGroup>
-		<Content Remove="Dockerfile" />
+  <ItemGroup>
+    <Content Remove="Dockerfile" />
     </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Templates\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.102.2" />

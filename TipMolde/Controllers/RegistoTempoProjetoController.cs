@@ -41,7 +41,7 @@ namespace TipMolde.API.Controllers
         /// <param name="page">Pagina atual.</param>
         /// <param name="pageSize">Tamanho da pagina.</param>
         /// <returns>HTTP 200 com a colecao de registos; HTTP 400 quando os identificadores sao invalidos.</returns>
-        [Authorize(Roles = "ADMIN")]
+        [Authorize(Roles = "ADMIN,GESTOR_DESENHO")]
         [HttpGet]
         public async Task<IActionResult> GetHistorico([FromQuery] int projetoId, [FromQuery] int autorId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {

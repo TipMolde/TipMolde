@@ -27,6 +27,7 @@ public class MoldeServiceTests
 
     private Mock<IMoldeRepository> _moldeRepository = null!;
     private Mock<IPrioridadeGlobalMoldeService> _prioridadeGlobalMoldeService = null!;
+    private Mock<IMoldeImageService> _moldeImageStorage = null!;
     private Mock<ILogger<MoldeService>> _logger = null!;
     private IMapper _mapper = null!;
     private MoldeService _sut = null!;
@@ -36,14 +37,20 @@ public class MoldeServiceTests
     {
         _moldeRepository = new Mock<IMoldeRepository>();
         _prioridadeGlobalMoldeService = new Mock<IPrioridadeGlobalMoldeService>();
+        _moldeImageStorage = new Mock<IMoldeImageService>();
         _logger = new Mock<ILogger<MoldeService>>();
 
         var config = new MapperConfiguration(cfg => cfg.AddProfile<MoldeProfile>());
         _mapper = config.CreateMapper();
 
+        _moldeImageStorage
+            .Setup(s => s.SaveAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<byte[]>()))
+            .ReturnsAsync((int moldeId, string _, byte[] __) => $"Moldes/{moldeId}/capa.png");
+
         _sut = new MoldeService(
             _moldeRepository.Object,
             _prioridadeGlobalMoldeService.Object,
+            _moldeImageStorage.Object,
             _mapper,
             _logger.Object);
     }
@@ -86,7 +93,7 @@ public class MoldeServiceTests
             Descricao = "Descricao atual",
             Numero_cavidades = 4,
             TipoPedido = tipoPedido,
-            ImagemCapaPath = "capa.png",
+            ImagemCapaPath = $"Moldes/{id}/capa.png",
             Especificacoes = new EspecificacoesTecnicas
             {
                 Molde_id = id,
@@ -228,6 +235,27 @@ public class MoldeServiceTests
         // ASSERT
         _moldeRepository.Verify(r => r.DeleteAsync(13), Times.Once);
         _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Once);
+    }
+
+    [Test(Description = "TMOLDSRV11 - UpdateImagemCapa deve guardar a imagem em storage e atualizar o caminho.")]
+    public async Task UpdateImagemCapaAsync_Should_SaveImageAndPersistRelativePath_When_MoldeExists()
+    {
+        // ARRANGE
+        var molde = BuildMolde();
+        _moldeRepository.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(molde);
+        _moldeRepository.Setup(r => r.UpdateAsync(It.IsAny<Molde>())).Returns(Task.CompletedTask);
+
+        var content = new byte[] { 1, 2, 3 };
+
+        // ACT
+        var result = await _sut.UpdateImagemCapaAsync(1, content, "capa.png");
+
+        // ASSERT
+        result.ImagemCapaPath.Should().Be("Moldes/1/capa.png");
+        molde.ImagemCapaPath.Should().Be("Moldes/1/capa.png");
+        _moldeImageStorage.Verify(s => s.SaveAsync(1, "capa.png", content), Times.Once);
+        _moldeImageStorage.Verify(s => s.DeleteIfExistsAsync(It.IsAny<string?>()), Times.Never);
+        _moldeRepository.Verify(r => r.UpdateAsync(molde), Times.Once);
     }
 
     [Test(Description = "TMOLDSRV8 - GetAll deve mapear moldes para DTO paginado.")]

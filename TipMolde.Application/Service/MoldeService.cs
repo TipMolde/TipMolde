@@ -19,6 +19,7 @@ namespace TipMolde.Application.Service
     {
         private readonly IMoldeRepository _moldeRepository;
         private readonly IPrioridadeGlobalMoldeService _prioridadeGlobalMoldeService;
+        private readonly IMoldeImageService _moldeImageStorage;
         private readonly IMapper _mapper;
         private readonly ILogger<MoldeService> _logger;
 
@@ -32,11 +33,13 @@ namespace TipMolde.Application.Service
         public MoldeService(
             IMoldeRepository moldeRepository,
             IPrioridadeGlobalMoldeService prioridadeGlobalMoldeService,
+            IMoldeImageService moldeImageStorage,
             IMapper mapper,
             ILogger<MoldeService> logger)
         {
             _moldeRepository = moldeRepository;
             _prioridadeGlobalMoldeService = prioridadeGlobalMoldeService;
+            _moldeImageStorage = moldeImageStorage;
             _mapper = mapper;
             _logger = logger;
         }
@@ -180,6 +183,50 @@ namespace TipMolde.Application.Service
             await _prioridadeGlobalMoldeService.RecalcularAsync();
 
             _logger.LogInformation("Molde {MoldeId} atualizado com sucesso", id);
+        }
+
+        /// <summary>
+        /// Atualiza a imagem de capa do molde e guarda o ficheiro em Storage/Uploads.
+        /// </summary>
+        /// <param name="id">Identificador do molde.</param>
+        /// <param name="content">Conteudo binario da imagem.</param>
+        /// <param name="fileName">Nome original do ficheiro enviado.</param>
+        /// <returns>DTO do molde atualizado.</returns>
+        public async Task<ResponseMoldeDto> UpdateImagemCapaAsync(int id, byte[] content, string fileName)
+        {
+            if (content is null || content.Length == 0)
+                throw new ArgumentException("A imagem do molde e obrigatoria.");
+
+            if (string.IsNullOrWhiteSpace(fileName))
+                throw new ArgumentException("O nome da imagem e obrigatorio.");
+
+            var existente = await _moldeRepository.GetByIdAsync(id);
+            if (existente == null)
+                throw new KeyNotFoundException($"Molde com ID {id} nao encontrado.");
+
+            var imagemAnterior = existente.ImagemCapaPath;
+            var imagemNova = await _moldeImageStorage.SaveAsync(id, fileName, content);
+
+            try
+            {
+                existente.ImagemCapaPath = imagemNova;
+                await _moldeRepository.UpdateAsync(existente);
+            }
+            catch
+            {
+                await _moldeImageStorage.DeleteIfExistsAsync(imagemNova);
+                throw;
+            }
+
+            if (!string.IsNullOrWhiteSpace(imagemAnterior) &&
+                !string.Equals(imagemAnterior, imagemNova, StringComparison.OrdinalIgnoreCase))
+            {
+                await _moldeImageStorage.DeleteIfExistsAsync(imagemAnterior);
+            }
+
+            _logger.LogInformation("Molde {MoldeId} imagem de capa atualizada", id);
+
+            return _mapper.Map<ResponseMoldeDto>(existente);
         }
 
         /// <summary>
