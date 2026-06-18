@@ -135,6 +135,29 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Lista associacoes Encomenda-Molde aptas para a pagina de desenho.
+        /// </summary>
+        /// <remarks>
+        /// Para alem de encomenda confirmada, o molde tem de ter o ultimo projeto
+        /// concluido e a ultima revisao aprovada pelo cliente.
+        /// </remarks>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>HTTP 200 com resultado paginado; HTTP 400 para paginacao invalida.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO")]
+        [HttpGet("encomendas-confirmadas-para-desenho")]
+        public async Task<IActionResult> GetByEncomendasConfirmadasParaDesenho(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (page < 1 || pageSize < 1)
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
+
+            var result = await _service.GetByEncomendasConfirmadasParaDesenhoAsync(page, pageSize);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Cria uma nova associacao Encomenda-Molde.
         /// </summary>
         /// <param name="dto">Dados de criacao da associacao.</param>

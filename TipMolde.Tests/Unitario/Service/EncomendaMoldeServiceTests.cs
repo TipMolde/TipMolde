@@ -7,9 +7,11 @@ using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Comercio.IEncomenda;
 using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
+using TipMolde.Application.Interface.Desenho.IProjeto;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Service;
 using TipMolde.Domain.Entities.Comercio;
+using TipMolde.Domain.Entities.Desenho;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 
@@ -27,6 +29,7 @@ public class EncomendaMoldeServiceTests
 {
     private Mock<IEncomendaMoldeRepository> _repo = null!;
     private Mock<IEncomendaRepository> _encomendaRepo = null!;
+    private Mock<IProjetoRepository> _projetoRepo = null!;
     private Mock<IMoldeRepository> _moldeRepo = null!;
     private Mock<IPrioridadeGlobalMoldeService> _prioridadeGlobalMoldeService = null!;
     private Mock<IMapper> _mapper = null!;
@@ -38,6 +41,7 @@ public class EncomendaMoldeServiceTests
     {
         _repo = new Mock<IEncomendaMoldeRepository>();
         _encomendaRepo = new Mock<IEncomendaRepository>();
+        _projetoRepo = new Mock<IProjetoRepository>();
         _moldeRepo = new Mock<IMoldeRepository>();
         _prioridadeGlobalMoldeService = new Mock<IPrioridadeGlobalMoldeService>();
         _mapper = new Mock<IMapper>();
@@ -46,6 +50,7 @@ public class EncomendaMoldeServiceTests
         _sut = new EncomendaMoldeService(
             _repo.Object,
             _encomendaRepo.Object,
+            _projetoRepo.Object,
             _moldeRepo.Object,
             _prioridadeGlobalMoldeService.Object,
             _mapper.Object,
@@ -198,6 +203,120 @@ public class EncomendaMoldeServiceTests
         // ASSERT
         result.TotalCount.Should().Be(1);
         result.Items.Single().EncomendaMolde_id.Should().Be(6);
+    }
+
+    [Test(Description = "TENCMSRV6C - GetByEncomendasConfirmadasParaDesenho deve devolver apenas moldes com projeto concluido e ultima revisao aprovada.")]
+    public async Task GetByEncomendasConfirmadasParaDesenhoAsync_Should_FilterOnlyEligibleMoldes()
+    {
+        // ARRANGE
+        var elegivel = new EncomendaMolde
+        {
+            EncomendaMolde_id = 7,
+            Encomenda_id = 3,
+            Molde_id = 40,
+            Quantidade = 4,
+            Prioridade = 1,
+            DataEntregaPrevista = new DateTime(2026, 6, 18)
+        };
+
+        var bloqueado = new EncomendaMolde
+        {
+            EncomendaMolde_id = 8,
+            Encomenda_id = 4,
+            Molde_id = 41,
+            Quantidade = 6,
+            Prioridade = 2,
+            DataEntregaPrevista = new DateTime(2026, 6, 19)
+        };
+
+        _repo.Setup(r => r.GetByEncomendasConfirmadasAsync(1, 100))
+            .ReturnsAsync(new PagedResult<EncomendaMolde>(new[] { elegivel, bloqueado }, 2, 1, 100));
+        _repo.Setup(r => r.GetByEncomendasConfirmadasAsync(2, 100))
+            .ReturnsAsync(new PagedResult<EncomendaMolde>(Array.Empty<EncomendaMolde>(), 2, 2, 100));
+
+        _projetoRepo.Setup(r => r.GetLatestWithRevisoesAndTempoByMoldeAsync(40))
+            .ReturnsAsync(new Projeto
+            {
+                Projeto_id = 900,
+                Molde_id = 40,
+                NomeProjeto = "Projeto apto",
+                SoftwareUtilizado = "NX",
+                CaminhoPastaServidor = @"\\srv\apto",
+                Revisoes =
+                {
+                    new Revisao
+                    {
+                        Revisao_id = 11,
+                        NumRevisao = 1,
+                        DescricaoAlteracoes = "OK",
+                        DataEnvioCliente = DateTime.UtcNow.AddDays(-2),
+                        DataResposta = DateTime.UtcNow.AddDays(-1),
+                        Aprovado = true
+                    }
+                },
+                RegistosTempo =
+                {
+                    new RegistoTempoProjeto
+                    {
+                        Registo_Tempo_Projeto_id = 21,
+                        Projeto_id = 900,
+                        Autor_id = 5,
+                        Estado_tempo = EstadoTempoProjeto.CONCLUIDO,
+                        Data_hora = DateTime.UtcNow
+                    }
+                }
+            });
+
+        _projetoRepo.Setup(r => r.GetLatestWithRevisoesAndTempoByMoldeAsync(41))
+            .ReturnsAsync(new Projeto
+            {
+                Projeto_id = 901,
+                Molde_id = 41,
+                NomeProjeto = "Projeto bloqueado",
+                SoftwareUtilizado = "NX",
+                CaminhoPastaServidor = @"\\srv\bloqueado",
+                Revisoes =
+                {
+                    new Revisao
+                    {
+                        Revisao_id = 12,
+                        NumRevisao = 1,
+                        DescricaoAlteracoes = "A aguardar",
+                        DataEnvioCliente = DateTime.UtcNow.AddDays(-2),
+                        DataResposta = DateTime.UtcNow.AddDays(-1),
+                        Aprovado = false
+                    }
+                },
+                RegistosTempo =
+                {
+                    new RegistoTempoProjeto
+                    {
+                        Registo_Tempo_Projeto_id = 22,
+                        Projeto_id = 901,
+                        Autor_id = 5,
+                        Estado_tempo = EstadoTempoProjeto.CONCLUIDO,
+                        Data_hora = DateTime.UtcNow
+                    }
+                }
+            });
+
+        _mapper.Setup(m => m.Map<IEnumerable<ResponseEncomendaMoldeDto>>(It.IsAny<IEnumerable<EncomendaMolde>>()))
+            .Returns((IEnumerable<EncomendaMolde> items) => items.Select(item => new ResponseEncomendaMoldeDto
+            {
+                EncomendaMolde_id = item.EncomendaMolde_id,
+                Encomenda_id = item.Encomenda_id,
+                Molde_id = item.Molde_id,
+                Quantidade = item.Quantidade,
+                Prioridade = item.Prioridade,
+                DataEntregaPrevista = item.DataEntregaPrevista
+            }).ToArray());
+
+        // ACT
+        var result = await _sut.GetByEncomendasConfirmadasParaDesenhoAsync(1, 10);
+
+        // ASSERT
+        result.TotalCount.Should().Be(1);
+        result.Items.Should().ContainSingle(item => item.Molde_id == 40);
     }
 
     [Test(Description = "TENCMSRV6A - GetFilaGlobal deve delegar o carregamento ao servico de prioridade global.")]

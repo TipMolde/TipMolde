@@ -5,8 +5,10 @@ using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Comercio.IEncomenda;
 using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
+using TipMolde.Application.Interface.Desenho.IProjeto;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Domain.Entities.Comercio;
+using TipMolde.Domain.Entities.Desenho;
 using TipMolde.Domain.Enums;
 
 namespace TipMolde.Application.Service
@@ -21,6 +23,7 @@ namespace TipMolde.Application.Service
     {
         private readonly IEncomendaMoldeRepository _repo;
         private readonly IEncomendaRepository _encomendaRepo;
+        private readonly IProjetoRepository _projetoRepo;
         private readonly IMoldeRepository _moldeRepo;
         private readonly IPrioridadeGlobalMoldeService _prioridadeGlobalMoldeService;
         private readonly IMapper _mapper;
@@ -38,6 +41,7 @@ namespace TipMolde.Application.Service
         public EncomendaMoldeService(
             IEncomendaMoldeRepository repo,
             IEncomendaRepository encomendaRepo,
+            IProjetoRepository projetoRepo,
             IMoldeRepository moldeRepo,
             IPrioridadeGlobalMoldeService prioridadeGlobalMoldeService,
             IMapper mapper,
@@ -45,6 +49,7 @@ namespace TipMolde.Application.Service
         {
             _repo = repo;
             _encomendaRepo = encomendaRepo;
+            _projetoRepo = projetoRepo;
             _moldeRepo = moldeRepo;
             _prioridadeGlobalMoldeService = prioridadeGlobalMoldeService;
             _mapper = mapper;
@@ -121,6 +126,43 @@ namespace TipMolde.Application.Service
             var result = await _repo.GetByEncomendasConfirmadasAsync(normalizedPage, normalizedPageSize);
             var mapped = _mapper.Map<IEnumerable<ResponseEncomendaMoldeDto>>(result.Items);
             return new PagedResult<ResponseEncomendaMoldeDto>(mapped, result.TotalCount, result.CurrentPage, result.PageSize);
+        }
+
+        /// <summary>
+        /// Lista associacoes de moldes aptos para desenho.
+        /// </summary>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com Dtos de associacao filtrados pela regra funcional do desenho.</returns>
+        public async Task<PagedResult<ResponseEncomendaMoldeDto>> GetByEncomendasConfirmadasParaDesenhoAsync(
+            int page = 1,
+            int pageSize = 10)
+        {
+            var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+            var confirmadas = await GetAllEncomendasConfirmadasAsync();
+
+            var aptas = (await Task.WhenAll(confirmadas.Select(async associacao =>
+            {
+                if (!await PodeIrParaDesenhoAsync(associacao.Molde_id))
+                    return null;
+
+                return associacao;
+            })))
+            .Where(item => item is not null)
+            .Select(item => item!)
+            .OrderBy(item => item.DataEntregaPrevista)
+            .ThenBy(item => item.Prioridade)
+            .ThenBy(item => item.EncomendaMolde_id)
+            .ToList();
+
+            var totalCount = aptas.Count;
+            var items = aptas
+                .Skip((normalizedPage - 1) * normalizedPageSize)
+                .Take(normalizedPageSize)
+                .ToList();
+
+            var mapped = _mapper.Map<IEnumerable<ResponseEncomendaMoldeDto>>(items);
+            return new PagedResult<ResponseEncomendaMoldeDto>(mapped, totalCount, normalizedPage, normalizedPageSize);
         }
 
         /// <summary>
@@ -265,6 +307,61 @@ namespace TipMolde.Application.Service
         /// <returns>True quando todas as pecas estao concluidas na fase MONTAGEM.</returns>
         private Task<bool> PodeConcluirAsync(int moldeId)
             => _repo.TodasPecasConcluidasNaMontagemAsync(moldeId);
+
+        /// <summary>
+        /// Obtém todas as associações confirmadas antes de aplicar a regra do desenho.
+        /// </summary>
+        private async Task<List<EncomendaMolde>> GetAllEncomendasConfirmadasAsync()
+        {
+            const int pageSize = 100;
+            var page = 1;
+            var allItems = new List<EncomendaMolde>();
+
+            while (true)
+            {
+                var result = await _repo.GetByEncomendasConfirmadasAsync(page, pageSize);
+                var items = result.Items.ToList();
+                if (items.Count == 0)
+                    break;
+
+                allItems.AddRange(items);
+
+                var totalPages = result.PageSize <= 0
+                    ? 0
+                    : (int)Math.Ceiling((double)result.TotalCount / result.PageSize);
+
+                if (page >= totalPages)
+                    break;
+
+                page++;
+            }
+
+            return allItems;
+        }
+
+        /// <summary>
+        /// Verifica se o molde tem um projeto concluido e com a ultima revisao aprovada.
+        /// </summary>
+        private async Task<bool> PodeIrParaDesenhoAsync(int moldeId)
+        {
+            var projeto = await _projetoRepo.GetLatestWithRevisoesAndTempoByMoldeAsync(moldeId);
+            if (projeto is null)
+                return false;
+
+            var ultimaRevisao = projeto.Revisoes
+                .OrderByDescending(item => item.NumRevisao)
+                .FirstOrDefault();
+
+            if (ultimaRevisao is null || !ultimaRevisao.DataResposta.HasValue || ultimaRevisao.Aprovado != true)
+                return false;
+
+            var ultimoRegisto = projeto.RegistosTempo
+                .OrderByDescending(item => item.Data_hora)
+                .ThenByDescending(item => item.Registo_Tempo_Projeto_id)
+                .FirstOrDefault();
+
+            return ultimoRegisto is not null && ultimoRegisto.Estado_tempo == EstadoTempoProjeto.CONCLUIDO;
+        }
 
         /// <summary>
         /// Recalcula o estado agregado da encomenda com base em todos os moldes associados.

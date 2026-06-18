@@ -50,6 +50,17 @@ namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
         Task<PagedResult<ResponseEncomendaMoldeDto>> GetByEncomendasConfirmadasAsync(
             int page = 1,
             int pageSize = 10);
+
+        /// <summary>
+        /// Lista associacoes de moldes aptos para desenho, isto e, com encomenda confirmada,
+        /// projeto concluido e ultima revisao aprovada pelo cliente.
+        /// </summary>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com Dtos prontos para a pagina de desenho.</returns>
+        Task<PagedResult<ResponseEncomendaMoldeDto>> GetByEncomendasConfirmadasParaDesenhoAsync(
+            int page = 1,
+            int pageSize = 10);
         
         /// <summary>
         /// Lista a fila global de moldes com paginacao.

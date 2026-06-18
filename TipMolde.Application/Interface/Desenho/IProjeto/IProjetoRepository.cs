@@ -22,5 +22,12 @@ namespace TipMolde.Application.Interface.Desenho.IProjeto
         /// <param name="id">Identificador interno do projeto.</param>
         /// <returns>Entidade do projeto com revisoes quando encontrada; nulo caso contrario.</returns>
         Task<Projeto?> GetWithRevisoesAsync(int id);
+
+        /// <summary>
+        /// Obtem o projeto mais recente associado a um molde com revisoes e registos temporais carregados.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde.</param>
+        /// <returns>Projeto mais recente quando existe; nulo caso contrario.</returns>
+        Task<Projeto?> GetLatestWithRevisoesAndTempoByMoldeAsync(int moldeId);
     }
 }

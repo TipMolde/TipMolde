@@ -56,5 +56,19 @@ namespace TipMolde.Infrastructure.Repositorio
                 .AsNoTracking()
                 .Include(p => p.Revisoes)
                 .FirstOrDefaultAsync(p => p.Projeto_id == id);
+
+        /// <summary>
+        /// Obtem o projeto mais recente associado a um molde com revisoes e registos temporais carregados.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde.</param>
+        /// <returns>Projeto mais recente quando existe; nulo caso contrario.</returns>
+        public Task<Projeto?> GetLatestWithRevisoesAndTempoByMoldeAsync(int moldeId) =>
+            _context.Projetos
+                .AsNoTracking()
+                .Include(p => p.Revisoes)
+                .Include(p => p.RegistosTempo)
+                .Where(p => p.Molde_id == moldeId)
+                .OrderByDescending(p => p.Projeto_id)
+                .FirstOrDefaultAsync();
     }
 }
