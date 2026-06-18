@@ -18,6 +18,7 @@ public class RevisaoServiceTests
 {
     private Mock<IRevisaoRepository> _revisaoRepository = null!;
     private Mock<IProjetoRepository> _projetoRepository = null!;
+    private Mock<IRevisaoAttachmentStorage> _attachmentStorage = null!;
     private Mock<ILogger<RevisaoService>> _logger = null!;
     private IMapper _mapper = null!;
     private RevisaoService _sut = null!;
@@ -27,6 +28,7 @@ public class RevisaoServiceTests
     {
         _revisaoRepository = new Mock<IRevisaoRepository>();
         _projetoRepository = new Mock<IProjetoRepository>();
+        _attachmentStorage = new Mock<IRevisaoAttachmentStorage>();
         _logger = new Mock<ILogger<RevisaoService>>();
 
         var config = new MapperConfiguration(cfg => cfg.AddProfile<RevisaoProfile>());
@@ -35,6 +37,7 @@ public class RevisaoServiceTests
         _sut = new RevisaoService(
             _revisaoRepository.Object,
             _projetoRepository.Object,
+            _attachmentStorage.Object,
             _mapper,
             _logger.Object);
     }
@@ -49,7 +52,7 @@ public class RevisaoServiceTests
             DescricaoAlteracoes = "Nova alteracao"
         };
 
-        _projetoRepository.Setup(r => r.GetByIdAsync(50)).ReturnsAsync((Projeto?)null);
+        _projetoRepository.Setup(r => r.GetWithRevisoesAsync(50)).ReturnsAsync((Projeto?)null);
 
         // ACT
         Func<Task> act = () => _sut.CreateAsync(dto);
@@ -69,7 +72,7 @@ public class RevisaoServiceTests
             DescricaoAlteracoes = " Ajuste ao desenho "
         };
 
-        _projetoRepository.Setup(r => r.GetByIdAsync(5))
+        _projetoRepository.Setup(r => r.GetWithRevisoesAsync(5))
             .ReturnsAsync(new Projeto
             {
                 Projeto_id = 5,
@@ -94,6 +97,84 @@ public class RevisaoServiceTests
         result.NumRevisao.Should().Be(4);
         result.DescricaoAlteracoes.Should().Be("Ajuste ao desenho");
         result.Projeto_id.Should().Be(5);
+    }
+
+    [Test(Description = "TREVSRV2A - Create deve bloquear quando a ultima revisao ainda nao tem resposta do cliente.")]
+    public async Task CreateAsync_Should_ThrowBusinessConflictException_When_ProjectHasOpenRevision()
+    {
+        // ARRANGE
+        var dto = new CreateRevisaoDto
+        {
+            Projeto_id = 6,
+            DescricaoAlteracoes = "Nova alteracao"
+        };
+
+        _projetoRepository.Setup(r => r.GetWithRevisoesAsync(6))
+            .ReturnsAsync(new Projeto
+            {
+                Projeto_id = 6,
+                NomeProjeto = "Projeto 6",
+                SoftwareUtilizado = "NX",
+                CaminhoPastaServidor = @"\\srv\proj6",
+                Revisoes = new List<Revisao>
+                {
+                    new()
+                    {
+                        Revisao_id = 10,
+                        Projeto_id = 6,
+                        NumRevisao = 2,
+                        DescricaoAlteracoes = "Ainda aberta",
+                        DataEnvioCliente = DateTime.UtcNow.AddDays(-1)
+                    }
+                }
+            });
+
+        // ACT
+        Func<Task> act = () => _sut.CreateAsync(dto);
+
+        // ASSERT
+        await act.Should().ThrowAsync<BusinessConflictException>()
+            .WithMessage("*revisao em aberto*");
+    }
+
+    [Test(Description = "TREVSRV2B - Create deve bloquear quando a ultima revisao ja foi aprovada pelo cliente.")]
+    public async Task CreateAsync_Should_ThrowBusinessConflictException_When_ProjectHasApprovedRevision()
+    {
+        // ARRANGE
+        var dto = new CreateRevisaoDto
+        {
+            Projeto_id = 7,
+            DescricaoAlteracoes = "Nova alteracao"
+        };
+
+        _projetoRepository.Setup(r => r.GetWithRevisoesAsync(7))
+            .ReturnsAsync(new Projeto
+            {
+                Projeto_id = 7,
+                NomeProjeto = "Projeto 7",
+                SoftwareUtilizado = "NX",
+                CaminhoPastaServidor = @"\\srv\proj7",
+                Revisoes = new List<Revisao>
+                {
+                    new()
+                    {
+                        Revisao_id = 11,
+                        Projeto_id = 7,
+                        NumRevisao = 4,
+                        DescricaoAlteracoes = "Aprovada",
+                        DataEnvioCliente = DateTime.UtcNow.AddDays(-2),
+                        DataResposta = DateTime.UtcNow.AddDays(-1),
+                        Aprovado = true
+                    }
+                }
+            });
+
+        // ACT
+        Func<Task> act = () => _sut.CreateAsync(dto);
+
+        // ASSERT
+        await act.Should().ThrowAsync<BusinessConflictException>()
+            .WithMessage("*nao e possivel criar uma nova revisao depois de o cliente ter aprovado a ultima revisao*");
     }
 
     [Test(Description = "TREVSRV3 - UpdateRespostaCliente deve falhar quando a revisao ja tem resposta registada.")]
@@ -149,7 +230,41 @@ public class RevisaoServiceTests
 
         // ASSERT
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*FeedbackTexto ou FeedbackImagemPath*");
+            .WithMessage("*FeedbackTexto, FeedbackImagemPath ou um anexo*");
+    }
+
+    [Test(Description = "TREVSRV4A - UpdateRespostaCliente deve bloquear anexos quando a revisao e aprovada.")]
+    public async Task UpdateRespostaClienteAsync_Should_ThrowArgumentException_When_AttachmentProvidedAndApproved()
+    {
+        // ARRANGE
+        _revisaoRepository.Setup(r => r.GetByIdAsync(12))
+            .ReturnsAsync(new Revisao
+            {
+                Revisao_id = 12,
+                Projeto_id = 3,
+                NumRevisao = 4,
+                DescricaoAlteracoes = "Rev 4"
+            });
+
+        var dto = new UpdateRespostaRevisaoDto
+        {
+            Aprovado = true,
+            FeedbackTexto = null,
+            FeedbackImagemPath = null
+        };
+
+        // ACT
+        Func<Task> act = () => _sut.UpdateRespostaClienteAsync(
+            12,
+            dto,
+            new byte[] { 1, 2, 3 },
+            "feedback.png",
+            "image/png");
+
+        // ASSERT
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*nao pode incluir anexos ou imagem de feedback*");
+        _attachmentStorage.Verify(s => s.SaveAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<byte[]>()), Times.Never);
     }
 
     [Test(Description = "TREVSRV5 - UpdateRespostaCliente deve persistir a primeira resposta valida do cliente.")]

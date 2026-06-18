@@ -113,6 +113,32 @@ namespace TipMolde.Tests.Integracao.Controller
             body.Should().BeEquivalentTo(created);
         }
 
+        [Test(Description = "TFPAPI002A - POST /api/fichas-producao/ensure devolve 200 com a ficha existente ou criada.")]
+        public async Task Ensure_Should_ReturnOkJson_When_RequestIsValid()
+        {
+            // ARRANGE
+            var ensured = BuildFichaResponse(id: 13, tipo: TipoFicha.FRA);
+
+            Factory.FichaProducaoService
+                .Setup(s => s.EnsureAsync(It.IsAny<CreateFichaProducaoDto>()))
+                .ReturnsAsync(ensured);
+
+            var payload = new
+            {
+                tipo = TipoFicha.FRA,
+                encomendaMolde_id = 7
+            };
+
+            // ACT
+            var response = await Client.PostAsJsonAsync("/api/fichas-producao/ensure", payload);
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var body = await ReadBodyAsync<ResponseFichaProducaoDto>(response);
+            body.Should().BeEquivalentTo(ensured);
+        }
+
 
         private static ResponseFichaProducaoDto BuildFichaResponse(
             int id,

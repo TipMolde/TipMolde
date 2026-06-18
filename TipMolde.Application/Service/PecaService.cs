@@ -3,7 +3,9 @@ using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Text;
 using TipMolde.Application.Dtos.PecaDto;
+using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
+using TipMolde.Application.Interface.Desenho.IProjeto;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Interface.Producao.IPeca;
@@ -36,6 +38,7 @@ namespace TipMolde.Application.Service
 
         private readonly IPecaRepository _pecaRepository;
         private readonly IMoldeRepository _moldeRepository;
+        private readonly IProjetoRepository _projetoRepository;
         private readonly IFasesProducaoRepository _fasesProducaoRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<PecaService> _logger;
@@ -50,12 +53,14 @@ namespace TipMolde.Application.Service
         public PecaService(
             IPecaRepository pecaRepository,
             IMoldeRepository moldeRepository,
+            IProjetoRepository projetoRepository,
             IFasesProducaoRepository fasesProducaoRepository,
             IMapper mapper,
             ILogger<PecaService> logger)
         {
             _pecaRepository = pecaRepository;
             _moldeRepository = moldeRepository;
+            _projetoRepository = projetoRepository;
             _fasesProducaoRepository = fasesProducaoRepository;
             _mapper = mapper;
             _logger = logger;
@@ -169,6 +174,8 @@ namespace TipMolde.Application.Service
             if (molde == null)
                 throw new KeyNotFoundException($"Molde com ID {dto.Molde_id} nao encontrado.");
 
+            await EnsureMoldePodeReceberPecasAsync(dto.Molde_id);
+
             var numeroPecaNormalizado = MappingProfileExtensions.NormalizeOptionalString(dto.NumeroPeca);
             var designacaoNormalizada = dto.Designacao.Trim();
             var proximaFaseId = await ResolveProximaFaseIdAsync(dto.ProximaFase_id);
@@ -259,6 +266,8 @@ namespace TipMolde.Application.Service
             if (molde == null)
                 throw new KeyNotFoundException($"Molde com ID {moldeId} nao encontrado.");
 
+            await EnsureMoldePodeReceberPecasAsync(moldeId);
+
             if (csvStream.CanSeek)
                 csvStream.Seek(0, SeekOrigin.Begin);
 
@@ -332,6 +341,30 @@ namespace TipMolde.Application.Service
             await _pecaRepository.DeleteAsync(id);
 
             _logger.LogInformation("Peca {PecaId} removida com sucesso", id);
+        }
+
+        /// <summary>
+        /// Garante que o molde tem um projeto concluido e aprovado antes de permitir a criacao de pecas.
+        /// </summary>
+        /// <param name="moldeId">Identificador do molde.</param>
+        private async Task EnsureMoldePodeReceberPecasAsync(int moldeId)
+        {
+            var projetos = await _projetoRepository.GetByMoldeIdAsync(moldeId, page: 1, pageSize: 1);
+            var projetoMaisRecente = projetos?.Items?.FirstOrDefault();
+
+            if (projetoMaisRecente == null)
+                throw new BusinessConflictException("Nao e possivel adicionar pecas a um molde sem projeto aprovado pelo cliente.");
+
+            var projetoComRevisoes = await _projetoRepository.GetWithRevisoesAsync(projetoMaisRecente.Projeto_id);
+            if (projetoComRevisoes == null)
+                throw new BusinessConflictException("Nao e possivel adicionar pecas a um molde sem projeto aprovado pelo cliente.");
+
+            var ultimaRevisao = projetoComRevisoes.Revisoes
+                .OrderByDescending(item => item.NumRevisao)
+                .FirstOrDefault();
+
+            if (ultimaRevisao == null || ultimaRevisao.Aprovado != true || !ultimaRevisao.DataResposta.HasValue)
+                throw new BusinessConflictException("Nao e possivel adicionar pecas enquanto o projeto nao estiver concluido e aprovado pelo cliente.");
         }
 
         /// <summary>

@@ -4,12 +4,15 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using System.Text;
 using TipMolde.Application.Dtos.PecaDto;
+using TipMolde.Application.Exceptions;
+using TipMolde.Application.Interface.Desenho.IProjeto;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Interface.Producao.IPeca;
 using TipMolde.Application.Mappings;
 using TipMolde.Application.Service;
+using TipMolde.Domain.Entities.Desenho;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 
@@ -23,6 +26,7 @@ public class PecaServiceTests
 
     private Mock<IPecaRepository> _pecaRepository = null!;
     private Mock<IMoldeRepository> _moldeRepository = null!;
+    private Mock<IProjetoRepository> _projetoRepository = null!;
     private Mock<IFasesProducaoRepository> _fasesProducaoRepository = null!;
     private Mock<ILogger<PecaService>> _logger = null!;
     private PecaService _sut = null!;
@@ -33,6 +37,7 @@ public class PecaServiceTests
         // ARRANGE
         _pecaRepository = new Mock<IPecaRepository>();
         _moldeRepository = new Mock<IMoldeRepository>();
+        _projetoRepository = new Mock<IProjetoRepository>();
         _fasesProducaoRepository = new Mock<IFasesProducaoRepository>();
         _logger = new Mock<ILogger<PecaService>>();
 
@@ -46,6 +51,7 @@ public class PecaServiceTests
         _sut = new PecaService(
             _pecaRepository.Object,
             _moldeRepository.Object,
+            _projetoRepository.Object,
             _fasesProducaoRepository.Object,
             mapper,
             _logger.Object);
@@ -80,6 +86,45 @@ public class PecaServiceTests
         return new MemoryStream(Encoding.UTF8.GetBytes(content));
     }
 
+    private void SetupProjetoAprovadoParaMolde(int moldeId, int projetoId = 20, int numeroRevisao = 3)
+    {
+        _projetoRepository.Setup(r => r.GetByMoldeIdAsync(moldeId, 1, 1))
+            .ReturnsAsync(new PagedResult<Projeto>(new[]
+            {
+                new Projeto
+                {
+                    Projeto_id = projetoId,
+                    NomeProjeto = $"Projeto {projetoId}",
+                    SoftwareUtilizado = "NX",
+                    CaminhoPastaServidor = @"\\srv\proj",
+                    Molde_id = moldeId
+                }
+            }, 1, 1, 1));
+
+        _projetoRepository.Setup(r => r.GetWithRevisoesAsync(projetoId))
+            .ReturnsAsync(new Projeto
+            {
+                Projeto_id = projetoId,
+                NomeProjeto = $"Projeto {projetoId}",
+                SoftwareUtilizado = "NX",
+                CaminhoPastaServidor = @"\\srv\proj",
+                Molde_id = moldeId,
+                Revisoes = new List<Revisao>
+                {
+                    new()
+                    {
+                        Revisao_id = 100,
+                        Projeto_id = projetoId,
+                        NumRevisao = numeroRevisao,
+                        DescricaoAlteracoes = "Aprovada",
+                        DataEnvioCliente = DateTime.UtcNow.AddDays(-1),
+                        DataResposta = DateTime.UtcNow,
+                        Aprovado = true
+                    }
+                }
+            });
+    }
+
     [Test(Description = "TPECASRV1 - Create deve persistir peca e devolver DTO quando os dados sao validos.")]
     public async Task CreateAsync_Should_CreatePeca_When_DataIsValid()
     {
@@ -100,6 +145,7 @@ public class PecaServiceTests
         };
 
         _moldeRepository.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(BuildMolde());
+        SetupProjetoAprovadoParaMolde(1);
         _pecaRepository.Setup(r => r.GetByNumeroPecaAsync("100A", 1)).ReturnsAsync((Peca?)null);
         _pecaRepository.Setup(r => r.AddAsync(It.IsAny<Peca>()))
             .ReturnsAsync((Peca entity) =>
@@ -151,6 +197,60 @@ public class PecaServiceTests
 
         // ASSERT
         await act.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Test(Description = "TPECASRV1A - Create deve bloquear quando o projeto do molde ainda nao esta aprovado pelo cliente.")]
+    public async Task CreateAsync_Should_ThrowBusinessConflictException_When_ProjectIsNotApproved()
+    {
+        // ARRANGE
+        var dto = new CreatePecaDto
+        {
+            Designacao = "Extrator",
+            Prioridade = 1,
+            Quantidade = 1,
+            Molde_id = 2
+        };
+
+        _moldeRepository.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(BuildMolde(2));
+        _projetoRepository.Setup(r => r.GetByMoldeIdAsync(2, 1, 1))
+            .ReturnsAsync(new PagedResult<Projeto>(new[]
+            {
+                new Projeto
+                {
+                    Projeto_id = 30,
+                    NomeProjeto = "Projeto 30",
+                    SoftwareUtilizado = "NX",
+                    CaminhoPastaServidor = @"\\srv\proj30",
+                    Molde_id = 2
+                }
+            }, 1, 1, 1));
+        _projetoRepository.Setup(r => r.GetWithRevisoesAsync(30))
+            .ReturnsAsync(new Projeto
+            {
+                Projeto_id = 30,
+                NomeProjeto = "Projeto 30",
+                SoftwareUtilizado = "NX",
+                CaminhoPastaServidor = @"\\srv\proj30",
+                Molde_id = 2,
+                Revisoes = new List<Revisao>
+                {
+                    new()
+                    {
+                        Revisao_id = 300,
+                        Projeto_id = 30,
+                        NumRevisao = 1,
+                        DescricaoAlteracoes = "Em analise",
+                        DataEnvioCliente = DateTime.UtcNow.AddDays(-1)
+                    }
+                }
+            });
+
+        // ACT
+        Func<Task> act = () => _sut.CreateAsync(dto);
+
+        // ASSERT
+        await act.Should().ThrowAsync<BusinessConflictException>()
+            .WithMessage("*nao estiver concluido e aprovado*");
     }
 
     [Test(Description = "TPECASRV3 - GetAll deve devolver Dtos paginados com PecaId preenchido.")]
@@ -260,6 +360,7 @@ public class PecaServiceTests
             "101;Extrator;2;REF-2;Aco;Temperado;0,20kg;\n";
 
         _moldeRepository.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(BuildMolde());
+        SetupProjetoAprovadoParaMolde(1);
         _pecaRepository.Setup(r => r.GetByNumeroPecaAsync(It.IsAny<string>(), 1)).ReturnsAsync((Peca?)null);
 
         var nextId = 25;
@@ -329,6 +430,7 @@ public class PecaServiceTests
             "080A;Postico Grupo 080 A;1;REF-080A;Aco;;1kg;\n";
 
         _moldeRepository.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(BuildMolde());
+        SetupProjetoAprovadoParaMolde(1);
         _pecaRepository.Setup(r => r.GetByNumeroPecaAsync(It.IsAny<string>(), 1)).ReturnsAsync((Peca?)null);
         _pecaRepository.Setup(r => r.AddAsync(It.IsAny<Peca>()))
             .ReturnsAsync((Peca entity) => entity);
@@ -363,6 +465,7 @@ public class PecaServiceTests
             "100A;Postico das Cavidades;1;E 1710 / 4 x 40;Aco;;0,00kg;34,92\n";
 
         _moldeRepository.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(BuildMolde());
+        SetupProjetoAprovadoParaMolde(1);
 
         await using var stream = BuildCsvStream(csv);
 

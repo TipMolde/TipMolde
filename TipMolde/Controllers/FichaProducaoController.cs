@@ -99,5 +99,26 @@ namespace TipMolde.API.Controllers
             var created = await _service.CreateAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = created.FichaProducao_id }, created);
         }
+
+        /// <summary>
+        /// Garante a existencia de uma ficha editavel para o contexto indicado.
+        /// </summary>
+        /// <param name="dto">Dados minimos necessarios para localizar ou criar a ficha.</param>
+        /// <returns>Ficha existente ou recem-criada.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_PRODUCAO")]
+        [HttpPost("ensure")]
+        public async Task<IActionResult> Ensure([FromBody] CreateFichaProducaoDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest,
+                    "Pedido invalido",
+                    "Dados invalidos para a garantia da ficha de producao."));
+            }
+
+            var ensured = await _service.EnsureAsync(dto);
+            return Ok(ensured);
+        }
     }
 }

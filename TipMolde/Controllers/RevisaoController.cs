@@ -137,6 +137,55 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Regista a resposta do cliente a uma revisao enviada com anexo opcional.
+        /// </summary>
+        /// <param name="id">Identificador da revisao.</param>
+        /// <param name="dto">Payload multipart de resposta do cliente.</param>
+        /// <returns>HTTP 204 quando a operacao e concluida; HTTP 400 quando o body e invalido.</returns>
+        [Authorize(Roles = "ADMIN")]
+        [HttpPut("{id:int}/resposta-cliente")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UpdateRespostaClienteComAnexo(int id, [FromForm] UpdateRespostaRevisaoFormDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest,
+                    PedidoInvalido,
+                    "Dados de resposta do cliente invalidos."));
+            }
+
+            byte[]? attachmentContent = null;
+            string? attachmentFileName = null;
+            string? attachmentContentType = null;
+
+            if (dto.Anexo is not null && dto.Anexo.Length > 0)
+            {
+                await using var stream = dto.Anexo.OpenReadStream();
+                using var memory = new MemoryStream();
+                await stream.CopyToAsync(memory);
+                attachmentContent = memory.ToArray();
+                attachmentFileName = dto.Anexo.FileName;
+                attachmentContentType = dto.Anexo.ContentType;
+            }
+
+            await _revisaoService.UpdateRespostaClienteAsync(
+                id,
+                new UpdateRespostaRevisaoDto
+                {
+                    Aprovado = dto.Aprovado,
+                    FeedbackTexto = dto.FeedbackTexto
+                },
+                attachmentContent,
+                attachmentFileName,
+                attachmentContentType);
+
+            _logger.LogInformation("Controller: resposta do cliente com anexo registada para a revisao {RevisaoId}", id);
+
+            return NoContent();
+        }
+
+        /// <summary>
         /// Remove uma revisao.
         /// </summary>
         /// <param name="id">Identificador da revisao a remover.</param>

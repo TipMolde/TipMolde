@@ -6,6 +6,7 @@ using Moq;
 using System.Text;
 using TipMolde.Application.Mappings;
 using TipMolde.Application.Service;
+using TipMolde.Domain.Entities.Desenho;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 using TipMolde.Infrastructure.DB;
@@ -39,12 +40,14 @@ public class PecaImportCsvServiceTests
 
         var pecaRepository = new PecaRepository(ctx);
         var moldeRepository = new MoldeRepository(ctx);
+        var projetoRepository = new ProjetoRepository(ctx);
         var fasesRepository = new FasesProducaoRepository(ctx);
         var logger = new Mock<ILogger<PecaService>>();
 
         return new PecaService(
             pecaRepository,
             moldeRepository,
+            projetoRepository,
             fasesRepository,
             mapperConfig.CreateMapper(),
             logger.Object);
@@ -66,6 +69,33 @@ public class PecaImportCsvServiceTests
         await ctx.SaveChangesAsync();
 
         return molde.Molde_id;
+    }
+
+    private static async Task SeedProjetoAprovadoAsync(ApplicationDbContext ctx, int moldeId)
+    {
+        var projeto = new Projeto
+        {
+            NomeProjeto = "Projeto aprovado",
+            SoftwareUtilizado = "NX",
+            CaminhoPastaServidor = @"\\srv\proj",
+            TipoProjeto = TipoProjeto.PROJETO_3D,
+            Molde_id = moldeId
+        };
+
+        await ctx.Projetos.AddAsync(projeto);
+        await ctx.SaveChangesAsync();
+
+        await ctx.Revisoes.AddAsync(new Revisao
+        {
+            Projeto_id = projeto.Projeto_id,
+            NumRevisao = 1,
+            DescricaoAlteracoes = "Aprovado pelo cliente",
+            DataEnvioCliente = DateTime.UtcNow.AddDays(-1),
+            DataResposta = DateTime.UtcNow,
+            Aprovado = true
+        });
+
+        await ctx.SaveChangesAsync();
     }
 
     private static UTF8Encoding CreateMockOutputEncoding()
@@ -111,6 +141,7 @@ public class PecaImportCsvServiceTests
         // ARRANGE
         await using var ctx = CreateContext();
         var moldeId = await SeedMoldeAsync(ctx);
+        await SeedProjetoAprovadoAsync(ctx, moldeId);
         var sut = CreateSut(ctx);
 
         File.Exists(InputCsvPath).Should().BeTrue($"o CSV real deve existir em '{InputCsvPath}'");

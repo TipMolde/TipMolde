@@ -18,8 +18,30 @@ namespace TipMolde.Application.Service
     /// </remarks>
     public class RevisaoService : IRevisaoService
     {
+        private static readonly HashSet<string> AllowedAttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".pdf",
+            ".doc",
+            ".docx",
+            ".png",
+            ".jpg",
+            ".jpeg"
+        };
+
+        private static readonly HashSet<string> AllowedAttachmentContentTypes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "image/png",
+            "image/jpeg"
+        };
+
+        private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
+
         private readonly IRevisaoRepository _revisaoRepository;
         private readonly IProjetoRepository _projetoRepository;
+        private readonly IRevisaoAttachmentStorage _attachmentStorage;
         private readonly IMapper _mapper;
         private readonly ILogger<RevisaoService> _logger;
 
@@ -33,11 +55,13 @@ namespace TipMolde.Application.Service
         public RevisaoService(
             IRevisaoRepository revisaoRepository,
             IProjetoRepository projetoRepository,
+            IRevisaoAttachmentStorage attachmentStorage,
             IMapper mapper,
             ILogger<RevisaoService> logger)
         {
             _revisaoRepository = revisaoRepository;
             _projetoRepository = projetoRepository;
+            _attachmentStorage = attachmentStorage;
             _mapper = mapper;
             _logger = logger;
         }
@@ -84,9 +108,22 @@ namespace TipMolde.Application.Service
             if (string.IsNullOrWhiteSpace(dto.DescricaoAlteracoes))
                 throw new ArgumentException("Descricao das alteracoes e obrigatoria.");
 
-            var projeto = await _projetoRepository.GetByIdAsync(dto.Projeto_id);
+            var projeto = await _projetoRepository.GetWithRevisoesAsync(dto.Projeto_id);
             if (projeto == null)
                 throw new KeyNotFoundException($"Projeto com ID {dto.Projeto_id} nao encontrado.");
+
+            var ultimaRevisao = projeto.Revisoes?
+                .OrderByDescending(item => item.NumRevisao)
+                .FirstOrDefault();
+
+            if (ultimaRevisao is not null)
+            {
+                if (!ultimaRevisao.DataResposta.HasValue)
+                    throw new BusinessConflictException("Nao e possivel criar uma nova revisao enquanto existir uma revisao em aberto para este projeto.");
+
+                if (ultimaRevisao.Aprovado == true)
+                    throw new BusinessConflictException("Nao e possivel criar uma nova revisao depois de o cliente ter aprovado a ultima revisao.");
+            }
 
             var revisao = _mapper.Map<Revisao>(dto);
             revisao.DataEnvioCliente = DateTime.UtcNow;
@@ -118,6 +155,25 @@ namespace TipMolde.Application.Service
         /// <returns>Task de conclusao da operacao.</returns>
         public async Task UpdateRespostaClienteAsync(int revisaoId, UpdateRespostaRevisaoDto dto)
         {
+            await UpdateRespostaClienteAsync(revisaoId, dto, null, null, null);
+        }
+
+        /// <summary>
+        /// Regista a primeira resposta do cliente a uma revisao enviada com anexo opcional.
+        /// </summary>
+        /// <param name="revisaoId">Identificador da revisao.</param>
+        /// <param name="dto">Payload de resposta do cliente.</param>
+        /// <param name="attachmentContent">Conteudo binario do anexo submetido.</param>
+        /// <param name="attachmentFileName">Nome original do anexo submetido.</param>
+        /// <param name="attachmentContentType">Tipo MIME do anexo submetido.</param>
+        /// <returns>Task de conclusao da operacao.</returns>
+        public async Task UpdateRespostaClienteAsync(
+            int revisaoId,
+            UpdateRespostaRevisaoDto dto,
+            byte[]? attachmentContent,
+            string? attachmentFileName,
+            string? attachmentContentType)
+        {
             var existing = await _revisaoRepository.GetByIdAsync(revisaoId);
             if (existing == null)
                 throw new KeyNotFoundException($"Revisao com ID {revisaoId} nao encontrada.");
@@ -130,20 +186,44 @@ namespace TipMolde.Application.Service
 
             var feedbackTexto = NormalizeOptionalText(dto.FeedbackTexto);
             var feedbackImagemPath = NormalizeOptionalText(dto.FeedbackImagemPath);
+            string? attachmentPath = null;
 
-            if (dto.Aprovado == false
-                && string.IsNullOrWhiteSpace(feedbackTexto)
-                && string.IsNullOrWhiteSpace(feedbackImagemPath))
+            if (dto.Aprovado == true
+                && (attachmentContent is not null || !string.IsNullOrWhiteSpace(feedbackImagemPath)))
             {
-                throw new ArgumentException("Uma revisao rejeitada deve incluir FeedbackTexto ou FeedbackImagemPath.");
+                throw new ArgumentException("Uma revisao aprovada nao pode incluir anexos ou imagem de feedback.");
             }
 
-            existing.Aprovado = dto.Aprovado.Value;
-            existing.DataResposta = DateTime.UtcNow;
-            existing.FeedbackTexto = feedbackTexto;
-            existing.FeedbackImagemPath = feedbackImagemPath;
+            try
+            {
+                if (attachmentContent is not null)
+                {
+                    ValidateAttachment(attachmentContent, attachmentFileName, attachmentContentType);
+                    attachmentPath = await _attachmentStorage.SaveAsync(revisaoId, attachmentFileName!, attachmentContent);
+                }
 
-            await _revisaoRepository.UpdateAsync(existing);
+                if (dto.Aprovado == false
+                    && string.IsNullOrWhiteSpace(feedbackTexto)
+                    && string.IsNullOrWhiteSpace(feedbackImagemPath)
+                    && string.IsNullOrWhiteSpace(attachmentPath))
+                {
+                    throw new ArgumentException("Uma revisao rejeitada deve incluir FeedbackTexto, FeedbackImagemPath ou um anexo.");
+                }
+
+                existing.Aprovado = dto.Aprovado.Value;
+                existing.DataResposta = DateTime.UtcNow;
+                existing.FeedbackTexto = feedbackTexto;
+                existing.FeedbackImagemPath = !string.IsNullOrWhiteSpace(attachmentPath)
+                    ? attachmentPath
+                    : feedbackImagemPath;
+
+                await _revisaoRepository.UpdateAsync(existing);
+            }
+            catch
+            {
+                await _attachmentStorage.DeleteIfExistsAsync(attachmentPath);
+                throw;
+            }
 
             _logger.LogInformation(
                 "Resposta do cliente registada para a revisao {RevisaoId}. Aprovado: {Aprovado}",
@@ -175,6 +255,30 @@ namespace TipMolde.Application.Service
         private static string? NormalizeOptionalText(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        /// <summary>
+        /// Valida o anexo submetido para uma resposta de revisao.
+        /// </summary>
+        private static void ValidateAttachment(byte[] content, string? fileName, string? contentType)
+        {
+            if (content.Length <= 0)
+                throw new ArgumentException("O anexo da revisao nao pode estar vazio.");
+
+            if (content.LongLength > MaxAttachmentSizeBytes)
+                throw new ArgumentException($"O anexo excede o limite maximo de {MaxAttachmentSizeBytes / (1024 * 1024)} MB.");
+
+            if (string.IsNullOrWhiteSpace(fileName))
+                throw new ArgumentException("O nome do anexo e invalido.");
+
+            var safeOriginalFileName = Path.GetFileName(fileName);
+
+            var extension = Path.GetExtension(safeOriginalFileName);
+            if (!AllowedAttachmentExtensions.Contains(extension))
+                throw new ArgumentException("A extensao do anexo nao e suportada.");
+
+            if (string.IsNullOrWhiteSpace(contentType) || !AllowedAttachmentContentTypes.Contains(contentType))
+                throw new ArgumentException("O tipo MIME do anexo nao e suportado.");
         }
     }
 }

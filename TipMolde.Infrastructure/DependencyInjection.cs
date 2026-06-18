@@ -91,6 +91,7 @@ public static class DependencyInjection
         services.AddScoped<IRelatorioService, RelatorioService>();
         services.AddScoped<IFichaDocumentoService, FichaDocumentoService>();
         services.AddScoped<IMoldeImageService, MoldeImageService>();
+        services.AddScoped<IRevisaoAttachmentStorage, RevisaoAttachmentStorage>();
         services.AddScoped<IFichaDocumentoStorage, FichaDocumentoFileStorage>();
         services.AddScoped<IFichaDocumentoUnitOfWork, FichaDocumentoUnitOfWork>();
 

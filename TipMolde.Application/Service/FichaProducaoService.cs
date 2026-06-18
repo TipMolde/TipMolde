@@ -98,17 +98,19 @@ namespace TipMolde.Application.Service
 
         public async Task<ResponseFichaProducaoDto> CreateAsync(CreateFichaProducaoDto dto)
         {
-            if (dto.Tipo == TipoFicha.FLT)
-                throw new ArgumentException("A ficha FLT e gerada diretamente pelos dados do sistema e nao pode ser criada manualmente.");
+            var created = await CreateFichaAsync(dto);
+            return _mapper.Map<ResponseFichaProducaoDto>(created);
+        }
 
-            if (await _encomendaMoldeRepository.GetByIdAsync(dto.EncomendaMolde_id) == null)
-                throw new KeyNotFoundException($"EncomendaMolde com ID {dto.EncomendaMolde_id} nao encontrado.");
+        public async Task<ResponseFichaProducaoDto> EnsureAsync(CreateFichaProducaoDto dto)
+        {
+            await ValidateCreateRequest(dto);
 
-            var ficha = _mapper.Map<FichaProducao>(dto);
-            ficha.Tipo = dto.Tipo;
-            ficha.DataCriacao = DateTime.UtcNow;
+            var existente = await FindExistingFichaAsync(dto.EncomendaMolde_id, dto.Tipo);
+            if (existente is not null)
+                return _mapper.Map<ResponseFichaProducaoDto>(existente);
 
-            var created = await _fichaRepository.AddAsync(ficha);
+            var created = await CreateFichaAsync(dto);
             return _mapper.Map<ResponseFichaProducaoDto>(created);
         }
 
@@ -190,6 +192,36 @@ namespace TipMolde.Application.Service
                 throw new ArgumentException($"A ficha {fichaId} nao corresponde ao tipo esperado {tipoEsperado}.");
 
             return ficha;
+        }
+
+        private async Task<FichaProducao> CreateFichaAsync(CreateFichaProducaoDto dto)
+        {
+            await ValidateCreateRequest(dto);
+
+            var ficha = _mapper.Map<FichaProducao>(dto);
+            ficha.Tipo = dto.Tipo;
+            ficha.DataCriacao = DateTime.UtcNow;
+
+            return await _fichaRepository.AddAsync(ficha);
+        }
+
+        private async Task<FichaProducao?> FindExistingFichaAsync(int encomendaMoldeId, TipoFicha tipo)
+        {
+            var page = await _fichaRepository.GetByEncomendaMoldeIdAsync(
+                encomendaMoldeId,
+                1,
+                PaginationDefaults.MaxPageSize);
+
+            return page.Items.FirstOrDefault(ficha => ficha.Tipo == tipo);
+        }
+
+        private async Task ValidateCreateRequest(CreateFichaProducaoDto dto)
+        {
+            if (dto.Tipo == TipoFicha.FLT)
+                throw new ArgumentException("A ficha FLT e gerada diretamente pelos dados do sistema e nao pode ser criada manualmente.");
+
+            if (await _encomendaMoldeRepository.GetByIdAsync(dto.EncomendaMolde_id) == null)
+                throw new KeyNotFoundException($"EncomendaMolde com ID {dto.EncomendaMolde_id} nao encontrado.");
         }
 
 

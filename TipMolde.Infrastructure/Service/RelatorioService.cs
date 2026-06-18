@@ -712,8 +712,6 @@ namespace TipMolde.Infrastructure.Service
                     yield return Path.Combine(ResolvePath(_storageOptions.UploadsRootPath), imagePath.TrimStart('\\', '/'));
                 }
             }
-
-            yield return Path.Combine(ResolvePath(_templateOptions.RootPath), "image.png");
         }
 
         /// <summary>

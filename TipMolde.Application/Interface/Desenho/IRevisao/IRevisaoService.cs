@@ -39,6 +39,22 @@ namespace TipMolde.Application.Interface.Desenho.IRevisao
         Task UpdateRespostaClienteAsync(int revisaoId, UpdateRespostaRevisaoDto dto);
 
         /// <summary>
+        /// Regista a resposta do cliente com um anexo opcional associado.
+        /// </summary>
+        /// <param name="revisaoId">Identificador da revisao.</param>
+        /// <param name="dto">Payload de resposta do cliente.</param>
+        /// <param name="attachmentContent">Conteudo binario do anexo submetido.</param>
+        /// <param name="attachmentFileName">Nome original do anexo submetido.</param>
+        /// <param name="attachmentContentType">Tipo MIME do anexo submetido.</param>
+        /// <returns>Task de conclusao da operacao.</returns>
+        Task UpdateRespostaClienteAsync(
+            int revisaoId,
+            UpdateRespostaRevisaoDto dto,
+            byte[]? attachmentContent,
+            string? attachmentFileName,
+            string? attachmentContentType);
+
+        /// <summary>
         /// Remove uma revisao existente.
         /// </summary>
         /// <param name="id">Identificador da revisao a remover.</param>

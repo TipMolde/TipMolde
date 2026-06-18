@@ -363,7 +363,12 @@ namespace TipMolde.Tests.Integracao
             await File.WriteAllBytesAsync(Path.Combine(workspace.OutputRootPath, fileName), content);
         }
 
-        private static async Task<int> SeedFichaAsync(ApplicationDbContext ctx, TipoFicha tipo, TestWorkspace workspace, int fichaId = 1)
+        private static async Task<int> SeedFichaAsync(
+            ApplicationDbContext ctx,
+            TipoFicha tipo,
+            TestWorkspace workspace,
+            int fichaId = 1,
+            bool createImage = true)
         {
             var cliente = new Cliente
             {
@@ -399,8 +404,11 @@ namespace TipMolde.Tests.Integracao
 
             var relativeImagePath = molde.ImagemCapaPath!;
             var physicalImagePath = Path.Combine(workspace.UploadsRootPath, relativeImagePath.Replace('/', Path.DirectorySeparatorChar));
-            Directory.CreateDirectory(Path.GetDirectoryName(physicalImagePath)!);
-            await File.WriteAllBytesAsync(physicalImagePath, BuildPlaceholderImageBytes());
+            if (createImage)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(physicalImagePath)!);
+                await File.WriteAllBytesAsync(physicalImagePath, BuildPlaceholderImageBytes());
+            }
 
             var specs = new EspecificacoesTecnicas
             {
@@ -719,6 +727,27 @@ namespace TipMolde.Tests.Integracao
             worksheet.Cell("I45").GetString().Should().Be("Molde Teste - 001");
             worksheet.Cell("E46").GetString().Should().Be("Responsável Gonçalo");
 
+        }
+
+        [Test(Description = "TRLI004A - Gera excecao quando a FLT nao encontra a imagem do molde no storage.")]
+        public async Task GerarFichaExcelFLTAsync_Should_Throw_When_MoldeImageDoesNotExist()
+        {
+            // ARRANGE
+            await using var ctx = CreateContext();
+            using var workspace = CreateWorkspace();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FLT, workspace, 35, createImage: false);
+            var encomendaMoldeId = await ctx.FichasProducao
+                .Where(f => f.FichaProducao_id == fichaId)
+                .Select(f => f.EncomendaMolde_id)
+                .SingleAsync();
+            var sut = CreateSut(ctx, workspace);
+
+            // ACT
+            Func<Task> act = () => sut.GerarFichaExcelFLTAsync(encomendaMoldeId, 1);
+
+            // ASSERT
+            await act.Should().ThrowAsync<FileNotFoundException>()
+                .WithMessage("*Imagem nao encontrada*");
         }
 
         [Test(Description = "TRLI005 - Gera a ficha FRE quando a ficha existe.")]

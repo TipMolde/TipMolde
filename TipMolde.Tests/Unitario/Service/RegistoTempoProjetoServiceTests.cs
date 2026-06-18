@@ -112,4 +112,45 @@ public class RegistoTempoProjetoServiceTests
             x.Autor_id == dto.Autor_id &&
             x.Estado_tempo == EstadoTempoProjeto.INICIADO)), Times.Once);
     }
+
+    [Test(Description = "TRTPSRV4A - Create deve permitir reabrir um projeto concluido com um novo estado INICIADO.")]
+    public async Task CreateRegistoAsync_Should_AllowRestart_When_LastStateIsConcluded()
+    {
+        // ARRANGE
+        var dto = BuildDto(EstadoTempoProjeto.INICIADO);
+
+        _projetoRepository.Setup(r => r.GetByIdAsync(dto.Projeto_id))
+            .ReturnsAsync(new Projeto { Projeto_id = dto.Projeto_id, NomeProjeto = "Projeto", SoftwareUtilizado = "NX", CaminhoPastaServidor = "srv", Molde_id = 100 });
+
+        _userRepository.Setup(r => r.GetByIdAsync(dto.Autor_id))
+            .ReturnsAsync(new User { User_id = dto.Autor_id, Nome = "Ana", Email = "ana@tipmolde.pt", Password = "hash", Role = UserRole.ADMIN });
+
+        _registoRepository.Setup(r => r.GetUltimoRegistoAsync(dto.Projeto_id, dto.Autor_id))
+            .ReturnsAsync(new RegistoTempoProjeto
+            {
+                Registo_Tempo_Projeto_id = 99,
+                Projeto_id = dto.Projeto_id,
+                Autor_id = dto.Autor_id,
+                Estado_tempo = EstadoTempoProjeto.CONCLUIDO,
+                Data_hora = DateTime.UtcNow.AddHours(-1)
+            });
+
+        _registoRepository.Setup(r => r.AddAsync(It.IsAny<RegistoTempoProjeto>()))
+            .ReturnsAsync((RegistoTempoProjeto entity) =>
+            {
+                entity.Registo_Tempo_Projeto_id = 26;
+                return entity;
+            });
+
+        // ACT
+        var result = await _sut.CreateRegistoAsync(dto);
+
+        // ASSERT
+        result.Registo_Tempo_Projeto_id.Should().Be(26);
+        result.Estado_tempo.Should().Be(EstadoTempoProjeto.INICIADO);
+        _registoRepository.Verify(r => r.AddAsync(It.Is<RegistoTempoProjeto>(x =>
+            x.Projeto_id == dto.Projeto_id &&
+            x.Autor_id == dto.Autor_id &&
+            x.Estado_tempo == EstadoTempoProjeto.INICIADO)), Times.Once);
+    }
 }

@@ -44,6 +44,17 @@ namespace TipMolde.Application.Interface.Fichas.IFichaProducao
         Task<ResponseFichaProducaoDto> CreateAsync(CreateFichaProducaoDto dto);
 
         /// <summary>
+        /// Garante a existencia de uma ficha editavel para o contexto indicado.
+        /// </summary>
+        /// <remarks>
+        /// Se a ficha ja existir para o mesmo contexto e tipo, devolve a existente.
+        /// Caso contrario, cria uma nova ficha com os mesmos dados minimos do Create.
+        /// </remarks>
+        /// <param name="dto">Dados minimos da ficha a garantir.</param>
+        /// <returns>Cabecalho da ficha existente ou criada.</returns>
+        Task<ResponseFichaProducaoDto> EnsureAsync(CreateFichaProducaoDto dto);
+
+        /// <summary>
         /// Lista as linhas manuais da ficha FRM.
         /// </summary>
         /// <param name="fichaId">Identificador da ficha FRM.</param>

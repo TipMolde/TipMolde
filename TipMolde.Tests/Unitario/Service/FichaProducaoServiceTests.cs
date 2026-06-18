@@ -76,6 +76,65 @@ public class FichaProducaoServiceTests
             .WithMessage("*7*");
     }
 
+    [Test(Description = "TFPSRV2A - Ensure deve devolver a ficha existente quando o contexto e o tipo ja existem.")]
+    public async Task EnsureAsync_Should_ReturnExistingFicha_When_FichaAlreadyExists()
+    {
+        // ARRANGE
+        var encomendaMoldeId = 70;
+        var existente = BuildFicha(41, TipoFicha.FRM, encomendaMoldeId);
+        _encomendaMoldeRepository.Setup(r => r.GetByIdAsync(encomendaMoldeId)).ReturnsAsync(BuildEncomendaMolde(encomendaMoldeId));
+        _fichaRepository.Setup(r => r.GetByEncomendaMoldeIdAsync(encomendaMoldeId, 1, It.IsAny<int>()))
+            .ReturnsAsync(new PagedResult<FichaProducao>([existente], 1, 1, 200));
+
+        // ACT
+        var result = await _sut.EnsureAsync(new CreateFichaProducaoDto
+        {
+            Tipo = TipoFicha.FRM,
+            EncomendaMolde_id = encomendaMoldeId
+        });
+
+        // ASSERT
+        result.FichaProducao_id.Should().Be(existente.FichaProducao_id);
+        result.Tipo.Should().Be(TipoFicha.FRM);
+        result.EncomendaMolde_id.Should().Be(encomendaMoldeId);
+        _fichaRepository.Verify(r => r.AddAsync(It.IsAny<FichaProducao>()), Times.Never);
+    }
+
+    [Test(Description = "TFPSRV2B - Ensure deve criar a ficha quando o contexto ainda nao tem ficha desse tipo.")]
+    public async Task EnsureAsync_Should_CreateFicha_When_FichaDoesNotExist()
+    {
+        // ARRANGE
+        var encomendaMoldeId = 71;
+        FichaProducao? createdEntity = null;
+        _encomendaMoldeRepository.Setup(r => r.GetByIdAsync(encomendaMoldeId)).ReturnsAsync(BuildEncomendaMolde(encomendaMoldeId));
+        _fichaRepository.Setup(r => r.GetByEncomendaMoldeIdAsync(encomendaMoldeId, 1, It.IsAny<int>()))
+            .ReturnsAsync(new PagedResult<FichaProducao>(Array.Empty<FichaProducao>(), 0, 1, 200));
+        _fichaRepository.Setup(r => r.AddAsync(It.IsAny<FichaProducao>()))
+            .ReturnsAsync((FichaProducao entity) =>
+            {
+                createdEntity = entity;
+                entity.FichaProducao_id = 99;
+                return entity;
+            });
+
+        // ACT
+        var result = await _sut.EnsureAsync(new CreateFichaProducaoDto
+        {
+            Tipo = TipoFicha.FOP,
+            EncomendaMolde_id = encomendaMoldeId
+        });
+
+        // ASSERT
+        result.FichaProducao_id.Should().Be(99);
+        result.Tipo.Should().Be(TipoFicha.FOP);
+        result.EncomendaMolde_id.Should().Be(encomendaMoldeId);
+        createdEntity.Should().NotBeNull();
+        createdEntity!.Tipo.Should().Be(TipoFicha.FOP);
+        createdEntity.EncomendaMolde_id.Should().Be(encomendaMoldeId);
+        createdEntity.DataCriacao.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        _fichaRepository.Verify(r => r.AddAsync(It.IsAny<FichaProducao>()), Times.Once);
+    }
+
     [Test(Description = "TFPSRV6 - CreateLinhaFrm deve falhar quando o responsavel nao existe.")]
     public async Task CreateLinhaFrmAsync_Should_ThrowKeyNotFoundException_When_ResponsavelDoesNotExist()
     {
@@ -163,6 +222,27 @@ public class FichaProducaoServiceTests
             Tipo = TipoFicha.FOP,
             DataCriacao = new DateTime(2026, 4, 1),
             EncomendaMolde_id = 100 + id
+        };
+    }
+
+    private static FichaProducao BuildFicha(int id, TipoFicha tipo, int encomendaMoldeId)
+    {
+        return new FichaProducao
+        {
+            FichaProducao_id = id,
+            Tipo = tipo,
+            DataCriacao = new DateTime(2026, 4, 1),
+            EncomendaMolde_id = encomendaMoldeId
+        };
+    }
+
+    private static EncomendaMolde BuildEncomendaMolde(int id)
+    {
+        return new EncomendaMolde
+        {
+            EncomendaMolde_id = id,
+            Encomenda_id = 500 + id,
+            Molde_id = 600 + id
         };
     }
 

@@ -1,6 +1,7 @@
 ﻿using FluentAssertions;
 using Moq;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using TipMolde.Application.Dtos.RevisaoDto;
 
@@ -111,6 +112,43 @@ namespace TipMolde.Tests.Integracao.Controller
             // ASSERT
             response.StatusCode.Should().Be(HttpStatusCode.NoContent);
             Factory.RevisaoService.Verify(s => s.UpdateRespostaClienteAsync(3, It.IsAny<UpdateRespostaRevisaoDto>()), Times.Once);
+        }
+
+        [Test(Description = "TREVAPI6A - PUT multipart /api/revisoes/{id}/resposta-cliente devolve 204 quando a revisao e rejeitada com anexo.")]
+        public async Task UpdateRespostaClienteComAnexo_Should_ReturnNoContent_When_RequestIsValid()
+        {
+            // ARRANGE
+            Factory.RevisaoService
+                .Setup(s => s.UpdateRespostaClienteAsync(
+                    3,
+                    It.IsAny<UpdateRespostaRevisaoDto>(),
+                    It.IsAny<byte[]?>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<string?>()))
+                .Returns(Task.CompletedTask);
+
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent("false"), "Aprovado");
+            content.Add(new StringContent("Feedback com anexo"), "FeedbackTexto");
+            var fileContent = new ByteArrayContent(new byte[] { 1, 2, 3 });
+            fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/pdf");
+            content.Add(fileContent, "Anexo", "feedback.pdf");
+
+            // ACT
+            var response = await Client.PutAsync("/api/revisoes/3/resposta-cliente", content);
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+            Factory.RevisaoService.Verify(
+                s => s.UpdateRespostaClienteAsync(
+                    3,
+                    It.Is<UpdateRespostaRevisaoDto>(dto =>
+                        dto.Aprovado == false &&
+                        dto.FeedbackTexto == "Feedback com anexo"),
+                    It.Is<byte[]>(bytes => bytes.Length == 3),
+                    "feedback.pdf",
+                    "application/pdf"),
+                Times.Once);
         }
 
         [Test(Description = "TREVAPI7 - DELETE /api/revisoes/{id} devolve 204 quando request e valida.")]

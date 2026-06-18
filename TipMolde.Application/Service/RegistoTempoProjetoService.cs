@@ -148,7 +148,7 @@ namespace TipMolde.Application.Service
         /// 2. INICIADO so pode transitar para PAUSADO ou CONCLUIDO.
         /// 3. PAUSADO so pode transitar para RETOMADO.
         /// 4. RETOMADO so pode transitar para PAUSADO ou CONCLUIDO.
-        /// 5. CONCLUIDO nao aceita novas transicoes.
+        /// 5. CONCLUIDO pode reabrir o ciclo apenas com INICIADO.
         /// </remarks>
         /// <param name="atual">Estado temporal atualmente persistido.</param>
         /// <param name="novo">Novo estado pedido para criacao do registo.</param>
@@ -166,7 +166,7 @@ namespace TipMolde.Application.Service
             if (atual == EstadoTempoProjeto.RETOMADO && novo is not (EstadoTempoProjeto.PAUSADO or EstadoTempoProjeto.CONCLUIDO))
                 throw new ArgumentException("Transicao invalida. Depois de RETOMADO so pode registar PAUSADO ou CONCLUIDO.");
 
-            if (atual == EstadoTempoProjeto.CONCLUIDO)
+            if (atual == EstadoTempoProjeto.CONCLUIDO && novo != EstadoTempoProjeto.INICIADO)
                 throw new ArgumentException("Projeto ja concluido.");
         }
     }
