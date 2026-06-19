@@ -17,6 +17,13 @@ namespace TipMolde.Application.Interface.Producao.IPeca
         Task<PagedResult<Peca>> GetByMoldeIdAsync(int moldeId, int page, int pageSize);
 
         /// <summary>
+        /// Lista pecas associadas a um conjunto de moldes.
+        /// </summary>
+        /// <param name="moldeIds">Identificadores dos moldes a consultar.</param>
+        /// <returns>Colecao de pecas pertencentes aos moldes informados.</returns>
+        Task<IReadOnlyList<Peca>> GetByMoldeIdsAsync(IEnumerable<int> moldeIds);
+
+        /// <summary>
         /// Lista pecas de um molde que ainda nao foram adicionadas a qualquer pedido de material.
         /// </summary>
         /// <param name="moldeId">Identificador do molde.</param>

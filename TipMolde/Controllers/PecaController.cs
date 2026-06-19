@@ -120,6 +120,29 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Lista a fila de trabalho operacional das pecas da producao.
+        /// </summary>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <param name="searchTerm">Termo de pesquisa opcional.</param>
+        /// <param name="searchMode">Modo de pesquisa, por molde ou peca.</param>
+        /// <returns>HTTP 200 com resultado paginado; HTTP 400 para paginacao invalida.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_DESENHO,GESTOR_PRODUCAO")]
+        [HttpGet("fila-trabalho")]
+        public async Task<IActionResult> GetFilaTrabalho(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] string searchMode = "Molde")
+        {
+            if (page < 1 || pageSize < 1)
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
+
+            var result = await _pecaService.GetFilaTrabalhoAsync(page, pageSize, searchTerm, searchMode);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Obtem uma peca pela designacao dentro de um molde.
         /// </summary>
         /// <param name="designacao">Designacao funcional da peca.</param>

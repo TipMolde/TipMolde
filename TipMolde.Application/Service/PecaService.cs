@@ -2,13 +2,16 @@ using AutoMapper;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Text;
+using TipMolde.Application.Dtos.EncomendaMoldeDto;
 using TipMolde.Application.Dtos.PecaDto;
 using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
+using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
 using TipMolde.Application.Interface.Desenho.IProjeto;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Interface.Producao.IPeca;
+using TipMolde.Application.Interface.Producao.IRegistosProducao;
 using TipMolde.Application.Mappings;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
@@ -40,6 +43,8 @@ namespace TipMolde.Application.Service
         private readonly IMoldeRepository _moldeRepository;
         private readonly IProjetoRepository _projetoRepository;
         private readonly IFasesProducaoRepository _fasesProducaoRepository;
+        private readonly IEncomendaMoldeService _encomendaMoldeService;
+        private readonly IRegistosProducaoRepository _registosProducaoRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<PecaService> _logger;
 
@@ -55,6 +60,8 @@ namespace TipMolde.Application.Service
             IMoldeRepository moldeRepository,
             IProjetoRepository projetoRepository,
             IFasesProducaoRepository fasesProducaoRepository,
+            IEncomendaMoldeService encomendaMoldeService,
+            IRegistosProducaoRepository registosProducaoRepository,
             IMapper mapper,
             ILogger<PecaService> logger)
         {
@@ -62,6 +69,8 @@ namespace TipMolde.Application.Service
             _moldeRepository = moldeRepository;
             _projetoRepository = projetoRepository;
             _fasesProducaoRepository = fasesProducaoRepository;
+            _encomendaMoldeService = encomendaMoldeService;
+            _registosProducaoRepository = registosProducaoRepository;
             _mapper = mapper;
             _logger = logger;
         }
@@ -134,6 +143,59 @@ namespace TipMolde.Application.Service
             var result = await _pecaRepository.GetByMoldeIdPendingMaterialReceiptAsync(moldeId, normalizedPage, normalizedPageSize);
             var items = _mapper.Map<IEnumerable<ResponsePecaDto>>(result.Items);
             return new PagedResult<ResponsePecaDto>(items, result.TotalCount, result.CurrentPage, result.PageSize);
+        }
+
+        /// <summary>
+        /// Lista a fila de trabalho operacional das pecas da producao.
+        /// </summary>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <param name="searchTerm">Termo de pesquisa opcional.</param>
+        /// <param name="searchMode">Modo de pesquisa, por molde ou peca.</param>
+        /// <returns>Resultado paginado com itens prontos para a pagina de producao.</returns>
+        public async Task<PagedResult<ResponsePecaFilaTrabalhoDto>> GetFilaTrabalhoAsync(
+            int page = 1,
+            int pageSize = 10,
+            string? searchTerm = null,
+            string searchMode = "Molde")
+        {
+            var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+            var moldesFila = await GetAllFilaGlobalMoldeAsync();
+            if (moldesFila.Count == 0)
+                return new PagedResult<ResponsePecaFilaTrabalhoDto>([], 0, normalizedPage, normalizedPageSize);
+
+            var moldesPorId = moldesFila
+                .GroupBy(item => item.Molde_id)
+                .Select(group => group.First())
+                .ToDictionary(item => item.Molde_id);
+
+            var pecas = await _pecaRepository.GetByMoldeIdsAsync(moldesPorId.Keys);
+            if (pecas.Count == 0)
+                return new PagedResult<ResponsePecaFilaTrabalhoDto>([], 0, normalizedPage, normalizedPageSize);
+
+            var ultimosRegistos = await _registosProducaoRepository.GetUltimosRegistosGlobaisAsync(pecas.Select(item => item.Peca_id));
+            var ultimosPorPeca = ultimosRegistos.ToDictionary(item => item.Peca_id);
+
+            var itens = pecas
+                .Select(peca => BuildFilaTrabalhoItem(peca, moldesPorId, ultimosPorPeca))
+                .Where(item => item is not null)
+                .Cast<ResponsePecaFilaTrabalhoDto>()
+                .Where(item => MatchesSearch(item, searchTerm, searchMode))
+                .OrderBy(item => item.PrioridadeMolde)
+                .ThenBy(item => item.PrioridadePeca)
+                .ThenBy(item => item.DataEntregaPrevista > DateTime.MinValue ? item.DataEntregaPrevista : DateTime.MaxValue)
+                .ThenBy(item => item.NumeroMolde)
+                .ThenBy(item => item.NumeroPeca)
+                .ThenBy(item => item.Designacao)
+                .ToList();
+
+            var totalItems = itens.Count;
+            var pagedItems = itens
+                .Skip((normalizedPage - 1) * normalizedPageSize)
+                .Take(normalizedPageSize)
+                .ToList();
+
+            return new PagedResult<ResponsePecaFilaTrabalhoDto>(pagedItems, totalItems, normalizedPage, normalizedPageSize);
         }
 
         /// <summary>
@@ -227,6 +289,7 @@ namespace TipMolde.Application.Service
 
             await ValidateUniquePecaAsync(existente.Molde_id, numeroPecaFuturo, designacaoFutura, id);
             await ValidateProximaFaseAsync(dto.ProximaFase_id);
+            await ValidateProximaFaseChangeAllowedAsync(existente, dto.ProximaFase_id);
 
             _mapper.Map(dto, existente);
             existente.NumeroPeca = numeroPecaFuturo;
@@ -343,6 +406,119 @@ namespace TipMolde.Application.Service
             _logger.LogInformation("Peca {PecaId} removida com sucesso", id);
         }
 
+        private async Task<List<FilaGlobalMoldeItemDto>> GetAllFilaGlobalMoldeAsync()
+        {
+            const int pageSize = 100;
+            var primeiraPagina = await _encomendaMoldeService.GetFilaGlobalAsync(1, pageSize);
+
+            var moldes = primeiraPagina.Items.ToList();
+            var totalPages = primeiraPagina.PageSize <= 0
+                ? 0
+                : (int)Math.Ceiling((double)primeiraPagina.TotalCount / primeiraPagina.PageSize);
+
+            for (var page = 2; page <= totalPages; page++)
+            {
+                var pagina = await _encomendaMoldeService.GetFilaGlobalAsync(page, pageSize);
+                moldes.AddRange(pagina.Items);
+            }
+
+            return moldes;
+        }
+
+        private static ResponsePecaFilaTrabalhoDto? BuildFilaTrabalhoItem(
+            Peca peca,
+            IReadOnlyDictionary<int, FilaGlobalMoldeItemDto> moldesPorId,
+            IReadOnlyDictionary<int, RegistosProducao> ultimosPorPeca)
+        {
+            if (!moldesPorId.TryGetValue(peca.Molde_id, out var molde))
+                return null;
+
+            if (!peca.MaterialRecebido)
+                return null;
+
+            ultimosPorPeca.TryGetValue(peca.Peca_id, out var ultimo);
+            if (ultimo is not null && EstadoEstaAtivo(ultimo.Estado_producao))
+                return null;
+
+            var proximaFaseNome = peca.ProximaFase?.Nome.ToString() ?? string.Empty;
+            var estadoAtual = ultimo?.Estado_producao.ToString() ?? string.Empty;
+            var faseAtual = ultimo?.Fase?.Nome.ToString() ?? string.Empty;
+
+            return new ResponsePecaFilaTrabalhoDto
+            {
+                PecaId = peca.Peca_id,
+                MoldeId = peca.Molde_id,
+                PrioridadeMolde = molde.Prioridade,
+                PrioridadePeca = peca.Prioridade,
+                Quantidade = peca.Quantidade,
+                NumeroMolde = molde.NumeroMolde ?? string.Empty,
+                NomeMolde = molde.NomeMolde ?? string.Empty,
+                NumeroEncomendaCliente = molde.NumeroEncomendaCliente ?? string.Empty,
+                NomeCliente = molde.NomeCliente ?? string.Empty,
+                Designacao = peca.Designacao,
+                NumeroPeca = peca.NumeroPeca ?? string.Empty,
+                DataEntregaPrevista = molde.DataEntregaPrevista,
+                UltimoEstadoGlobal = estadoAtual,
+                UltimaFaseGlobal = faseAtual,
+                ProximaFaseId = peca.ProximaFase_id,
+                ProximaFaseNome = proximaFaseNome,
+                FaseTrabalho = proximaFaseNome,
+                ProximoPasso = BuildProximoPasso(estadoAtual, proximaFaseNome)
+            };
+        }
+
+        private static bool MatchesSearch(ResponsePecaFilaTrabalhoDto item, string? searchTerm, string searchMode)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return true;
+
+            var term = searchTerm.Trim();
+
+            return NormalizeSearchMode(searchMode) switch
+            {
+                "PECA" => ContainsAny(term, item.Designacao, item.NumeroPeca),
+                _ => ContainsAny(term, item.NumeroMolde, item.NomeMolde, item.NumeroEncomendaCliente, item.NomeCliente)
+            };
+        }
+
+        private static bool ContainsAny(string term, params string?[] values)
+        {
+            return values.Any(value => !string.IsNullOrWhiteSpace(value) &&
+                                       value.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string NormalizeSearchMode(string searchMode)
+        {
+            return string.IsNullOrWhiteSpace(searchMode)
+                ? "MOLDE"
+                : searchMode.Trim().ToUpperInvariant();
+        }
+
+        private static string BuildProximoPasso(string estadoAtual, string proximaFaseNome)
+        {
+            var fase = string.IsNullOrWhiteSpace(proximaFaseNome) ? "fase" : proximaFaseNome;
+
+            return NormalizeEstado(estadoAtual) switch
+            {
+                "PAUSADO" => $"Retomar {fase}",
+                "PREPARACAO" => $"Continuar {fase}",
+                "PENDENTE" => $"Iniciar {fase}",
+                _ => $"Iniciar {fase}"
+            };
+        }
+
+        private static bool EstadoEstaAtivo(EstadoProducao estado)
+        {
+            return estado is EstadoProducao.PREPARACAO or EstadoProducao.EM_CURSO;
+        }
+
+        private static string NormalizeEstado(string? estado)
+        {
+            return string.IsNullOrWhiteSpace(estado)
+                ? string.Empty
+                : estado.Trim().ToUpperInvariant();
+        }
+
         /// <summary>
         /// Garante que o molde tem um projeto concluido e aprovado antes de permitir a criacao de pecas.
         /// </summary>
@@ -457,6 +633,25 @@ namespace TipMolde.Application.Service
 
             if (await _fasesProducaoRepository.GetByIdAsync(proximaFaseId.Value) == null)
                 throw new KeyNotFoundException($"Fase com ID {proximaFaseId.Value} nao encontrada.");
+        }
+
+        private async Task ValidateProximaFaseChangeAllowedAsync(Peca existente, int? requestedProximaFaseId)
+        {
+            if (!requestedProximaFaseId.HasValue)
+                return;
+
+            if (existente.ProximaFase_id.HasValue && existente.ProximaFase_id.Value == requestedProximaFaseId.Value)
+                return;
+
+            var ultimoRegistoGlobal = await _registosProducaoRepository.GetUltimosRegistosGlobaisAsync(new[] { existente.Peca_id });
+            var registoAtual = ultimoRegistoGlobal.FirstOrDefault();
+
+            if (registoAtual is null)
+                return;
+
+            if (registoAtual.Estado_producao is EstadoProducao.PREPARACAO or EstadoProducao.EM_CURSO)
+                throw new BusinessConflictException(
+                    "Nao e possivel alterar a proxima fase enquanto a peca tem producao ativa.");
         }
 
         private async Task<int?> ResolveProximaFaseIdAsync(int? requestedProximaFaseId)

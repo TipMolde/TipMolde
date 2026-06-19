@@ -158,6 +158,7 @@ namespace TipMolde.Application.Service
             registo.Data_hora = DateTime.UtcNow;
 
             var maquinaToUpdate = await ResolveMaquinaToUpdateAsync(dto, ultimo, registo);
+            await ValidarAlteracaoProximaFaseAsync(peca, dto.ProximaFase_id);
             var pecaToUpdate = await ResolvePecaToUpdateAsync(dto, peca);
             var created = await _rpRepository.AddWithMachineStateAsync(registo, maquinaToUpdate, pecaToUpdate);
 
@@ -268,6 +269,34 @@ namespace TipMolde.Application.Service
             peca.ProximaFase_id = proximaFase.Fases_producao_id;
             peca.ProximaFase = proximaFase;
             return peca;
+        }
+
+        /// <summary>
+        /// Bloqueia alteracoes ao planeamento da peca enquanto existe producao ativa.
+        /// </summary>
+        /// <remarks>
+        /// A alteracao so e permitida quando nao existe um registo global ativo para a peca,
+        /// ou quando o valor pedido e igual ao planeamento ja persistido.
+        /// </remarks>
+        /// <param name="peca">Peca a atualizar.</param>
+        /// <param name="novaProximaFaseId">Nova fase planeada pedida pelo cliente.</param>
+        private async Task ValidarAlteracaoProximaFaseAsync(Peca peca, int? novaProximaFaseId)
+        {
+            if (!novaProximaFaseId.HasValue)
+                return;
+
+            if (peca.ProximaFase_id.HasValue && peca.ProximaFase_id.Value == novaProximaFaseId.Value)
+                return;
+
+            var ultimoRegistoGlobal = await _rpRepository.GetUltimosRegistosGlobaisAsync(new[] { peca.Peca_id });
+            var registoAtual = ultimoRegistoGlobal.FirstOrDefault();
+
+            if (registoAtual is null)
+                return;
+
+            if (registoAtual.Estado_producao is EstadoProducao.PREPARACAO or EstadoProducao.EM_CURSO)
+                throw new ArgumentException(
+                    "Nao e possivel alterar a proxima fase enquanto a peca tem producao ativa.");
         }
 
         /// <summary>

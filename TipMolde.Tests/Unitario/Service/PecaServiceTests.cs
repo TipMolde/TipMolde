@@ -10,11 +10,13 @@ using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Interface.Producao.IPeca;
+using TipMolde.Application.Interface.Producao.IRegistosProducao;
 using TipMolde.Application.Mappings;
 using TipMolde.Application.Service;
 using TipMolde.Domain.Entities.Desenho;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
+using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
 
 namespace TipMolde.Tests.Unitario.Service;
 
@@ -28,6 +30,8 @@ public class PecaServiceTests
     private Mock<IMoldeRepository> _moldeRepository = null!;
     private Mock<IProjetoRepository> _projetoRepository = null!;
     private Mock<IFasesProducaoRepository> _fasesProducaoRepository = null!;
+    private Mock<IEncomendaMoldeService> _encomendaMoldeService = null!;
+    private Mock<IRegistosProducaoRepository> _registosProducaoRepository = null!;
     private Mock<ILogger<PecaService>> _logger = null!;
     private PecaService _sut = null!;
 
@@ -39,6 +43,8 @@ public class PecaServiceTests
         _moldeRepository = new Mock<IMoldeRepository>();
         _projetoRepository = new Mock<IProjetoRepository>();
         _fasesProducaoRepository = new Mock<IFasesProducaoRepository>();
+        _encomendaMoldeService = new Mock<IEncomendaMoldeService>();
+        _registosProducaoRepository = new Mock<IRegistosProducaoRepository>();
         _logger = new Mock<ILogger<PecaService>>();
 
         var mapperConfig = new MapperConfiguration(cfg =>
@@ -53,6 +59,8 @@ public class PecaServiceTests
             _moldeRepository.Object,
             _projetoRepository.Object,
             _fasesProducaoRepository.Object,
+            _encomendaMoldeService.Object,
+            _registosProducaoRepository.Object,
             mapper,
             _logger.Object);
     }

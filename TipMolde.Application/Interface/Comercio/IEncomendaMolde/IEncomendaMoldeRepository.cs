@@ -44,6 +44,15 @@ namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
         Task<PagedResult<EncomendaMolde>> GetByEncomendasConfirmadasAsync(int page, int pageSize);
 
         /// <summary>
+        /// Lista associacoes de encomendas confirmadas que tambem possuem projeto mais recente
+        /// com a ultima revisao aprovada.
+        /// </summary>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com associacoes aptas para o modulo de desenho.</returns>
+        Task<PagedResult<EncomendaMolde>> GetByEncomendasConfirmadasParaDesenhoAsync(int page, int pageSize);
+
+        /// <summary>
         /// Obtem uma associacao por ID com a encomenda associada carregada.
         /// </summary>
         /// <param name="id">Identificador da associacao.</param>

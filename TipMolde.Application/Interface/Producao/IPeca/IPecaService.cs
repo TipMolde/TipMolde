@@ -53,6 +53,20 @@ namespace TipMolde.Application.Interface.Producao.IPeca
         Task<PagedResult<ResponsePecaDto>> GetByMoldeIdPendingMaterialReceiptAsync(int moldeId, int page = 1, int pageSize = 10);
 
         /// <summary>
+        /// Lista a fila de trabalho operacional das pecas da producao.
+        /// </summary>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <param name="searchTerm">Termo de pesquisa opcional.</param>
+        /// <param name="searchMode">Modo de pesquisa, por molde ou peca.</param>
+        /// <returns>Resultado paginado com itens prontos para a pagina de producao.</returns>
+        Task<PagedResult<ResponsePecaFilaTrabalhoDto>> GetFilaTrabalhoAsync(
+            int page = 1,
+            int pageSize = 10,
+            string? searchTerm = null,
+            string searchMode = "Molde");
+
+        /// <summary>
         /// Obtem uma peca pela designacao dentro de um molde.
         /// </summary>
         /// <param name="designacao">Designacao funcional da peca.</param>

@@ -78,6 +78,7 @@ namespace TipMolde.Infrastructure.Repositorio
 
             return await _context.RegistosProducao
                 .AsNoTracking()
+                .Include(r => r.Fase)
                 .Where(r => idList.Contains(r.Peca_id))
                 .GroupBy(r => r.Peca_id)
                 .Select(g => g.OrderByDescending(r => r.Data_hora).First())

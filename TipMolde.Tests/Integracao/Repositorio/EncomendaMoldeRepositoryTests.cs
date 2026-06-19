@@ -1,6 +1,7 @@
 ﻿using FluentAssertions;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Producao;
+using TipMolde.Domain.Entities.Desenho;
 using TipMolde.Domain.Enums;
 using TipMolde.Infrastructure.Repositorio;
 
@@ -187,6 +188,164 @@ namespace TipMolde.Tests.Integracao.Repositorio
             result.Items.Select(item => item.Prioridade).Should().ContainInOrder(1, 2);
             result.Items.First().Molde!.Numero.Should().Be("M-011");
             result.Items.Last().Molde!.Numero.Should().Be("M-012");
+        }
+
+        [Test(Description = "TENCMREP5 - GetByEncomendasConfirmadasParaDesenho deve devolver apenas moldes com projeto mais recente e ultima revisao aprovada.")]
+        public async Task GetByEncomendasConfirmadasParaDesenhoAsync_Should_ReturnOnlyMoldesWithApprovedLatestProject()
+        {
+            // ARRANGE
+            await using var context = CreateContext();
+            var cliente = new Cliente { Nome = "Cliente Desenho", NIF = "111222333", Sigla = "DES" };
+            var encomenda = new Encomenda { NumeroEncomendaCliente = "ENC-DES", Cliente = cliente, Estado = EstadoEncomenda.CONFIRMADA };
+            var moldeA = new Molde { Numero = "M-100", Numero_cavidades = 2, TipoPedido = TipoPedido.NOVO_MOLDE };
+            var moldeB = new Molde { Numero = "M-101", Numero_cavidades = 2, TipoPedido = TipoPedido.NOVO_MOLDE };
+
+            await context.Encomendas.AddAsync(encomenda);
+            await context.Moldes.AddRangeAsync(moldeA, moldeB);
+            await context.SaveChangesAsync();
+
+            await context.Projetos.AddRangeAsync(
+                new Projeto
+                {
+                    NomeProjeto = "Projeto aprovado",
+                    SoftwareUtilizado = "NX",
+                    TipoProjeto = TipoProjeto.PROJETO_3D,
+                    CaminhoPastaServidor = @"\\srv\aprovado",
+                    Molde_id = moldeA.Molde_id,
+                    Revisoes =
+                    {
+                        new Revisao
+                        {
+                            NumRevisao = 1,
+                            DescricaoAlteracoes = "Aprovado",
+                            DataEnvioCliente = DateTime.UtcNow.AddDays(-2),
+                            DataResposta = DateTime.UtcNow.AddDays(-1),
+                            Aprovado = true
+                        }
+                    }
+                },
+                new Projeto
+                {
+                    NomeProjeto = "Projeto bloqueado",
+                    SoftwareUtilizado = "NX",
+                    TipoProjeto = TipoProjeto.PROJETO_3D,
+                    CaminhoPastaServidor = @"\\srv\bloqueado",
+                    Molde_id = moldeB.Molde_id,
+                    Revisoes =
+                    {
+                        new Revisao
+                        {
+                            NumRevisao = 1,
+                            DescricaoAlteracoes = "Bloqueado",
+                            DataEnvioCliente = DateTime.UtcNow.AddDays(-2),
+                            DataResposta = DateTime.UtcNow.AddDays(-1),
+                            Aprovado = false
+                        }
+                    }
+                });
+            await context.SaveChangesAsync();
+
+            await context.EncomendasMoldes.AddRangeAsync(
+                new EncomendaMolde
+                {
+                    Encomenda_id = encomenda.Encomenda_id,
+                    Molde_id = moldeA.Molde_id,
+                    Quantidade = 1,
+                    Prioridade = 1,
+                    DataEntregaPrevista = new DateTime(2026, 6, 20)
+                },
+                new EncomendaMolde
+                {
+                    Encomenda_id = encomenda.Encomenda_id,
+                    Molde_id = moldeB.Molde_id,
+                    Quantidade = 1,
+                    Prioridade = 2,
+                    DataEntregaPrevista = new DateTime(2026, 6, 21)
+                });
+            await context.SaveChangesAsync();
+
+            var repository = new EncomendaMoldeRepository(context);
+
+            // ACT
+            var result = await repository.GetByEncomendasConfirmadasParaDesenhoAsync(page: 1, pageSize: 10);
+
+            // ASSERT
+            result.TotalCount.Should().Be(1);
+            result.Items.Should().ContainSingle(item => item.Molde!.Numero == "M-100");
+        }
+
+        [Test(Description = "TENCMREP6 - GetByEncomendasConfirmadasParaDesenho deve ignorar um molde quando o projeto mais recente nao tem a ultima revisao aprovada.")]
+        public async Task GetByEncomendasConfirmadasParaDesenhoAsync_Should_IgnoreMold_When_LatestProjectIsNotApproved()
+        {
+            // ARRANGE
+            await using var context = CreateContext();
+            var cliente = new Cliente { Nome = "Cliente Bloqueio", NIF = "444555666", Sigla = "BLQ" };
+            var encomenda = new Encomenda { NumeroEncomendaCliente = "ENC-BLQ", Cliente = cliente, Estado = EstadoEncomenda.CONFIRMADA };
+            var molde = new Molde { Numero = "M-200", Numero_cavidades = 2, TipoPedido = TipoPedido.NOVO_MOLDE };
+
+            await context.Encomendas.AddAsync(encomenda);
+            await context.Moldes.AddAsync(molde);
+            await context.SaveChangesAsync();
+
+            await context.Projetos.AddAsync(new Projeto
+            {
+                NomeProjeto = "Projeto antigo aprovado",
+                SoftwareUtilizado = "NX",
+                TipoProjeto = TipoProjeto.PROJETO_3D,
+                CaminhoPastaServidor = @"\\srv\antigo",
+                Molde_id = molde.Molde_id,
+                Revisoes =
+                {
+                    new Revisao
+                    {
+                        NumRevisao = 1,
+                        DescricaoAlteracoes = "Aprovado",
+                        DataEnvioCliente = DateTime.UtcNow.AddDays(-5),
+                        DataResposta = DateTime.UtcNow.AddDays(-4),
+                        Aprovado = true
+                    }
+                }
+            });
+
+            await context.Projetos.AddAsync(new Projeto
+            {
+                NomeProjeto = "Projeto mais recente bloqueado",
+                SoftwareUtilizado = "NX",
+                TipoProjeto = TipoProjeto.PROJETO_3D,
+                CaminhoPastaServidor = @"\\srv\recente",
+                Molde_id = molde.Molde_id,
+                Revisoes =
+                {
+                    new Revisao
+                    {
+                        NumRevisao = 1,
+                        DescricaoAlteracoes = "A aguardar",
+                        DataEnvioCliente = DateTime.UtcNow.AddDays(-2),
+                        DataResposta = DateTime.UtcNow.AddDays(-1),
+                        Aprovado = false
+                    }
+                }
+            });
+            await context.SaveChangesAsync();
+
+            await context.EncomendasMoldes.AddAsync(new EncomendaMolde
+            {
+                Encomenda_id = encomenda.Encomenda_id,
+                Molde_id = molde.Molde_id,
+                Quantidade = 1,
+                Prioridade = 1,
+                DataEntregaPrevista = new DateTime(2026, 6, 22)
+            });
+            await context.SaveChangesAsync();
+
+            var repository = new EncomendaMoldeRepository(context);
+
+            // ACT
+            var result = await repository.GetByEncomendasConfirmadasParaDesenhoAsync(page: 1, pageSize: 10);
+
+            // ASSERT
+            result.TotalCount.Should().Be(0);
+            result.Items.Should().BeEmpty();
         }
     }
 

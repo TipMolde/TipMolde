@@ -111,6 +111,49 @@ namespace TipMolde.Infrastructure.Repositorio
         }
 
         /// <summary>
+        /// Lista associacoes de encomendas confirmadas que tambem possuem projeto mais recente
+        /// com a ultima revisao aprovada.
+        /// </summary>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com associacoes aptas para o modulo de desenho.</returns>
+        public async Task<PagedResult<EncomendaMolde>> GetByEncomendasConfirmadasParaDesenhoAsync(int page, int pageSize)
+        {
+            var baseQuery = _context.EncomendasMoldes
+                .AsNoTracking()
+                .Include(em => em.Encomenda)
+                .Include(em => em.Molde)
+                .Where(em => em.Encomenda != null && em.Encomenda.Estado == EstadoEncomenda.CONFIRMADA);
+
+            var moldeIds = await baseQuery
+                .Select(em => em.Molde_id)
+                .Distinct()
+                .ToListAsync();
+
+            if (moldeIds.Count == 0)
+                return new PagedResult<EncomendaMolde>(Array.Empty<EncomendaMolde>(), 0, page, pageSize);
+
+            var moldeIdsAptos = await ObterMoldeIdsAptosParaDesenhoAsync(moldeIds);
+            if (moldeIdsAptos.Count == 0)
+                return new PagedResult<EncomendaMolde>(Array.Empty<EncomendaMolde>(), 0, page, pageSize);
+
+            var query = baseQuery
+                .Where(em => moldeIdsAptos.Contains(em.Molde_id))
+                .OrderBy(em => em.DataEntregaPrevista)
+                .ThenBy(em => em.Prioridade)
+                .ThenBy(em => em.EncomendaMolde_id);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<EncomendaMolde>(items, totalCount, page, pageSize);
+        }
+
+        /// <summary>
         /// Obtem uma associacao por ID com a encomenda associada carregada em tracking.
         /// </summary>
         /// <param name="id">Identificador da associacao.</param>
@@ -286,6 +329,36 @@ namespace TipMolde.Infrastructure.Repositorio
         {
             _context.EncomendasMoldes.UpdateRange(entities);
             await _context.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Obtem os moldes que possuem o projeto mais recente com a ultima revisao aprovada.
+        /// </summary>
+        /// <param name="moldeIds">Moldes candidatos a validar.</param>
+        /// <returns>Conjunto de moldes aptos para desenho.</returns>
+        private async Task<HashSet<int>> ObterMoldeIdsAptosParaDesenhoAsync(IReadOnlyCollection<int> moldeIds)
+        {
+            var projetos = await _context.Projetos
+                .AsNoTracking()
+                .Where(p => moldeIds.Contains(p.Molde_id))
+                .Include(p => p.Revisoes)
+                .ToListAsync();
+
+            return projetos
+                .GroupBy(p => p.Molde_id)
+                .Select(g => g.OrderByDescending(p => p.Projeto_id).First())
+                .Where(projeto =>
+                {
+                    var ultimaRevisao = projeto.Revisoes
+                        .OrderByDescending(r => r.NumRevisao)
+                        .FirstOrDefault();
+
+                    return ultimaRevisao is not null &&
+                           ultimaRevisao.Aprovado == true &&
+                           ultimaRevisao.DataResposta.HasValue;
+                })
+                .Select(projeto => projeto.Molde_id)
+                .ToHashSet();
         }
     }
 }

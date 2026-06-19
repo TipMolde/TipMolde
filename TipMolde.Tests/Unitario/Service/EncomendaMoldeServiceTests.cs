@@ -7,11 +7,9 @@ using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Comercio.IEncomenda;
 using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
-using TipMolde.Application.Interface.Desenho.IProjeto;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Service;
 using TipMolde.Domain.Entities.Comercio;
-using TipMolde.Domain.Entities.Desenho;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
 
@@ -25,24 +23,22 @@ namespace TipMolde.Tests.Unitario.Service;
 /// </remarks>
 [TestFixture]
 [Category("Unit")]
-public class EncomendaMoldeServiceTests
-{
-    private Mock<IEncomendaMoldeRepository> _repo = null!;
-    private Mock<IEncomendaRepository> _encomendaRepo = null!;
-    private Mock<IProjetoRepository> _projetoRepo = null!;
-    private Mock<IMoldeRepository> _moldeRepo = null!;
+    public class EncomendaMoldeServiceTests
+    {
+        private Mock<IEncomendaMoldeRepository> _repo = null!;
+        private Mock<IEncomendaRepository> _encomendaRepo = null!;
+        private Mock<IMoldeRepository> _moldeRepo = null!;
     private Mock<IPrioridadeGlobalMoldeService> _prioridadeGlobalMoldeService = null!;
     private Mock<IMapper> _mapper = null!;
     private Mock<ILogger<EncomendaMoldeService>> _logger = null!;
     private EncomendaMoldeService _sut = null!;
 
     [SetUp]
-    public void SetUp()
-    {
-        _repo = new Mock<IEncomendaMoldeRepository>();
-        _encomendaRepo = new Mock<IEncomendaRepository>();
-        _projetoRepo = new Mock<IProjetoRepository>();
-        _moldeRepo = new Mock<IMoldeRepository>();
+        public void SetUp()
+        {
+            _repo = new Mock<IEncomendaMoldeRepository>();
+            _encomendaRepo = new Mock<IEncomendaRepository>();
+            _moldeRepo = new Mock<IMoldeRepository>();
         _prioridadeGlobalMoldeService = new Mock<IPrioridadeGlobalMoldeService>();
         _mapper = new Mock<IMapper>();
         _logger = new Mock<ILogger<EncomendaMoldeService>>();
@@ -50,7 +46,6 @@ public class EncomendaMoldeServiceTests
         _sut = new EncomendaMoldeService(
             _repo.Object,
             _encomendaRepo.Object,
-            _projetoRepo.Object,
             _moldeRepo.Object,
             _prioridadeGlobalMoldeService.Object,
             _mapper.Object,
@@ -205,8 +200,8 @@ public class EncomendaMoldeServiceTests
         result.Items.Single().EncomendaMolde_id.Should().Be(6);
     }
 
-    [Test(Description = "TENCMSRV6C - GetByEncomendasConfirmadasParaDesenho deve devolver apenas moldes com projeto concluido e ultima revisao aprovada.")]
-    public async Task GetByEncomendasConfirmadasParaDesenhoAsync_Should_FilterOnlyEligibleMoldes()
+    [Test(Description = "TENCMSRV6C - GetByEncomendasConfirmadasParaDesenho deve delegar ao repositorio e mapear o resultado.")]
+    public async Task GetByEncomendasConfirmadasParaDesenhoAsync_Should_MapPagedResult_When_RepositoryReturnsItems()
     {
         // ARRANGE
         var elegivel = new EncomendaMolde
@@ -219,87 +214,8 @@ public class EncomendaMoldeServiceTests
             DataEntregaPrevista = new DateTime(2026, 6, 18)
         };
 
-        var bloqueado = new EncomendaMolde
-        {
-            EncomendaMolde_id = 8,
-            Encomenda_id = 4,
-            Molde_id = 41,
-            Quantidade = 6,
-            Prioridade = 2,
-            DataEntregaPrevista = new DateTime(2026, 6, 19)
-        };
-
-        _repo.Setup(r => r.GetByEncomendasConfirmadasAsync(1, 100))
-            .ReturnsAsync(new PagedResult<EncomendaMolde>(new[] { elegivel, bloqueado }, 2, 1, 100));
-        _repo.Setup(r => r.GetByEncomendasConfirmadasAsync(2, 100))
-            .ReturnsAsync(new PagedResult<EncomendaMolde>(Array.Empty<EncomendaMolde>(), 2, 2, 100));
-
-        _projetoRepo.Setup(r => r.GetLatestWithRevisoesAndTempoByMoldeAsync(40))
-            .ReturnsAsync(new Projeto
-            {
-                Projeto_id = 900,
-                Molde_id = 40,
-                NomeProjeto = "Projeto apto",
-                SoftwareUtilizado = "NX",
-                CaminhoPastaServidor = @"\\srv\apto",
-                Revisoes =
-                {
-                    new Revisao
-                    {
-                        Revisao_id = 11,
-                        NumRevisao = 1,
-                        DescricaoAlteracoes = "OK",
-                        DataEnvioCliente = DateTime.UtcNow.AddDays(-2),
-                        DataResposta = DateTime.UtcNow.AddDays(-1),
-                        Aprovado = true
-                    }
-                },
-                RegistosTempo =
-                {
-                    new RegistoTempoProjeto
-                    {
-                        Registo_Tempo_Projeto_id = 21,
-                        Projeto_id = 900,
-                        Autor_id = 5,
-                        Estado_tempo = EstadoTempoProjeto.CONCLUIDO,
-                        Data_hora = DateTime.UtcNow
-                    }
-                }
-            });
-
-        _projetoRepo.Setup(r => r.GetLatestWithRevisoesAndTempoByMoldeAsync(41))
-            .ReturnsAsync(new Projeto
-            {
-                Projeto_id = 901,
-                Molde_id = 41,
-                NomeProjeto = "Projeto bloqueado",
-                SoftwareUtilizado = "NX",
-                CaminhoPastaServidor = @"\\srv\bloqueado",
-                Revisoes =
-                {
-                    new Revisao
-                    {
-                        Revisao_id = 12,
-                        NumRevisao = 1,
-                        DescricaoAlteracoes = "A aguardar",
-                        DataEnvioCliente = DateTime.UtcNow.AddDays(-2),
-                        DataResposta = DateTime.UtcNow.AddDays(-1),
-                        Aprovado = false
-                    }
-                },
-                RegistosTempo =
-                {
-                    new RegistoTempoProjeto
-                    {
-                        Registo_Tempo_Projeto_id = 22,
-                        Projeto_id = 901,
-                        Autor_id = 5,
-                        Estado_tempo = EstadoTempoProjeto.CONCLUIDO,
-                        Data_hora = DateTime.UtcNow
-                    }
-                }
-            });
-
+        _repo.Setup(r => r.GetByEncomendasConfirmadasParaDesenhoAsync(1, 10))
+            .ReturnsAsync(new PagedResult<EncomendaMolde>(new[] { elegivel }, 1, 1, 10));
         _mapper.Setup(m => m.Map<IEnumerable<ResponseEncomendaMoldeDto>>(It.IsAny<IEnumerable<EncomendaMolde>>()))
             .Returns((IEnumerable<EncomendaMolde> items) => items.Select(item => new ResponseEncomendaMoldeDto
             {

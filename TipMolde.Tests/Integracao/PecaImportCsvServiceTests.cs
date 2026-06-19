@@ -6,6 +6,9 @@ using Moq;
 using System.Text;
 using TipMolde.Application.Mappings;
 using TipMolde.Application.Service;
+using TipMolde.Application.Interface.Comercio.IEncomenda;
+using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
+using TipMolde.Application.Interface.Producao.IRegistosProducao;
 using TipMolde.Domain.Entities.Desenho;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
@@ -42,13 +45,28 @@ public class PecaImportCsvServiceTests
         var moldeRepository = new MoldeRepository(ctx);
         var projetoRepository = new ProjetoRepository(ctx);
         var fasesRepository = new FasesProducaoRepository(ctx);
+        var encomendaMoldeRepository = new EncomendaMoldeRepository(ctx);
+        var encomendaRepository = new EncomendaRepository(ctx);
+        var prioridadeGlobalMoldeService = new PrioridadeGlobalMoldeService(encomendaMoldeRepository);
+        var encomendaLogger = new Mock<ILogger<EncomendaMoldeService>>();
+        var registosProducaoRepository = new RegistosProducaoRepository(ctx);
         var logger = new Mock<ILogger<PecaService>>();
+
+        var encomendaMoldeService = new EncomendaMoldeService(
+            encomendaMoldeRepository,
+            encomendaRepository,
+            moldeRepository,
+            prioridadeGlobalMoldeService,
+            mapperConfig.CreateMapper(),
+            encomendaLogger.Object);
 
         return new PecaService(
             pecaRepository,
             moldeRepository,
             projetoRepository,
             fasesRepository,
+            encomendaMoldeService,
+            registosProducaoRepository,
             mapperConfig.CreateMapper(),
             logger.Object);
     }

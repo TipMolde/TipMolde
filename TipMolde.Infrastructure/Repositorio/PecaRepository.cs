@@ -69,6 +69,23 @@ namespace TipMolde.Infrastructure.Repositorio
             return new PagedResult<Peca>(items, totalCount, page, pageSize);
         }
 
+        public async Task<IReadOnlyList<Peca>> GetByMoldeIdsAsync(IEnumerable<int> moldeIds)
+        {
+            var idList = moldeIds.Distinct().ToList();
+
+            if (idList.Count == 0)
+                return [];
+
+            return await _context.Pecas
+                .AsNoTracking()
+                .Include(p => p.ProximaFase)
+                .Where(p => idList.Contains(p.Molde_id))
+                .OrderBy(p => p.Molde_id)
+                .ThenBy(p => p.Prioridade)
+                .ThenBy(p => p.Peca_id)
+                .ToListAsync();
+        }
+
         /// <summary>
         /// Lista pecas de um molde que ainda nao foram adicionadas a qualquer pedido de material.
         /// </summary>
