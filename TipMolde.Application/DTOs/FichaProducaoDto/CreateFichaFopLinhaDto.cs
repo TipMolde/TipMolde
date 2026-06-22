@@ -18,5 +18,11 @@ namespace TipMolde.Application.Dtos.FichaProducaoDto
 
         [Required, Range(1, int.MaxValue)]
         public int Responsavel_id { get; set; }
+
+        [Range(1, int.MaxValue)]
+        public int? Peca_id { get; set; }
+
+        [Range(1, int.MaxValue)]
+        public int? Molde_id { get; set; }
     }
 }

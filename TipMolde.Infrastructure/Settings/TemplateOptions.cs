@@ -10,10 +10,12 @@
         public string FichaFRM { get; set; } = "FRM.xlsx";
         public string FichaFRA { get; set; } = "FRA.xlsx";
         public string FichaFOP { get; set; } = "FOP.xlsx";
+        public string FichaFOPGeral { get; set; } = "FOP_Geral.xlsx";
         public string FolhaFLT { get; set; } = "FLT - TM.04.05";
         public string FolhaFRE { get; set; } = "FRE - TM.08.05";
         public string FolhaFRM { get; set; } = "FRM - TM.09.05";
         public string FolhaFRA { get; set; } = "FRA - TM.010.05";
         public string FolhaFOP { get; set; } = "FOP - TM.07.05";
+        public string FolhaFOPGeral { get; set; } = "FOP - TM.11.05";
     }
 }

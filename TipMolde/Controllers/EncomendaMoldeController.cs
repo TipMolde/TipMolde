@@ -141,19 +141,24 @@ namespace TipMolde.API.Controllers
         /// Para alem de encomenda confirmada, o molde tem de ter o ultimo projeto
         /// concluido e a ultima revisao aprovada pelo cliente.
         /// </remarks>
+        /// <param name="searchTerm">Termo opcional para filtrar a lista de moldes aptos.</param>
         /// <param name="page">Pagina atual (>= 1).</param>
         /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
         /// <returns>HTTP 200 com resultado paginado; HTTP 400 para paginacao invalida.</returns>
         [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO")]
         [HttpGet("encomendas-confirmadas-para-desenho")]
         public async Task<IActionResult> GetByEncomendasConfirmadasParaDesenho(
+            [FromQuery] string? searchTerm = null,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
                 return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
 
-            var result = await _service.GetByEncomendasConfirmadasParaDesenhoAsync(page, pageSize);
+            var result = string.IsNullOrWhiteSpace(searchTerm)
+                ? await _service.GetByEncomendasConfirmadasParaDesenhoAsync(page, pageSize)
+                : await _service.SearchByTermForDesenhoAsync(searchTerm, page, pageSize);
+
             return Ok(result);
         }
 

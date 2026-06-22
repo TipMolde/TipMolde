@@ -347,6 +347,97 @@ namespace TipMolde.Tests.Integracao.Repositorio
             result.TotalCount.Should().Be(0);
             result.Items.Should().BeEmpty();
         }
+
+        [Test(Description = "TENCMREP7 - SearchByTermForDesenho deve filtrar apenas as associacoes elegiveis que correspondem ao termo.")]
+        public async Task SearchByTermForDesenhoAsync_Should_FilterByCustomerName_When_SearchTermMatches()
+        {
+            // ARRANGE
+            await using var context = CreateContext();
+            var clienteA = new Cliente { Nome = "Cliente Apto", NIF = "777888999", Sigla = "APT" };
+            var clienteB = new Cliente { Nome = "Cliente Outro", NIF = "111000999", Sigla = "OUT" };
+
+            var encomendaA = new Encomenda { NumeroEncomendaCliente = "ENC-APT", Cliente = clienteA, Estado = EstadoEncomenda.CONFIRMADA };
+            var encomendaB = new Encomenda { NumeroEncomendaCliente = "ENC-OUT", Cliente = clienteB, Estado = EstadoEncomenda.CONFIRMADA };
+
+            var moldeA = new Molde { Numero = "M-300", Numero_cavidades = 2, TipoPedido = TipoPedido.NOVO_MOLDE, Nome = "Molde Apto", Descricao = "Descricao valida" };
+            var moldeB = new Molde { Numero = "M-301", Numero_cavidades = 2, TipoPedido = TipoPedido.NOVO_MOLDE, Nome = "Molde Outro", Descricao = "Outra descricao" };
+
+            await context.Encomendas.AddRangeAsync(encomendaA, encomendaB);
+            await context.Moldes.AddRangeAsync(moldeA, moldeB);
+            await context.SaveChangesAsync();
+
+            await context.Projetos.AddRangeAsync(
+                new Projeto
+                {
+                    NomeProjeto = "Projeto A",
+                    SoftwareUtilizado = "NX",
+                    TipoProjeto = TipoProjeto.PROJETO_3D,
+                    CaminhoPastaServidor = @"\\srv\a",
+                    Molde_id = moldeA.Molde_id,
+                    Revisoes =
+                    {
+                        new Revisao
+                        {
+                            NumRevisao = 1,
+                            DescricaoAlteracoes = "Aprovado",
+                            DataEnvioCliente = DateTime.UtcNow.AddDays(-3),
+                            DataResposta = DateTime.UtcNow.AddDays(-2),
+                            Aprovado = true
+                        }
+                    }
+                },
+                new Projeto
+                {
+                    NomeProjeto = "Projeto B",
+                    SoftwareUtilizado = "NX",
+                    TipoProjeto = TipoProjeto.PROJETO_3D,
+                    CaminhoPastaServidor = @"\\srv\b",
+                    Molde_id = moldeB.Molde_id,
+                    Revisoes =
+                    {
+                        new Revisao
+                        {
+                            NumRevisao = 1,
+                            DescricaoAlteracoes = "Aprovado",
+                            DataEnvioCliente = DateTime.UtcNow.AddDays(-3),
+                            DataResposta = DateTime.UtcNow.AddDays(-2),
+                            Aprovado = true
+                        }
+                    }
+                });
+            await context.SaveChangesAsync();
+
+            await context.EncomendasMoldes.AddRangeAsync(
+                new EncomendaMolde
+                {
+                    Encomenda_id = encomendaA.Encomenda_id,
+                    Molde_id = moldeA.Molde_id,
+                    Quantidade = 1,
+                    Prioridade = 1,
+                    DataEntregaPrevista = new DateTime(2026, 6, 20)
+                },
+                new EncomendaMolde
+                {
+                    Encomenda_id = encomendaB.Encomenda_id,
+                    Molde_id = moldeB.Molde_id,
+                    Quantidade = 1,
+                    Prioridade = 2,
+                    DataEntregaPrevista = new DateTime(2026, 6, 21)
+                });
+            await context.SaveChangesAsync();
+
+            var repository = new EncomendaMoldeRepository(context);
+
+            // ACT
+            var result = await repository.SearchByTermForDesenhoAsync("apto", page: 1, pageSize: 10);
+
+            // ASSERT
+            result.TotalCount.Should().Be(1);
+            result.Items.Should().ContainSingle();
+            var item = result.Items.Single();
+            item.Encomenda!.Cliente!.Nome.Should().Be("Cliente Apto");
+            item.Molde!.Numero.Should().Be("M-300");
+        }
     }
 
 }

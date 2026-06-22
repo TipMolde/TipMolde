@@ -36,5 +36,10 @@ namespace TipMolde.Application.Dtos.MaquinaDto
         /// Identificador da fase dedicada desta maquina.
         /// </summary>
         public int FaseDedicada_id { get; set; }
+
+        /// <summary>
+        /// Nome de apresentacao da fase dedicada desta maquina.
+        /// </summary>
+        public string FaseDedicadaNome { get; set; } = string.Empty;
     }
 }

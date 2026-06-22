@@ -68,7 +68,7 @@ namespace TipMolde.Tests.Integracao.Controller
                 Numero = "M-002",
                 Numero_cavidades = 3,
                 TipoPedido = TipoPedido.NOVO_MOLDE,
-                ImagemCapaPath = "Templates/image.png"
+                ImagemCapaPath = "Templates/tipmolde_default.jpg"
             };
 
             Factory.MoldeService

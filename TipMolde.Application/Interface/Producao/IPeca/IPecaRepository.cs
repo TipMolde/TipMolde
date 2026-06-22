@@ -29,8 +29,9 @@ namespace TipMolde.Application.Interface.Producao.IPeca
         /// <param name="moldeId">Identificador do molde.</param>
         /// <param name="page">Numero da pagina a consultar.</param>
         /// <param name="pageSize">Quantidade de itens por pagina.</param>
+        /// <param name="searchTerm">Termo opcional para filtrar as pecas elegiveis.</param>
         /// <returns>Resultado paginado com pecas elegiveis para criar um pedido de material.</returns>
-        Task<PagedResult<Peca>> GetByMoldeIdWithoutPedidoMaterialAsync(int moldeId, int page, int pageSize);
+        Task<PagedResult<Peca>> GetByMoldeIdWithoutPedidoMaterialAsync(int moldeId, int page, int pageSize, string? searchTerm = null);
 
         /// <summary>
         /// Lista pecas de um molde com pedido de material ainda pendente de rececao.

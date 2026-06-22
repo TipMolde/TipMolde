@@ -5,6 +5,7 @@ using Moq;
 using System.Net;
 using System.Net.Http.Json;
 using TipMolde.Application.Dtos.MaquinaDto;
+using TipMolde.Application.Interface;
 using TipMolde.Domain.Enums;
 
 namespace TipMolde.Tests.Integracao.Controller
@@ -26,6 +27,59 @@ namespace TipMolde.Tests.Integracao.Controller
             Factory.MaquinaService.Verify(
                 s => s.GetByEstadoAsync(It.IsAny<EstadoMaquina>(), It.IsAny<int>(), It.IsAny<int>()),
                 Times.Never);
+        }
+
+        [Test(Description = "TMAQAPI1B - GET /api/Maquina/search devolve ProblemDetails quando o termo e invalido.")]
+        public async Task Search_Should_ReturnProblemDetails_When_SearchTermIsBlank()
+        {
+            // ARRANGE
+
+            // ACT
+            var response = await Client.GetAsync("/api/Maquina/search?searchTerm=   ");
+
+            // ASSERT
+            await AssertProblemAsync(response, HttpStatusCode.BadRequest, "Pedido invalido");
+            Factory.MaquinaService.Verify(
+                s => s.SearchAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()),
+                Times.Never);
+        }
+
+        [Test(Description = "TMAQAPI1C - GET /api/Maquina/search devolve 200 quando o termo e valido.")]
+        public async Task Search_Should_ReturnOkJson_When_QueryIsValid()
+        {
+            // ARRANGE
+            var paged = new PagedResult<ResponseMaquinaDto>(
+                new[]
+                {
+                    new ResponseMaquinaDto
+                    {
+                        Maquina_id = 7,
+                        Numero = 22,
+                        NomeModelo = "Makino",
+                        Estado = EstadoMaquina.DISPONIVEL,
+                        FaseDedicada_id = 2,
+                        FaseDedicadaNome = "Maquinacao"
+                    }
+                },
+                1,
+                2,
+                3);
+
+            Factory.MaquinaService
+                .Setup(s => s.SearchAsync("Makino", 2, 3))
+                .ReturnsAsync(paged);
+
+            // ACT
+            var response = await Client.GetAsync("/api/Maquina/search?searchTerm=Makino&page=2&pageSize=3");
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var body = await ReadBodyAsync<PagedResult<ResponseMaquinaDto>>(response);
+            body.TotalCount.Should().Be(1);
+            body.Items.Should().ContainSingle(item => item.Maquina_id == 7 && item.FaseDedicadaNome == "Maquinacao");
+
+            Factory.MaquinaService.Verify(s => s.SearchAsync("Makino", 2, 3), Times.Once);
         }
 
         [Test(Description = "TMAQAPI2 - POST /api/Maquina devolve 201 quando request e valida.")]

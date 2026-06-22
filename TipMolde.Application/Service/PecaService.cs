@@ -121,11 +121,13 @@ namespace TipMolde.Application.Service
         /// <param name="moldeId">Identificador do molde.</param>
         /// <param name="page">Pagina atual.</param>
         /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <param name="searchTerm">Termo opcional para filtrar as pecas elegiveis.</param>
         /// <returns>Resultado paginado com pecas elegiveis para pedido de material.</returns>
-        public async Task<PagedResult<ResponsePecaDto>> GetByMoldeIdWithoutPedidoMaterialAsync(int moldeId, int page = 1, int pageSize = 10)
+        public async Task<PagedResult<ResponsePecaDto>> GetByMoldeIdWithoutPedidoMaterialAsync(int moldeId, int page = 1, int pageSize = 10, string? searchTerm = null)
         {
             var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
-            var result = await _pecaRepository.GetByMoldeIdWithoutPedidoMaterialAsync(moldeId, normalizedPage, normalizedPageSize);
+            var normalizedSearchTerm = string.IsNullOrWhiteSpace(searchTerm) ? null : searchTerm.Trim();
+            var result = await _pecaRepository.GetByMoldeIdWithoutPedidoMaterialAsync(moldeId, normalizedPage, normalizedPageSize, normalizedSearchTerm);
             var items = _mapper.Map<IEnumerable<ResponsePecaDto>>(result.Items);
             return new PagedResult<ResponsePecaDto>(items, result.TotalCount, result.CurrentPage, result.PageSize);
         }
@@ -448,6 +450,7 @@ namespace TipMolde.Application.Service
             {
                 PecaId = peca.Peca_id,
                 MoldeId = peca.Molde_id,
+                EncomendaMolde_id = molde.EncomendaMolde_id,
                 PrioridadeMolde = molde.Prioridade,
                 PrioridadePeca = peca.Prioridade,
                 Quantidade = peca.Quantidade,

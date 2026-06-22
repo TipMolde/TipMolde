@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TipMolde.API.Extensions;
+using TipMolde.Application.Dtos.FichaProducaoDto;
 using TipMolde.Application.Dtos.RegistoProducaoDto;
+using TipMolde.Application.Interface.Fichas.IFichaProducao;
 using TipMolde.Application.Interface.Producao.IRegistosProducao;
+using TipMolde.Application.Interface.Producao.IPeca;
+using TipMolde.Domain.Enums;
 
 namespace TipMolde.API.Controllers
 {
@@ -18,6 +22,8 @@ namespace TipMolde.API.Controllers
     public class RegistosProducaoController : ControllerBase
     {
         private readonly IRegistosProducaoService _registosProducaoService;
+        private readonly IFichaProducaoService _fichaProducaoService;
+        private readonly IPecaService _pecaService;
         private readonly ILogger<RegistosProducaoController> _logger;
 
         /// <summary>
@@ -27,9 +33,13 @@ namespace TipMolde.API.Controllers
         /// <param name="logger">Logger para rastreabilidade das operacoes HTTP.</param>
         public RegistosProducaoController(
             IRegistosProducaoService registosProducaoService,
+            IFichaProducaoService fichaProducaoService,
+            IPecaService pecaService,
             ILogger<RegistosProducaoController> logger)
         {
             _registosProducaoService = registosProducaoService;
+            _fichaProducaoService = fichaProducaoService;
+            _pecaService = pecaService;
             _logger = logger;
         }
 
@@ -139,7 +149,38 @@ namespace TipMolde.API.Controllers
                     "Dados de criacao invalidos para o registo de producao."));
             }
 
+            if (!string.IsNullOrWhiteSpace(dto.Ocorrencia) && !dto.EncomendaMolde_id.HasValue)
+            {
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest,
+                    "Pedido invalido",
+                    "A ocorrencia precisa de um contexto Encomenda-Molde."));
+            }
+
             var createdRegistoProducao = await _registosProducaoService.CreateAsync(dto);
+
+            if (!string.IsNullOrWhiteSpace(dto.Ocorrencia))
+            {
+                var peca = await _pecaService.GetByIdAsync(createdRegistoProducao.Peca_id)
+                    ?? throw new KeyNotFoundException($"Peca com ID {createdRegistoProducao.Peca_id} nao encontrada.");
+
+                var fichaFop = await _fichaProducaoService.EnsureAsync(new CreateFichaProducaoDto
+                {
+                    Tipo = TipoFicha.FOP,
+                    EncomendaMolde_id = dto.EncomendaMolde_id!.Value
+                });
+
+                await _fichaProducaoService.CreateLinhaFopAsync(
+                    fichaFop.FichaProducao_id,
+                    new CreateFichaFopLinhaDto
+                    {
+                        Data = createdRegistoProducao.Data_hora,
+                        Ocorrencia = dto.Ocorrencia.Trim(),
+                        Responsavel_id = createdRegistoProducao.Operador_id,
+                        Peca_id = createdRegistoProducao.Peca_id,
+                        Molde_id = peca.Molde_id
+                    });
+            }
 
             _logger.LogInformation(
                 "Controller: registo de producao {RegistoId} criado.",

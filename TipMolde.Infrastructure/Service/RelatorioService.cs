@@ -4,7 +4,9 @@ using Microsoft.Extensions.Options;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
 using TipMolde.Application.Dtos.RelatorioDto;
+using TipMolde.Application.DTOs.RelatorioDto.Linhas;
 using TipMolde.Application.Interface.Fichas.IFichaDocumento;
+using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Relatorios;
 using TipMolde.Domain.Enums;
 using TipMolde.Infrastructure.Settings;
@@ -284,6 +286,59 @@ namespace TipMolde.Infrastructure.Service
                     FillBlocoCliente(ws, context.Base);
                     FillFopBody(ws, context);
                 });
+        }
+
+        /// <summary>
+        /// Gera uma exportacao Excel da FOP geral por intervalo de datas.
+        /// </summary>
+        /// <remarks>
+        /// A FOP geral nao corresponde a uma ficha persistida unica, por isso este fluxo devolve
+        /// apenas o ficheiro Excel gerado em memoria sem criar um registo em FichaDocumento.
+        /// </remarks>
+        /// <param name="dataInicio">Data inicial do intervalo a exportar.</param>
+        /// <param name="dataFim">Data final do intervalo a exportar.</param>
+        /// <param name="userId">Identificador do utilizador que iniciou a exportacao.</param>
+        /// <returns>Conteudo binario do Excel e nome do ficheiro gerado.</returns>
+        public async Task<(byte[] Content, string FileName)> GerarFopGeralExcelAsync(DateTime dataInicio, DateTime dataFim, int userId)
+        {
+            var contexto = await _relatorioRepository.ObterFopGeralAsync(dataInicio.Date, dataFim.Date, 1, int.MaxValue);
+            var linhas = contexto.Items.ToList();
+
+            using var workbook = LoadWorkbook(
+                _templateOptions.FichaFOPGeral,
+                _templateOptions.FolhaFOPGeral,
+                "FOP Geral - TM.07.05",
+                out var worksheet);
+
+            FillFopGeralHeader(worksheet, dataInicio.Date, dataFim.Date, contexto.TotalCount);
+            FillFopGeralBody(worksheet, linhas);
+
+            using var ms = new MemoryStream();
+            workbook.SaveAs(ms);
+            var bytes = ms.ToArray();
+
+            var fileName = $"fop_geral_{dataInicio:yyyyMMdd}_{dataFim:yyyyMMdd}.xlsx";
+            _ = userId;
+
+            return (bytes, fileName);
+        }
+
+        /// <summary>
+        /// Lista as ocorrencias gerais da FOP por intervalo de datas.
+        /// </summary>
+        /// <param name="dataInicio">Data inicial do intervalo.</param>
+        /// <param name="dataFim">Data final do intervalo.</param>
+        /// <param name="page">Numero da pagina a consultar.</param>
+        /// <param name="pageSize">Quantidade de itens por pagina.</param>
+        /// <returns>Resultado paginado com as linhas da FOP geral.</returns>
+        public async Task<PagedResult<FichaFopGeralRelatorioLinhaDto>> ObterFopGeralAsync(DateTime dataInicio, DateTime dataFim, int page = 1, int pageSize = 10)
+        {
+            if (dataFim.Date < dataInicio.Date)
+                throw new ArgumentException("A data final tem de ser igual ou posterior a data inicial.");
+
+            var normalizedPage = Math.Max(page, 1);
+            var normalizedPageSize = Math.Clamp(pageSize, 10, 200);
+            return await _relatorioRepository.ObterFopGeralAsync(dataInicio, dataFim, normalizedPage, normalizedPageSize);
         }
 
         /// <summary>
@@ -662,6 +717,76 @@ namespace TipMolde.Infrastructure.Service
                 ws.Cell($"G{row}").Value = linha.Correcao;
                 ws.Cell($"J{row}").Value = linha.ResponsavelNome;
             }
+        }
+
+        /// <summary>
+        /// Preenche o cabecalho da exportacao da FOP geral.
+        /// </summary>
+        /// <param name="ws">Worksheet do template oficial a preencher.</param>
+        /// <param name="dataInicio">Data inicial do intervalo exportado.</param>
+        /// <param name="dataFim">Data final do intervalo exportado.</param>
+        /// <param name="totalLinhas">Total de linhas encontradas no intervalo.</param>
+        private static void FillFopGeralHeader(IXLWorksheet ws, DateTime dataInicio, DateTime dataFim, int totalLinhas)
+        {
+            ws.Cell("D7").Value = dataInicio.ToString(DateFormat);
+            ws.Cell("J7").Value = dataFim.ToString(DateFormat);
+            ws.Cell("I4").Value = DateTime.UtcNow.ToString(DateFormat);
+            ws.Cell("E2").Value = "Ficha de Ocorrencias na Producao";
+            ws.Cell("B6").Value = $"Intrevalo de dados - Total: {totalLinhas}";
+        }
+
+        /// <summary>
+        /// Preenche o corpo da exportacao da FOP geral com uma linha por ocorrencia.
+        /// </summary>
+        /// <param name="ws">Worksheet do template oficial a preencher.</param>
+        /// <param name="linhas">Linhas FOP a exportar no intervalo selecionado.</param>
+        private static void FillFopGeralBody(IXLWorksheet ws, IEnumerable<FichaFopGeralRelatorioLinhaDto> linhas)
+        {
+            const int startRow = 10;
+
+            var rowIndex = 0;
+            foreach (var linha in linhas)
+            {
+                var row = startRow + (rowIndex * 2);
+
+                ws.Cell($"B{row}").Value = linha.Data.ToString(DateFormat);
+                ws.Cell($"C{row}").Value = linha.Ocorrencia;
+                ws.Cell($"G{row}").Value = linha.Correcao;
+                ws.Cell($"J{row}").Value = linha.ResponsavelNome;
+                ws.Cell($"K{row}").Value = BuildPecaDisplay(linha);
+                ws.Cell($"L{row}").Value = BuildMoldeDisplay(linha);
+                rowIndex++;
+            }
+        }
+
+        /// <summary>
+        /// Compacta a informacao da peca para a exportacao da FOP geral.
+        /// </summary>
+        /// <param name="linha">Linha da FOP geral a apresentar.</param>
+        /// <returns>Texto normalizado da peca.</returns>
+        private static string BuildPecaDisplay(FichaFopGeralRelatorioLinhaDto linha)
+        {
+            if (string.IsNullOrWhiteSpace(linha.PecaNumero))
+                return linha.Peca_id.HasValue ? $"Peca {linha.Peca_id}" : "Peca sem identificador";
+
+            return string.IsNullOrWhiteSpace(linha.PecaDesignacao)
+                ? linha.PecaNumero
+                : $"{linha.PecaNumero} - {linha.PecaDesignacao}";
+        }
+
+        /// <summary>
+        /// Compacta a informacao do molde para a exportacao da FOP geral.
+        /// </summary>
+        /// <param name="linha">Linha da FOP geral a apresentar.</param>
+        /// <returns>Texto normalizado do molde.</returns>
+        private static string BuildMoldeDisplay(FichaFopGeralRelatorioLinhaDto linha)
+        {
+            if (string.IsNullOrWhiteSpace(linha.MoldeNumero))
+                return linha.Molde_id.HasValue ? $"Molde {linha.Molde_id}" : "Molde sem identificador";
+
+            return string.IsNullOrWhiteSpace(linha.MoldeNome)
+                ? linha.MoldeNumero
+                : $"{linha.MoldeNumero} - {linha.MoldeNome}";
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using System.Globalization;
 using TipMolde.Application.Dtos.MaquinaDto;
 using TipMolde.Domain.Entities.Producao;
 
@@ -49,7 +50,18 @@ namespace TipMolde.Application.Mappings
 
         private void ConfigureResponseMap()
         {
-            CreateMap<Maquina, ResponseMaquinaDto>();
+            CreateMap<Maquina, ResponseMaquinaDto>()
+                .ForMember(dest => dest.FaseDedicadaNome, opt => opt.MapFrom(src => src.FaseDedicada == null ? string.Empty : FormatNomeFase(src.FaseDedicada.Nome)));
+        }
+
+        private static string FormatNomeFase(Enum? nome)
+        {
+            if (nome is null)
+                return string.Empty;
+
+            var text = nome.ToString().ToLowerInvariant();
+            return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(text);
         }
     }
 }
+

@@ -25,6 +25,15 @@ namespace TipMolde.Application.Interface.Producao.IMaquina
         Task<PagedResult<Maquina>> GetByEstadoAsync(EstadoMaquina estado, int page, int pageSize);
 
         /// <summary>
+        /// Pesquisa maquinas por termo livre em numero, modelo, estado, IP ou fase dedicada.
+        /// </summary>
+        /// <param name="searchTerm">Termo de pesquisa a aplicar.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>Resultado paginado com maquinas correspondentes ao termo.</returns>
+        Task<PagedResult<Maquina>> SearchAsync(string searchTerm, int page, int pageSize);
+
+        /// <summary>
         /// Verifica se ja existe uma maquina com o numero fisico informado.
         /// </summary>
         /// <param name="numero">Numero fisico a validar.</param>

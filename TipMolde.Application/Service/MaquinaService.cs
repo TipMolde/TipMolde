@@ -48,13 +48,7 @@ namespace TipMolde.Application.Service
         {
             var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
             var result = await _maquinaRepository.GetAllAsync(normalizedPage, normalizedPageSize);
-            var items = _mapper.Map<IEnumerable<ResponseMaquinaDto>>(result.Items);
-
-            return new PagedResult<ResponseMaquinaDto>(
-                items,
-                result.TotalCount,
-                result.CurrentPage,
-                result.PageSize);
+            return MapPagedResult(result);
         }
 
         /// <summary>
@@ -79,13 +73,24 @@ namespace TipMolde.Application.Service
         {
             var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
             var result = await _maquinaRepository.GetByEstadoAsync(estado, normalizedPage, normalizedPageSize);
-            var items = _mapper.Map<IEnumerable<ResponseMaquinaDto>>(result.Items);
+            return MapPagedResult(result);
+        }
 
-            return new PagedResult<ResponseMaquinaDto>(
-                items,
-                result.TotalCount,
-                result.CurrentPage,
-                result.PageSize);
+        /// <summary>
+        /// Pesquisa maquinas por termo livre.
+        /// </summary>
+        /// <param name="searchTerm">Termo de pesquisa a aplicar.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>Resultado paginado com DTOs correspondentes ao termo.</returns>
+        public async Task<PagedResult<ResponseMaquinaDto>> SearchAsync(string searchTerm, int page = 1, int pageSize = 10)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return PaginationDefaults.EmptyPage<ResponseMaquinaDto>(page, pageSize);
+
+            var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+            var result = await _maquinaRepository.SearchAsync(searchTerm.Trim(), normalizedPage, normalizedPageSize);
+            return MapPagedResult(result);
         }
 
         /// <summary>
@@ -191,6 +196,23 @@ namespace TipMolde.Application.Service
                 || !string.IsNullOrWhiteSpace(dto.IpAddress)
                 || dto.Estado.HasValue
                 || dto.FaseDedicada_id.HasValue;
+        }
+
+        /// <summary>
+        /// Converte um resultado paginado de entidade para DTO.
+        /// </summary>
+        /// <typeparam name="TEntity">Tipo da entidade de origem.</typeparam>
+        /// <param name="result">Resultado paginado obtido do repositorio.</param>
+        /// <returns>Resultado paginado com DTOs correspondentes.</returns>
+        private PagedResult<ResponseMaquinaDto> MapPagedResult<TEntity>(PagedResult<TEntity> result)
+        {
+            var items = _mapper.Map<IEnumerable<ResponseMaquinaDto>>(result.Items);
+
+            return new PagedResult<ResponseMaquinaDto>(
+                items,
+                result.TotalCount,
+                result.CurrentPage,
+                result.PageSize);
         }
     }
 }

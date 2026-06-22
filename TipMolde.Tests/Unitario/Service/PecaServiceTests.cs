@@ -89,6 +89,27 @@ public class PecaServiceTests
         Molde_id = moldeId
     };
 
+    [Test(Description = "TPECASRV1B - GetByMoldeIdWithoutPedidoMaterial deve encaminhar o termo de pesquisa normalizado ao repositório.")]
+    public async Task GetByMoldeIdWithoutPedidoMaterialAsync_Should_ForwardTrimmedSearchTerm_When_SearchTermIsProvided()
+    {
+        // ARRANGE
+        var peca = BuildPeca(id: 21, moldeId: 4, designacao: "Base");
+        string? forwardedSearchTerm = null;
+        _pecaRepository
+            .Setup(r => r.GetByMoldeIdWithoutPedidoMaterialAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>()))
+            .Callback<int, int, int, string?>((_, _, _, searchTerm) => forwardedSearchTerm = searchTerm)
+            .ReturnsAsync(new PagedResult<Peca>(new[] { peca }, 1, 2, 10));
+
+        // ACT
+        var result = await _sut.GetByMoldeIdWithoutPedidoMaterialAsync(4, 2, 5, "  Base  ");
+
+        // ASSERT
+        result.TotalCount.Should().Be(1);
+        result.Items.Should().ContainSingle(item => item.PecaId == 21);
+        forwardedSearchTerm.Should().Be("Base");
+        _pecaRepository.Verify(r => r.GetByMoldeIdWithoutPedidoMaterialAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>()), Times.Once);
+    }
+
     private static MemoryStream BuildCsvStream(string content)
     {
         return new MemoryStream(Encoding.UTF8.GetBytes(content));

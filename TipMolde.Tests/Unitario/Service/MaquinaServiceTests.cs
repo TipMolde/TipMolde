@@ -318,4 +318,43 @@ public class MaquinaServiceTests
         result.PageSize.Should().Be(10);
         result.Items.Single().Estado.Should().Be(EstadoMaquina.EM_USO);
     }
+
+    [Test(Description = "TMAQSERV9 - Search deve devolver pagina vazia quando o termo e blank.")]
+    public async Task SearchAsync_Should_ReturnEmptyPage_When_SearchTermIsBlank()
+    {
+        // ARRANGE
+
+        // ACT
+        var result = await _sut.SearchAsync("   ", 2, 5);
+
+        // ASSERT
+        result.TotalCount.Should().Be(0);
+        result.Items.Should().BeEmpty();
+        _maquinaRepository.Verify(r => r.SearchAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Test(Description = "TMAQSERV10 - Search deve normalizar o termo e mapear o resultado paginado.")]
+    public async Task SearchAsync_Should_MapPagedResult_When_RepositoryReturnsItems()
+    {
+        // ARRANGE
+        var paged = new PagedResult<Maquina>(
+            new[] { BuildMaquina(id: 11, numero: 33, nomeModelo: "Erosao 1", estado: EstadoMaquina.MANUTENCAO, faseDedicadaId: 9) },
+            1,
+            1,
+            10);
+
+        _maquinaRepository.Setup(r => r.SearchAsync("erosao", 1, 10))
+            .ReturnsAsync(paged);
+
+        // ACT
+        var result = await _sut.SearchAsync(" erosao ", 1, 10);
+
+        // ASSERT
+        result.TotalCount.Should().Be(1);
+        result.Items.Single().Numero.Should().Be(33);
+        result.Items.Single().NomeModelo.Should().Be("Erosao 1");
+        result.Items.Single().FaseDedicada_id.Should().Be(9);
+
+        _maquinaRepository.Verify(r => r.SearchAsync("erosao", 1, 10), Times.Once);
+    }
 }

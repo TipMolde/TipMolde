@@ -1,4 +1,6 @@
-﻿using TipMolde.Application.Dtos.RelatorioDto;
+using TipMolde.Application.Dtos.RelatorioDto;
+using TipMolde.Application.DTOs.RelatorioDto.Linhas;
+using TipMolde.Application.Interface;
 
 namespace TipMolde.Application.Interface.Relatorios
 {
@@ -68,5 +70,24 @@ namespace TipMolde.Application.Interface.Relatorios
         /// <param name="userId">Identificador do utilizador que desencadeou a geracao.</param>
         /// <returns>Conteudo binario do Excel e nome final versionado do ficheiro.</returns>
         Task<(byte[] Content, string FileName)> GerarFichaExcelFOPAsync(int fichaId, int userId);
+
+        /// <summary>
+        /// Gera a FOP geral em Excel para um intervalo de datas.
+        /// </summary>
+        /// <param name="dataInicio">Data inicial do intervalo.</param>
+        /// <param name="dataFim">Data final do intervalo.</param>
+        /// <param name="userId">Identificador do utilizador que desencadeou a geracao.</param>
+        /// <returns>Conteudo binario do Excel e nome final do ficheiro.</returns>
+        Task<(byte[] Content, string FileName)> GerarFopGeralExcelAsync(DateTime dataInicio, DateTime dataFim, int userId);
+
+        /// <summary>
+        /// Lista as ocorrencias gerais da FOP por intervalo de datas.
+        /// </summary>
+        /// <param name="dataInicio">Data inicial do intervalo.</param>
+        /// <param name="dataFim">Data final do intervalo.</param>
+        /// <param name="page">Numero da pagina a consultar.</param>
+        /// <param name="pageSize">Quantidade de itens por pagina.</param>
+        /// <returns>Resultado paginado com as linhas da FOP geral.</returns>
+        Task<PagedResult<FichaFopGeralRelatorioLinhaDto>> ObterFopGeralAsync(DateTime dataInicio, DateTime dataFim, int page = 1, int pageSize = 10);
     }
 }

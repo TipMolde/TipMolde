@@ -14,5 +14,9 @@ namespace TipMolde.Application.Dtos.EncomendaMoldeDto
 
         public string? NumeroEncomendaCliente { get; set; }
         public string? NumeroMolde { get; set; }
+        public string? NomeCliente { get; set; }
+        public string? NomeMolde { get; set; }
+        public string? DescricaoMolde { get; set; }
+        public string? ImagemCapaPath { get; set; }
     }
 }

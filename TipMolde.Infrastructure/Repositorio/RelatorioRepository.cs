@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using TipMolde.Application.Dtos.RelatorioDto;
 using TipMolde.Application.DTOs.RelatorioDto.Linhas;
+using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Relatorios;
 using TipMolde.Domain.Entities.Comercio;
 using TipMolde.Domain.Entities.Fichas;
@@ -405,5 +406,45 @@ namespace TipMolde.Infrastructure.Repositorio
                 })
                 .FirstOrDefaultAsync();
         }
+
+        public async Task<PagedResult<FichaFopGeralRelatorioLinhaDto>> ObterFopGeralAsync(DateTime dataInicio, DateTime dataFim, int page, int pageSize)
+        {
+            var inicio = dataInicio.Date;
+            var fim = dataFim.Date;
+
+            var query = _context.FichasFopLinhas
+                .AsNoTracking()
+                .Where(l => l.Data.Date >= inicio && l.Data.Date <= fim)
+                .OrderBy(l => l.Data)
+                .ThenBy(l => l.FichaFopLinha_id);
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(l => new FichaFopGeralRelatorioLinhaDto
+                {
+                    FichaFopLinha_id = l.FichaFopLinha_id,
+                    FichaFop_id = l.FichaProducao_id,
+                    EncomendaMolde_id = l.FichaProducao!.EncomendaMolde_id,
+                    Data = l.Data,
+                    Ocorrencia = l.Ocorrencia,
+                    Correcao = l.Correcao,
+                    ResponsavelNome = _context.Users
+                        .Where(u => u.User_id == l.Responsavel_id)
+                        .Select(u => u.Nome)
+                        .FirstOrDefault() ?? $"User {l.Responsavel_id}",
+                    Peca_id = l.Peca_id,
+                    PecaNumero = l.Peca != null ? l.Peca.NumeroPeca : null,
+                    PecaDesignacao = l.Peca != null ? l.Peca.Designacao : null,
+                    Molde_id = l.Molde_id,
+                    MoldeNumero = l.Molde != null ? l.Molde.Numero : l.FichaProducao!.EncomendaMolde!.Molde!.Numero,
+                    MoldeNome = l.Molde != null ? l.Molde.Nome : l.FichaProducao.EncomendaMolde!.Molde!.Nome
+                })
+                .ToListAsync();
+
+            return new PagedResult<FichaFopGeralRelatorioLinhaDto>(items, totalCount, page, pageSize);
+        }
     }
 }
+

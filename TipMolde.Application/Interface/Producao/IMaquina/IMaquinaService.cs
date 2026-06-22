@@ -36,6 +36,15 @@ namespace TipMolde.Application.Interface.Producao.IMaquina
         Task<PagedResult<ResponseMaquinaDto>> GetByEstadoAsync(EstadoMaquina estado, int page = 1, int pageSize = 10);
 
         /// <summary>
+        /// Pesquisa maquinas por termo livre.
+        /// </summary>
+        /// <param name="searchTerm">Termo de pesquisa aplicado nos campos de negocio.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>Resultado paginado com DTOs correspondentes ao termo.</returns>
+        Task<PagedResult<ResponseMaquinaDto>> SearchAsync(string searchTerm, int page = 1, int pageSize = 10);
+
+        /// <summary>
         /// Cria uma nova maquina.
         /// </summary>
         /// <remarks>

@@ -167,7 +167,7 @@ public class MoldeServiceTests
         result.MoldeId.Should().Be(25);
         result.Numero.Should().Be("MOL-001");
         result.NumeroMoldeCliente.Should().Be("CLI-001");
-        result.ImagemCapaPath.Should().Be("Templates/image.png");
+        result.ImagemCapaPath.Should().Be("Templates/tipmolde_default.jpg");
 
         _moldeRepository.Verify(r => r.AddMoldeWithSpecsAsync(
             It.Is<Molde>(m =>

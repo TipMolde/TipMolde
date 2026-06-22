@@ -323,6 +323,18 @@ namespace TipMolde.Infrastructure.DB
                 .HasMaxLength(4000);
 
             modelBuilder.Entity<FichaFopLinha>()
+                .HasOne(x => x.Peca)
+                .WithMany()
+                .HasForeignKey(x => x.Peca_id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<FichaFopLinha>()
+                .HasOne(x => x.Molde)
+                .WithMany()
+                .HasForeignKey(x => x.Molde_id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<FichaFopLinha>()
                 .HasOne(x => x.FichaProducao)
                 .WithMany()
                 .HasForeignKey(x => x.FichaProducao_id)

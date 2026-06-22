@@ -30,6 +30,54 @@ namespace TipMolde.Tests.Integracao.Repositorio
             result.Items.Select(m => m.Numero).Should().ContainInOrder(10, 20);
         }
 
+        [Test(Description = "TMAQREP1B - Search deve devolver maquinas que correspondem ao nome da fase dedicada.")]
+        public async Task SearchAsync_Should_ReturnResults_When_SearchTermMatchesPhase()
+        {
+            // ARRANGE
+            await using var context = CreateContext();
+            var faseErosao = new FasesProducao { Nome = NomeFases.EROSAO, Descricao = "Erosao" };
+            var faseMontagem = new FasesProducao { Nome = NomeFases.MONTAGEM, Descricao = "Montagem" };
+
+            await context.Fases_Producao.AddRangeAsync(faseErosao, faseMontagem);
+            await context.SaveChangesAsync();
+
+            await context.Maquinas.AddRangeAsync(
+                new Maquina { Numero = 20, NomeModelo = "Makino", Estado = EstadoMaquina.DISPONIVEL, FaseDedicada_id = faseErosao.Fases_producao_id },
+                new Maquina { Numero = 10, NomeModelo = "Fanuc", Estado = EstadoMaquina.DISPONIVEL, FaseDedicada_id = faseMontagem.Fases_producao_id });
+            await context.SaveChangesAsync();
+
+            var repository = new MaquinaRepository(context);
+
+            // ACT
+            var result = await repository.SearchAsync("erosao", page: 1, pageSize: 10);
+
+            // ASSERT
+            result.TotalCount.Should().Be(1);
+            result.Items.Should().ContainSingle(item => item.Numero == 20);
+            result.Items.Single().FaseDedicada?.Nome.Should().Be(NomeFases.EROSAO);
+        }
+
+        [Test(Description = "TMAQREP1C - Search deve encontrar maquina pelo numero e manter ordenacao por numero.")]
+        public async Task SearchAsync_Should_ReturnOrderedResults_When_SearchTermMatchesNumber()
+        {
+            // ARRANGE
+            await using var context = CreateContext();
+            await context.Maquinas.AddRangeAsync(
+                new Maquina { Numero = 42, NomeModelo = "Makino 42", Estado = EstadoMaquina.DISPONIVEL, FaseDedicada_id = 1 },
+                new Maquina { Numero = 18, NomeModelo = "Fanuc 18", Estado = EstadoMaquina.MANUTENCAO, FaseDedicada_id = 1 },
+                new Maquina { Numero = 7, NomeModelo = "Charmilles 7", Estado = EstadoMaquina.MANUTENCAO, FaseDedicada_id = 1 });
+            await context.SaveChangesAsync();
+
+            var repository = new MaquinaRepository(context);
+
+            // ACT
+            var result = await repository.SearchAsync("18", page: 1, pageSize: 10);
+
+            // ASSERT
+            result.TotalCount.Should().Be(1);
+            result.Items.Should().ContainSingle(item => item.Numero == 18);
+        }
+
         [Test(Description = "TMAQREP2 - ExistsNumero deve devolver false quando numero pertence a maquina excluida.")]
         public async Task ExistsNumeroAsync_Should_ReturnFalse_When_ExistingMachineIsExcluded()
         {

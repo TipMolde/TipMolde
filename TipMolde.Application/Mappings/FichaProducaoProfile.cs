@@ -64,6 +64,8 @@ namespace TipMolde.Application.Mappings
                 .ForMember(dest => dest.FichaFopLinha_id, opt => opt.Ignore())
                 .ForMember(dest => dest.FichaProducao_id, opt => opt.Ignore())
                 .ForMember(dest => dest.FichaProducao, opt => opt.Ignore())
+                .ForMember(dest => dest.Peca, opt => opt.Ignore())
+                .ForMember(dest => dest.Molde, opt => opt.Ignore())
                 .ForMember(dest => dest.CriadoEm, opt => opt.Ignore());
 
             CreateMap<FichaFopLinha, ResponseFichaFopLinhaDto>()

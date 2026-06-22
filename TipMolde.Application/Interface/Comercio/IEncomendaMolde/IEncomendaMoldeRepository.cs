@@ -53,6 +53,19 @@ namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
         Task<PagedResult<EncomendaMolde>> GetByEncomendasConfirmadasParaDesenhoAsync(int page, int pageSize);
 
         /// <summary>
+        /// Pesquisa associacoes de encomendas confirmadas aptas para desenho.
+        /// </summary>
+        /// <remarks>
+        /// A pesquisa e aplicada apenas sobre o subconjunto funcional ja elegivel
+        /// para a pagina de desenho, mantendo a mesma ordenacao por prazo.
+        /// </remarks>
+        /// <param name="searchTerm">Termo de pesquisa a aplicar.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>Resultado paginado com associacoes correspondentes ao termo.</returns>
+        Task<PagedResult<EncomendaMolde>> SearchByTermForDesenhoAsync(string searchTerm, int page, int pageSize);
+
+        /// <summary>
         /// Obtem uma associacao por ID com a encomenda associada carregada.
         /// </summary>
         /// <param name="id">Identificador da associacao.</param>

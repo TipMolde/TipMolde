@@ -66,7 +66,7 @@ namespace TipMolde.Application.Interface.Producao.IMolde
         /// </summary>
         /// <remarks>
         /// Quando a imagem nao e fornecida, o service associa a imagem default
-        /// armazenada em Templates/image.png.
+        /// armazenada em Templates/tipmolde_default.jpg.
         /// </remarks>
         /// <param name="dto">Dados de criacao do molde.</param>
         /// <param name="imageContent">Conteudo binario da imagem de capa.</param>

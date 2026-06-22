@@ -32,7 +32,7 @@ namespace TipMolde.Infrastructure.Repositorio
         /// <param name="page">Numero da pagina a consultar.</param>
         /// <param name="pageSize">Quantidade de itens por pagina.</param>
         /// <returns>Resultado paginado com entidades sem tracking.</returns>
-        public async Task<PagedResult<T>> GetAllAsync(int page, int pageSize)
+        public virtual async Task<PagedResult<T>> GetAllAsync(int page, int pageSize)
         {
             var query = _db.AsNoTracking();
 

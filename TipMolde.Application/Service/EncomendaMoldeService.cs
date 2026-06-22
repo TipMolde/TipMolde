@@ -140,6 +140,31 @@ namespace TipMolde.Application.Service
         }
 
         /// <summary>
+        /// Pesquisa associacoes aptas para desenho por termo livre.
+        /// </summary>
+        /// <remarks>
+        /// Esta pesquisa aplica-se apenas ao subconjunto funcional ja elegivel para desenho,
+        /// preservando a mesma ordenacao operacional da lista base.
+        /// </remarks>
+        /// <param name="searchTerm">Termo de pesquisa a aplicar.</param>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com Dtos filtrados para a pagina de desenho.</returns>
+        public async Task<PagedResult<ResponseEncomendaMoldeDto>> SearchByTermForDesenhoAsync(
+            string searchTerm,
+            int page = 1,
+            int pageSize = 10)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return PaginationDefaults.EmptyPage<ResponseEncomendaMoldeDto>(page, pageSize);
+
+            var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+            var result = await _repo.SearchByTermForDesenhoAsync(searchTerm.Trim(), normalizedPage, normalizedPageSize);
+            var mapped = _mapper.Map<IEnumerable<ResponseEncomendaMoldeDto>>(result.Items);
+            return new PagedResult<ResponseEncomendaMoldeDto>(mapped, result.TotalCount, result.CurrentPage, result.PageSize);
+        }
+
+        /// <summary>
         /// Cria uma associacao Encomenda-Molde.
         /// </summary>
         /// <remarks>

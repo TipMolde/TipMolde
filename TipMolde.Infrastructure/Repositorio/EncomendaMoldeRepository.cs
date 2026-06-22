@@ -119,38 +119,27 @@ namespace TipMolde.Infrastructure.Repositorio
         /// <returns>Resultado paginado com associacoes aptas para o modulo de desenho.</returns>
         public async Task<PagedResult<EncomendaMolde>> GetByEncomendasConfirmadasParaDesenhoAsync(int page, int pageSize)
         {
-            var baseQuery = _context.EncomendasMoldes
-                .AsNoTracking()
-                .Include(em => em.Encomenda)
-                .Include(em => em.Molde)
-                .Where(em => em.Encomenda != null && em.Encomenda.Estado == EstadoEncomenda.CONFIRMADA);
+            var query = await BuildQueryParaDesenhoAsync();
+            return await BuildPagedResultAsync(query, page, pageSize);
+        }
 
-            var moldeIds = await baseQuery
-                .Select(em => em.Molde_id)
-                .Distinct()
-                .ToListAsync();
-
-            if (moldeIds.Count == 0)
+        /// <summary>
+        /// Pesquisa associacoes confirmadas aptas para desenho por termo livre.
+        /// </summary>
+        /// <param name="searchTerm">Termo de pesquisa a aplicar.</param>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com associacoes correspondentes ao termo.</returns>
+        public async Task<PagedResult<EncomendaMolde>> SearchByTermForDesenhoAsync(string searchTerm, int page, int pageSize)
+        {
+            var normalizedTerm = searchTerm.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedTerm))
                 return new PagedResult<EncomendaMolde>(Array.Empty<EncomendaMolde>(), 0, page, pageSize);
 
-            var moldeIdsAptos = await ObterMoldeIdsAptosParaDesenhoAsync(moldeIds);
-            if (moldeIdsAptos.Count == 0)
-                return new PagedResult<EncomendaMolde>(Array.Empty<EncomendaMolde>(), 0, page, pageSize);
+            var query = await BuildQueryParaDesenhoAsync();
+            query = ApplySearchFilter(query, normalizedTerm);
 
-            var query = baseQuery
-                .Where(em => moldeIdsAptos.Contains(em.Molde_id))
-                .OrderBy(em => em.DataEntregaPrevista)
-                .ThenBy(em => em.Prioridade)
-                .ThenBy(em => em.EncomendaMolde_id);
-
-            var totalCount = await query.CountAsync();
-
-            var items = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
-            return new PagedResult<EncomendaMolde>(items, totalCount, page, pageSize);
+            return await BuildPagedResultAsync(query, page, pageSize);
         }
 
         /// <summary>
@@ -329,6 +318,85 @@ namespace TipMolde.Infrastructure.Repositorio
         {
             _context.EncomendasMoldes.UpdateRange(entities);
             await _context.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Executa a paginacao de uma query de EncomendaMolde ja materializada e ordenada.
+        /// </summary>
+        /// <param name="query">Query pronta para contagem e paginacao.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>Resultado paginado com os itens e metadados da consulta.</returns>
+        private static async Task<PagedResult<EncomendaMolde>> BuildPagedResultAsync(
+            IQueryable<EncomendaMolde> query,
+            int page,
+            int pageSize)
+        {
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<EncomendaMolde>(items, totalCount, page, pageSize);
+        }
+
+        /// <summary>
+        /// Constrói a query base para a pagina de desenho, limitando-a aos moldes elegiveis.
+        /// </summary>
+        /// <returns>Query pronta a ser filtrada ou paginada.</returns>
+        private async Task<IQueryable<EncomendaMolde>> BuildQueryParaDesenhoAsync()
+        {
+            var baseQuery = _context.EncomendasMoldes
+                .AsNoTracking()
+                .Include(em => em.Encomenda)
+                    .ThenInclude(encomenda => encomenda!.Cliente)
+                .Include(em => em.Molde)
+                .Where(em => em.Encomenda != null && em.Encomenda.Estado == EstadoEncomenda.CONFIRMADA);
+
+            var moldeIds = await baseQuery
+                .Select(em => em.Molde_id)
+                .Distinct()
+                .ToListAsync();
+
+            if (moldeIds.Count == 0)
+                return baseQuery.Where(_ => false);
+
+            var moldeIdsAptos = await ObterMoldeIdsAptosParaDesenhoAsync(moldeIds);
+            if (moldeIdsAptos.Count == 0)
+                return baseQuery.Where(_ => false);
+
+            return baseQuery
+                .Where(em => moldeIdsAptos.Contains(em.Molde_id))
+                .OrderBy(em => em.DataEntregaPrevista)
+                .ThenBy(em => em.Prioridade)
+                .ThenBy(em => em.EncomendaMolde_id);
+        }
+
+        /// <summary>
+        /// Aplica o filtro de pesquisa aos moldes aptos para desenho.
+        /// </summary>
+        /// <param name="query">Query base ja limitada a moldes elegiveis.</param>
+        /// <param name="searchTerm">Termo de pesquisa normalizado.</param>
+        /// <returns>Query filtrada pelo termo informado.</returns>
+        private static IQueryable<EncomendaMolde> ApplySearchFilter(IQueryable<EncomendaMolde> query, string searchTerm)
+        {
+            var normalizedTerm = searchTerm.ToLower();
+
+            return query.Where(em =>
+                em.Encomenda != null &&
+                em.Molde != null &&
+                (
+                    em.Encomenda.NumeroEncomendaCliente.ToLower().Contains(normalizedTerm) ||
+                    (em.Encomenda.NumeroProjetoCliente != null && em.Encomenda.NumeroProjetoCliente.ToLower().Contains(normalizedTerm)) ||
+                    (em.Encomenda.NomeServicoCliente != null && em.Encomenda.NomeServicoCliente.ToLower().Contains(normalizedTerm)) ||
+                    (em.Encomenda.NomeResponsavelCliente != null && em.Encomenda.NomeResponsavelCliente.ToLower().Contains(normalizedTerm)) ||
+                    (em.Encomenda.Cliente != null && em.Encomenda.Cliente.Nome.ToLower().Contains(normalizedTerm)) ||
+                    em.Molde.Numero.ToLower().Contains(normalizedTerm) ||
+                    (em.Molde.NumeroMoldeCliente != null && em.Molde.NumeroMoldeCliente.ToLower().Contains(normalizedTerm)) ||
+                    (em.Molde.Nome != null && em.Molde.Nome.ToLower().Contains(normalizedTerm)) ||
+                    (em.Molde.Descricao != null && em.Molde.Descricao.ToLower().Contains(normalizedTerm))
+                ));
         }
 
         /// <summary>

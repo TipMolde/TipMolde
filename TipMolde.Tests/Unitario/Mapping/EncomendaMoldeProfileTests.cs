@@ -47,8 +47,20 @@ public class EncomendaMoldeProfileTests
             Prioridade = 1,
             Estado = EstadoEncomendaMolde.PENDENTE,
             DataEntregaPrevista = new DateTime(2026, 5, 1),
-            Encomenda = new Encomenda { Encomenda_id = 10, NumeroEncomendaCliente = "ENC-10" },
-            Molde = new Molde { Molde_id = 20, Numero = "M-20" }
+            Encomenda = new Encomenda
+            {
+                Encomenda_id = 10,
+                NumeroEncomendaCliente = "ENC-10",
+                Cliente = new Cliente { Nome = "Cliente Desenho", NIF = "123456789", Sigla = "DES" }
+            },
+            Molde = new Molde
+            {
+                Molde_id = 20,
+                Numero = "M-20",
+                Nome = "Molde Teste",
+                Descricao = "Descricao do molde",
+                ImagemCapaPath = "capa.png"
+            }
         };
 
         // ACT
@@ -59,5 +71,9 @@ public class EncomendaMoldeProfileTests
         result.Estado.Should().Be(EstadoEncomendaMolde.PENDENTE);
         result.NumeroEncomendaCliente.Should().Be("ENC-10");
         result.NumeroMolde.Should().Be("M-20");
+        result.NomeCliente.Should().Be("Cliente Desenho");
+        result.NomeMolde.Should().Be("Molde Teste");
+        result.DescricaoMolde.Should().Be("Descricao do molde");
+        result.ImagemCapaPath.Should().Be("capa.png");
     }
 }

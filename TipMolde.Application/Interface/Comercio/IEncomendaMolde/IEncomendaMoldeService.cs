@@ -61,6 +61,22 @@ namespace TipMolde.Application.Interface.Comercio.IEncomendaMolde
         Task<PagedResult<ResponseEncomendaMoldeDto>> GetByEncomendasConfirmadasParaDesenhoAsync(
             int page = 1,
             int pageSize = 10);
+
+        /// <summary>
+        /// Pesquisa as associacoes aptas para desenho por termo livre.
+        /// </summary>
+        /// <remarks>
+        /// O termo e aplicado nos campos funcionais expostos para a pagina de desenho,
+        /// como numeros, cliente, molde e descricao.
+        /// </remarks>
+        /// <param name="searchTerm">Termo de pesquisa a aplicar.</param>
+        /// <param name="page">Pagina atual (>= 1).</param>
+        /// <param name="pageSize">Tamanho da pagina (>= 1).</param>
+        /// <returns>Resultado paginado com Dtos filtrados para a pagina de desenho.</returns>
+        Task<PagedResult<ResponseEncomendaMoldeDto>> SearchByTermForDesenhoAsync(
+            string searchTerm,
+            int page = 1,
+            int pageSize = 10);
         
         /// <summary>
         /// Lista a fila global de moldes com paginacao.

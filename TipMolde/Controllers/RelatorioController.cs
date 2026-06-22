@@ -91,6 +91,74 @@ namespace TipMolde.API.Controllers
             ExportFichaAsync(id, "FOP", _relatorioService.GerarFichaExcelFOPAsync);
 
         /// <summary>
+        /// Exporta a FOP geral em Excel para um intervalo de datas.
+        /// </summary>
+        /// <param name="dataInicio">Data inicial do intervalo.</param>
+        /// <param name="dataFim">Data final do intervalo.</param>
+        /// <returns>Ficheiro Excel com todas as ocorrencias da FOP no periodo.</returns>
+        [Authorize(Roles = "ADMIN")]
+        [HttpGet("fop-geral/export")]
+        [HttpGet("fop-geral/export-FOP")]
+        public async Task<IActionResult> ExportFopGeral(
+            [FromQuery] DateTime dataInicio,
+            [FromQuery] DateTime dataFim)
+        {
+            if (dataFim.Date < dataInicio.Date)
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest,
+                    "Pedido invalido",
+                    "A data final tem de ser igual ou posterior a data inicial."));
+
+            if (!this.TryGetAuthenticatedUserId(out var userId, out var errorResult))
+                return errorResult!;
+
+            var result = await _relatorioService.GerarFopGeralExcelAsync(dataInicio, dataFim, userId);
+
+            _logger.LogInformation(
+                "Exportacao FOP geral gerada para o periodo {DataInicio:d} - {DataFim:d} pelo utilizador {UserId}",
+                dataInicio.Date,
+                dataFim.Date,
+                userId);
+
+            return File(
+                result.Content,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                result.FileName);
+        }
+
+        /// <summary>
+        /// Lista as ocorrencias gerais da FOP num intervalo de datas.
+        /// </summary>
+        /// <param name="dataInicio">Data inicial do intervalo.</param>
+        /// <param name="dataFim">Data final do intervalo.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>Conjunto paginado de linhas FOP com detalhes de peca e molde.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_PRODUCAO")]
+        [HttpGet("fop-geral")]
+        public async Task<IActionResult> GetFopGeral(
+            [FromQuery] DateTime dataInicio,
+            [FromQuery] DateTime dataFim,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (page < 1 || pageSize < 1)
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest,
+                    "Pedido invalido",
+                    "Page e pageSize devem ser maiores ou iguais a 1."));
+
+            if (dataFim.Date < dataInicio.Date)
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest,
+                    "Pedido invalido",
+                    "A data final tem de ser igual ou posterior a data inicial."));
+
+            var resultado = await _relatorioService.ObterFopGeralAsync(dataInicio, dataFim, page, pageSize);
+            return Ok(resultado);
+        }
+
+        /// <summary>
         /// Executa o fluxo comum de exportacao de uma ficha oficial.
         /// </summary>
         /// <remarks>

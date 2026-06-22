@@ -98,6 +98,35 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Pesquisa maquinas por termo livre.
+        /// </summary>
+        /// <param name="searchTerm">Termo de pesquisa aplicado aos campos funcionais da maquina.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>HTTP 200 com resultado paginado filtrado por termo.</returns>
+        [Authorize(Roles = "ADMIN,GESTOR_PRODUCAO")]
+        [HttpGet("search")]
+        public async Task<IActionResult> Search([FromQuery] string? searchTerm, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest,
+                    PedidoInvalido,
+                    "O parametro searchTerm e obrigatorio."));
+            }
+
+            if (page < 1 || pageSize < 1)
+                return BadRequest(this.CreateProblem(
+                    StatusCodes.Status400BadRequest,
+                    PedidoInvalido,
+                    "Page e pageSize devem ser maiores ou iguais a 1."));
+
+            var maquinas = await _service.SearchAsync(searchTerm, page, pageSize);
+            return Ok(maquinas);
+        }
+
+        /// <summary>
         /// Cria uma nova maquina.
         /// </summary>
         /// <remarks>

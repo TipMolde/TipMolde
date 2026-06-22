@@ -89,15 +89,20 @@ namespace TipMolde.API.Controllers
         /// <param name="moldeId">Identificador do molde.</param>
         /// <param name="page">Pagina atual.</param>
         /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <param name="searchTerm">Termo opcional para filtrar as pecas elegiveis.</param>
         /// <returns>HTTP 200 com resultado paginado; HTTP 400 para paginacao invalida.</returns>
         [Authorize(Roles = "ADMIN,GESTOR_COMERCIAL,GESTOR_DESENHO,GESTOR_PRODUCAO")]
         [HttpGet("por-molde/{moldeId:int}/sem-pedido-material")]
-        public async Task<IActionResult> GetByMoldeIdWithoutPedidoMaterial(int moldeId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetByMoldeIdWithoutPedidoMaterial(
+            int moldeId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? searchTerm = null)
         {
             if (page < 1 || pageSize < 1)
                 return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
 
-            var result = await _pecaService.GetByMoldeIdWithoutPedidoMaterialAsync(moldeId, page, pageSize);
+            var result = await _pecaService.GetByMoldeIdWithoutPedidoMaterialAsync(moldeId, page, pageSize, searchTerm);
             return Ok(result);
         }
 

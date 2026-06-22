@@ -47,11 +47,13 @@ namespace TipMolde.Tests.Integracao
                 FichaFRM = "FRM.xlsx",
                 FichaFRA = "FRA.xlsx",
                 FichaFOP = "FOP.xlsx",
+                FichaFOPGeral = "FOP_Geral.xlsx",
                 FolhaFLT = "FLT - TM.04.05",
                 FolhaFRE = "FRE - TM.08.05",
                 FolhaFRM = "FRM - TM.09.05",
                 FolhaFRA = "FRA - TM.010.05",
-                FolhaFOP = "FOP - TM.07.05"
+                FolhaFOP = "FOP - TM.07.05",
+                FolhaFOPGeral = "FOP - TM.11.05"
             });
             var storageOptions = Options.Create(new StorageOptions
             {
@@ -554,6 +556,68 @@ namespace TipMolde.Tests.Integracao
             await ctx.SaveChangesAsync();
         }
 
+        private static async Task SeedFopGeralLinhasAsync(ApplicationDbContext ctx, int fichaId)
+        {
+            await SeedResponsavelAsync(ctx, 401, "Rita FOP Geral");
+            await SeedResponsavelAsync(ctx, 402, "Tiago FOP Geral");
+
+            var ficha = await ctx.FichasProducao
+                .Include(f => f.EncomendaMolde)
+                .ThenInclude(em => em.Molde)
+                .SingleAsync(f => f.FichaProducao_id == fichaId);
+
+            var molde = ficha.EncomendaMolde!.Molde!;
+
+            var pecas = new[]
+            {
+                new Peca
+                {
+                    Molde_id = molde.Molde_id,
+                    NumeroPeca = "P-101",
+                    Designacao = "Cavidade A Geral",
+                    Prioridade = 1,
+                    Quantidade = 1,
+                    MaterialRecebido = true
+                },
+                new Peca
+                {
+                    Molde_id = molde.Molde_id,
+                    NumeroPeca = "P-102",
+                    Designacao = "Cavidade B Geral",
+                    Prioridade = 2,
+                    Quantidade = 1,
+                    MaterialRecebido = true
+                }
+            };
+
+            await ctx.Pecas.AddRangeAsync(pecas);
+            await ctx.SaveChangesAsync();
+
+            await ctx.FichasFopLinhas.AddRangeAsync(
+                new FichaFopLinha
+                {
+                    FichaProducao_id = fichaId,
+                    Data = new DateTime(2026, 05, 02),
+                    Ocorrencia = "Paragem por afinacao",
+                    Correcao = "Reiniciado com nova parametrizacao",
+                    Responsavel_id = 401,
+                    Peca_id = pecas[0].Peca_id,
+                    Molde_id = molde.Molde_id
+                },
+                new FichaFopLinha
+                {
+                    FichaProducao_id = fichaId,
+                    Data = new DateTime(2026, 05, 05),
+                    Ocorrencia = "Batida na extracao",
+                    Correcao = "Revisto curso do cilindro",
+                    Responsavel_id = 402,
+                    Peca_id = pecas[1].Peca_id,
+                    Molde_id = molde.Molde_id
+                });
+
+            await ctx.SaveChangesAsync();
+        }
+
         private sealed class TestWorkspace : IDisposable
         {
             public TestWorkspace(string rootPath, string templatesRootPath, string uploadsRootPath, string outputRootPath)
@@ -965,6 +1029,45 @@ namespace TipMolde.Tests.Integracao
             worksheet.Cell("C16").GetString().Should().Be("Batida na extracao");
             worksheet.Cell("G16").GetString().Should().Be("Revisto curso do cilindro");
             worksheet.Cell("J16").GetString().Should().Be("Tiago FOP");
+        }
+
+        [Test(Description = "TRLI008G - FOP geral deve preencher o template novo com o intervalo e as linhas exportadas.")]
+        public async Task GerarFopGeralExcelAsync_Should_FillTemplateWithIntervalAndLines()
+        {
+            // ARRANGE
+            await using var ctx = CreateContext();
+            using var workspace = CreateWorkspace();
+            var fichaId = await SeedFichaAsync(ctx, TipoFicha.FOP, workspace, 135);
+            await SeedFopGeralLinhasAsync(ctx, fichaId);
+            var sut = CreateSut(ctx, workspace);
+
+            // ACT
+            var result = await sut.GerarFopGeralExcelAsync(new DateTime(2026, 05, 01), new DateTime(2026, 05, 31), 1);
+            await WriteMockArtifactAsync(workspace, result.FileName, result.Content);
+
+            // ASSERT
+            using var workbook = OpenWorkbook(result.Content);
+            var worksheet = workbook.Worksheet("FOP - TM.11.05");
+
+            worksheet.Cell("D7").GetString().Should().Be("01/05/2026");
+            worksheet.Cell("J7").GetString().Should().Be("31/05/2026");
+
+            worksheet.Cell("B10").GetString().Should().Be("02/05/2026");
+            worksheet.Cell("C10").GetString().Should().Be("Paragem por afinacao");
+            worksheet.Cell("G10").GetString().Should().Be("Reiniciado com nova parametrizacao");
+            worksheet.Cell("J10").GetString().Should().Be("Rita FOP Geral");
+            worksheet.Cell("K10").GetString().Should().Be("P-101 - Cavidade A Geral");
+            worksheet.Cell("L10").GetString().Should().Be("M-135 - Molde 135");
+
+            worksheet.Cell("B11").GetString().Should().BeEmpty();
+            worksheet.Cell("C11").GetString().Should().BeEmpty();
+
+            worksheet.Cell("B12").GetString().Should().Be("05/05/2026");
+            worksheet.Cell("C12").GetString().Should().Be("Batida na extracao");
+            worksheet.Cell("G12").GetString().Should().Be("Revisto curso do cilindro");
+            worksheet.Cell("J12").GetString().Should().Be("Tiago FOP Geral");
+            worksheet.Cell("K12").GetString().Should().Be("P-102 - Cavidade B Geral");
+            worksheet.Cell("L12").GetString().Should().Be("M-135 - Molde 135");
         }
 
         [Test(Description = "TRLI009 - Gera excecao quando a ficha nao existe para a exportacao FLT.")]

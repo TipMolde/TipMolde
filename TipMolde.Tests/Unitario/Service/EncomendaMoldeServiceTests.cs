@@ -235,6 +235,56 @@ namespace TipMolde.Tests.Unitario.Service;
         result.Items.Should().ContainSingle(item => item.Molde_id == 40);
     }
 
+    [Test(Description = "TENCMSRV6D - SearchByTermForDesenho deve devolver pagina vazia quando o termo e blank.")]
+    public async Task SearchByTermForDesenhoAsync_Should_ReturnEmptyPage_When_SearchTermIsBlank()
+    {
+        // ARRANGE
+
+        // ACT
+        var result = await _sut.SearchByTermForDesenhoAsync("   ", 2, 5);
+
+        // ASSERT
+        result.TotalCount.Should().Be(0);
+        result.Items.Should().BeEmpty();
+        _repo.Verify(r => r.SearchByTermForDesenhoAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Test(Description = "TENCMSRV6E - SearchByTermForDesenho deve delegar ao repositorio e mapear o resultado.")]
+    public async Task SearchByTermForDesenhoAsync_Should_MapPagedResult_When_RepositoryReturnsItems()
+    {
+        // ARRANGE
+        var elegivel = new EncomendaMolde
+        {
+            EncomendaMolde_id = 8,
+            Encomenda_id = 3,
+            Molde_id = 41,
+            Quantidade = 4,
+            Prioridade = 1,
+            DataEntregaPrevista = new DateTime(2026, 6, 20)
+        };
+
+        _repo.Setup(r => r.SearchByTermForDesenhoAsync("cliente b", 1, 10))
+            .ReturnsAsync(new PagedResult<EncomendaMolde>(new[] { elegivel }, 1, 1, 10));
+        _mapper.Setup(m => m.Map<IEnumerable<ResponseEncomendaMoldeDto>>(It.IsAny<IEnumerable<EncomendaMolde>>()))
+            .Returns((IEnumerable<EncomendaMolde> items) => items.Select(item => new ResponseEncomendaMoldeDto
+            {
+                EncomendaMolde_id = item.EncomendaMolde_id,
+                Encomenda_id = item.Encomenda_id,
+                Molde_id = item.Molde_id,
+                Quantidade = item.Quantidade,
+                Prioridade = item.Prioridade,
+                DataEntregaPrevista = item.DataEntregaPrevista
+            }).ToArray());
+
+        // ACT
+        var result = await _sut.SearchByTermForDesenhoAsync("  cliente b  ", 1, 10);
+
+        // ASSERT
+        result.TotalCount.Should().Be(1);
+        result.Items.Should().ContainSingle(item => item.Molde_id == 41);
+        _repo.Verify(r => r.SearchByTermForDesenhoAsync("cliente b", 1, 10), Times.Once);
+    }
+
     [Test(Description = "TENCMSRV6A - GetFilaGlobal deve delegar o carregamento ao servico de prioridade global.")]
     public async Task GetFilaGlobalAsync_Should_DelegateToPriorityService()
     {

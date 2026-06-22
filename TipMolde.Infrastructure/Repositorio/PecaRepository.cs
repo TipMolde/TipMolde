@@ -92,8 +92,9 @@ namespace TipMolde.Infrastructure.Repositorio
         /// <param name="moldeId">Identificador do molde.</param>
         /// <param name="page">Numero da pagina a consultar.</param>
         /// <param name="pageSize">Quantidade de itens por pagina.</param>
+        /// <param name="searchTerm">Termo opcional para filtrar as pecas elegiveis.</param>
         /// <returns>Resultado paginado com pecas elegiveis para pedido de material.</returns>
-        public async Task<PagedResult<Peca>> GetByMoldeIdWithoutPedidoMaterialAsync(int moldeId, int page, int pageSize)
+        public async Task<PagedResult<Peca>> GetByMoldeIdWithoutPedidoMaterialAsync(int moldeId, int page, int pageSize, string? searchTerm = null)
         {
             var query = _context.Pecas
                 .AsNoTracking()
@@ -101,6 +102,10 @@ namespace TipMolde.Infrastructure.Repositorio
                 .Where(p => p.Molde_id == moldeId &&
                             !p.MaterialRecebido &&
                             !_context.ItensPedidoMaterial.Any(i => i.Peca_id == p.Peca_id));
+
+            var normalizedSearchTerm = searchTerm?.Trim();
+            if (!string.IsNullOrWhiteSpace(normalizedSearchTerm))
+                query = ApplySearchFilter(query, normalizedSearchTerm);
 
             var totalCount = await query.CountAsync();
             var items = await query
@@ -110,6 +115,18 @@ namespace TipMolde.Infrastructure.Repositorio
                 .ToListAsync();
 
             return new PagedResult<Peca>(items, totalCount, page, pageSize);
+        }
+
+        private static IQueryable<Peca> ApplySearchFilter(IQueryable<Peca> query, string searchTerm)
+        {
+            return query.Where(p =>
+                (p.NumeroPeca != null && p.NumeroPeca.Contains(searchTerm)) ||
+                p.Designacao.Contains(searchTerm) ||
+                (p.Referencia != null && p.Referencia.Contains(searchTerm)) ||
+                (p.MaterialDesignacao != null && p.MaterialDesignacao.Contains(searchTerm)) ||
+                (p.TratamentoTermico != null && p.TratamentoTermico.Contains(searchTerm)) ||
+                (p.Massa != null && p.Massa.Contains(searchTerm)) ||
+                (p.Observacao != null && p.Observacao.Contains(searchTerm)));
         }
 
         /// <summary>

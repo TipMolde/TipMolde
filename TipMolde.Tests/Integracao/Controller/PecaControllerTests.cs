@@ -5,6 +5,7 @@ using Moq;
 using System.Net;
 using System.Net.Http.Json;
 using TipMolde.Application.Dtos.PecaDto;
+using TipMolde.Application.Interface;
 
 namespace TipMolde.Tests.Integracao.Controller
 {
@@ -115,6 +116,36 @@ namespace TipMolde.Tests.Integracao.Controller
             // ASSERT
             await AssertProblemAsync(response, HttpStatusCode.BadRequest, "Pedido invalido");
             Factory.PecaService.Verify(s => s.GetByMoldeIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        }
+
+        [Test(Description = "TPECAAPI6B - GET /api/pecas/por-molde/{id}/sem-pedido-material encaminha o termo de pesquisa ao servico.")]
+        public async Task GetByMoldeIdWithoutPedidoMaterial_Should_ReturnOkJson_When_SearchTermIsProvided()
+        {
+            // ARRANGE
+            var result = new PagedResult<ResponsePecaDto>(
+                new[]
+                {
+                    new ResponsePecaDto
+                    {
+                        PecaId = 11,
+                        Designacao = "Base",
+                        Molde_id = 5
+                    }
+                },
+                1,
+                2,
+                3);
+
+            Factory.PecaService
+                .Setup(s => s.GetByMoldeIdWithoutPedidoMaterialAsync(5, 2, 3, "Base"))
+                .ReturnsAsync(result);
+
+            // ACT
+            var response = await Client.GetAsync("/api/pecas/por-molde/5/sem-pedido-material?page=2&pageSize=3&searchTerm=Base");
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Factory.PecaService.Verify(s => s.GetByMoldeIdWithoutPedidoMaterialAsync(5, 2, 3, "Base"), Times.Once);
         }
 
         [Test(Description = "TPECAAPI7 - GET /api/pecas/por-designacao devolve 404 quando peca nao existe.")]

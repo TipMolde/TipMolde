@@ -7,6 +7,7 @@ namespace TipMolde.Application.Dtos.PecaDto
     {
         public int PecaId { get; set; }
         public int MoldeId { get; set; }
+        public int EncomendaMolde_id { get; set; }
         public int PrioridadeMolde { get; set; }
         public int PrioridadePeca { get; set; }
         public int Quantidade { get; set; }

@@ -151,6 +151,92 @@ namespace TipMolde.Tests.Integracao.Controller
             body.Should().BeEquivalentTo(paged);
         }
 
+        [Test(Description = "TENCMAPI4E1 - GET /api/encomenda-moldes/encomendas-confirmadas-para-desenho devolve 200 com a lista base de moldes aptos.")]
+        public async Task GetByEncomendasConfirmadasParaDesenho_Should_ReturnOkJson_When_RequestIsValid()
+        {
+            // ARRANGE
+            var paged = new PagedResult<ResponseEncomendaMoldeDto>(
+                new[]
+                {
+                    new ResponseEncomendaMoldeDto
+                    {
+                        EncomendaMolde_id = 10,
+                        Encomenda_id = 6,
+                        Molde_id = 14,
+                        Quantidade = 3,
+                        Prioridade = 1,
+                        Estado = EstadoEncomendaMolde.PENDENTE,
+                        DataEntregaPrevista = new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc),
+                        NumeroEncomendaCliente = "ENC-006",
+                        NumeroMolde = "M-014",
+                        NomeCliente = "Cliente Base",
+                        NomeMolde = "Molde Base"
+                    }
+                },
+                1,
+                1,
+                10);
+
+            Factory.EncomendaMoldeService
+                .Setup(s => s.GetByEncomendasConfirmadasParaDesenhoAsync(1, 10))
+                .ReturnsAsync(paged);
+
+            // ACT
+            var response = await Client.GetAsync("/api/encomenda-moldes/encomendas-confirmadas-para-desenho?page=1&pageSize=10");
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var body = await ReadBodyAsync<PagedResult<ResponseEncomendaMoldeDto>>(response);
+            body.Should().BeEquivalentTo(paged);
+            Factory.EncomendaMoldeService.Verify(
+                s => s.GetByEncomendasConfirmadasParaDesenhoAsync(1, 10),
+                Times.Once);
+        }
+
+        [Test(Description = "TENCMAPI4E - GET /api/encomenda-moldes/encomendas-confirmadas-para-desenho devolve 200 com resultados filtrados quando searchTerm e enviado.")]
+        public async Task GetByEncomendasConfirmadasParaDesenho_Should_ReturnOkJson_When_SearchTermIsProvided()
+        {
+            // ARRANGE
+            var paged = new PagedResult<ResponseEncomendaMoldeDto>(
+                new[]
+                {
+                    new ResponseEncomendaMoldeDto
+                    {
+                        EncomendaMolde_id = 9,
+                        Encomenda_id = 5,
+                        Molde_id = 13,
+                        Quantidade = 2,
+                        Prioridade = 1,
+                        Estado = EstadoEncomendaMolde.PENDENTE,
+                        DataEntregaPrevista = new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc),
+                        NumeroEncomendaCliente = "ENC-005",
+                        NumeroMolde = "M-013",
+                        NomeCliente = "Cliente Desenho",
+                        NomeMolde = "Molde Desenho"
+                    }
+                },
+                1,
+                1,
+                10);
+
+            Factory.EncomendaMoldeService
+                .Setup(s => s.SearchByTermForDesenhoAsync("cliente", 1, 10))
+                .ReturnsAsync(paged);
+
+            // ACT
+            var response = await Client.GetAsync("/api/encomenda-moldes/encomendas-confirmadas-para-desenho?searchTerm=cliente&page=1&pageSize=10");
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var body = await ReadBodyAsync<PagedResult<ResponseEncomendaMoldeDto>>(response);
+            body.Should().BeEquivalentTo(paged);
+            Factory.EncomendaMoldeService.Verify(
+                s => s.SearchByTermForDesenhoAsync("cliente", 1, 10),
+                Times.Once);
+        }
+
         [Test(Description = "TENCMAPI4A - GET /api/encomenda-moldes/fila-global devolve ProblemDetails quando a paginacao e invalida.")]
         public async Task GetFilaGlobal_Should_ReturnProblemDetails_When_PaginationIsInvalid()
         {

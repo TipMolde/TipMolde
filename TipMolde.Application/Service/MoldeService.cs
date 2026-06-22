@@ -17,7 +17,7 @@ namespace TipMolde.Application.Service
     /// </remarks>
     public class MoldeService : IMoldeService
     {
-        private const string DefaultImagePath = "Templates/image.png";
+        private const string DefaultImagePath = "Templates/tipmolde_default.jpg";
         private const string DefaultImageFileName = "imagem.png";
 
         private readonly IMoldeRepository _moldeRepository;
@@ -133,7 +133,7 @@ namespace TipMolde.Application.Service
         /// 1. Valida numero unico.
         /// 2. Persiste molde e especificacoes tecnicas na mesma transacao.
         /// 3. Se existir imagem, grava-a no storage e atualiza o caminho guardado na BD.
-        /// 4. Se nao existir imagem, associa a imagem default de Templates.
+        /// 4. Se nao existir imagem, associa a imagem default de Templates/tipmolde_default.jpg.
         /// </remarks>
         /// <param name="dto">Dados de criacao do molde.</param>
         /// <param name="imageContent">Conteudo binario da imagem de capa.</param>

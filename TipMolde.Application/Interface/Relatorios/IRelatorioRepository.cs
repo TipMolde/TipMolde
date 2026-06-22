@@ -1,4 +1,6 @@
-﻿using TipMolde.Application.Dtos.RelatorioDto;
+using TipMolde.Application.Dtos.RelatorioDto;
+using TipMolde.Application.DTOs.RelatorioDto.Linhas;
+using TipMolde.Application.Interface;
 
 namespace TipMolde.Application.Interface.Relatorios
 {
@@ -35,5 +37,6 @@ namespace TipMolde.Application.Interface.Relatorios
         Task<FichaFrmRelatorioDto?> ObterFichaFrmRelatorioAsync(int fichaId);
         Task<FichaFraRelatorioDto?> ObterFichaFraRelatorioAsync(int fichaId);
         Task<FichaFopRelatorioDto?> ObterFichaFopRelatorioAsync(int fichaId);
+        Task<PagedResult<FichaFopGeralRelatorioLinhaDto>> ObterFopGeralAsync(DateTime dataInicio, DateTime dataFim, int page, int pageSize);
     }
 }
