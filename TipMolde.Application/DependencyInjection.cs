@@ -8,6 +8,7 @@ using TipMolde.Application.Interface.Desenho.IProjeto;
 using TipMolde.Application.Interface.Desenho.IRegistoTempoProjeto;
 using TipMolde.Application.Interface.Desenho.IRevisao;
 using TipMolde.Application.Interface.Fichas.IFichaProducao;
+using TipMolde.Application.Interface.Ocorrencias;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMaquina;
 using TipMolde.Application.Interface.Producao.IMolde;
@@ -40,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<IRevisaoService, RevisaoService>();
         services.AddScoped<IRegistoTempoProjetoService, RegistoTempoProjetoService>();
         services.AddScoped<IFichaProducaoService, FichaProducaoService>();
+        services.AddScoped<IOcorrenciasService, OcorrenciasService>();
 
         services.AddAutoMapper(typeof(UserProfile).Assembly);
 

@@ -2,13 +2,11 @@ using AutoMapper;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using TipMolde.Application.Dtos.FichaProducaoDto;
 using TipMolde.Application.Dtos.RegistoProducaoDto;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMaquina;
 using TipMolde.Application.Interface.Producao.IPeca;
 using TipMolde.Application.Interface.Producao.IRegistosProducao;
-using TipMolde.Application.Interface.Fichas.IFichaProducao;
 using TipMolde.Application.Interface.Utilizador.IUser;
 using TipMolde.Application.Mappings;
 using TipMolde.Application.Service;
@@ -30,7 +28,6 @@ public class RegistosProducaoServiceTests
     private Mock<IUserRepository> _userRepository = null!;
     private Mock<IMaquinaRepository> _maquinaRepository = null!;
     private Mock<IPecaRepository> _pecaRepository = null!;
-    private Mock<IFichaProducaoService> _fichaProducaoService = null!;
     private IMapper _mapper = null!;
     private RegistosProducaoService _sut = null!;
 
@@ -42,7 +39,6 @@ public class RegistosProducaoServiceTests
         _userRepository = new Mock<IUserRepository>();
         _maquinaRepository = new Mock<IMaquinaRepository>();
         _pecaRepository = new Mock<IPecaRepository>();
-        _fichaProducaoService = new Mock<IFichaProducaoService>();
 
         var mapperConfig = new MapperConfiguration(cfg => cfg.AddProfile<RegistosProducaoProfile>());
         _mapper = mapperConfig.CreateMapper();
@@ -53,7 +49,6 @@ public class RegistosProducaoServiceTests
             _userRepository.Object,
             _maquinaRepository.Object,
             _pecaRepository.Object,
-            _fichaProducaoService.Object,
             _mapper,
             NullLogger<RegistosProducaoService>.Instance);
     }
@@ -187,21 +182,6 @@ public class RegistosProducaoServiceTests
         await act.Should().ThrowAsync<ArgumentException>();
     }
 
-    [Test(Description = "TRP004A - Criacao falha quando existe correcao sem ocorrencia.")]
-    public async Task CreateAsync_Should_Throw_When_CorrecaoExistsWithoutOcorrencia()
-    {
-        // ARRANGE
-        var dto = BuildDto();
-        dto.Correcao = "Ajuste efetuado";
-
-        // ACT
-        Func<Task> act = () => _sut.CreateAsync(dto);
-
-        // ASSERT
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*correcao*ocorrencia*");
-    }
-
     [Test(Description = "TRP005 - Primeira transicao tem de ser PREPARACAO.")]
     public async Task CreateAsync_Should_Throw_When_FirstTransitionIsNotPreparacao()
     {
@@ -321,65 +301,26 @@ public class RegistosProducaoServiceTests
         await act.Should().ThrowAsync<ArgumentException>();
     }
 
-    [Test(Description = "TRP010A - Uma ocorrencia deve criar a respetiva linha FOP com correcao associada quando existir.")]
-    public async Task CreateAsync_Should_CreateFopLine_When_OcorrenciaExists()
+    [Test(Description = "TRP010A - CONCLUIDO pode voltar para PREPARACAO numa nova transicao.")]
+    public async Task CreateAsync_Should_AcceptPreparacao_AfterConcluido()
     {
         // ARRANGE
         SetupValidDependencies();
         SetupPersistCreated();
-        _registosRepository.Setup(r => r.GetUltimoRegistoAsync(1, 1)).ReturnsAsync((RegistosProducao?)null);
-
-        var maquina = BuildMaquina(id: 1, faseId: 1, estado: EstadoMaquina.DISPONIVEL);
-        _maquinaRepository.Setup(r => r.GetByIdUnicoAsync(1)).ReturnsAsync(maquina);
-        _pecaRepository.Setup(r => r.GetMoldeIdByPecaIdAsync(1)).ReturnsAsync(1);
-
-        _fichaProducaoService
-            .Setup(s => s.EnsureAsync(It.Is<CreateFichaProducaoDto>(dto =>
-                dto.Tipo == TipoFicha.FOP &&
-                dto.EncomendaMolde_id == 77)))
-            .ReturnsAsync(new ResponseFichaProducaoDto
-            {
-                FichaProducao_id = 500,
-                Tipo = TipoFicha.FOP,
-                EncomendaMolde_id = 77,
-                DataCriacao = DateTime.UtcNow
-            });
-
-        _fichaProducaoService
-            .Setup(s => s.CreateLinhaFopAsync(500, It.IsAny<CreateFichaFopLinhaDto>()))
-            .ReturnsAsync(new ResponseFichaFopLinhaDto
-            {
-                FichaFopLinha_id = 900,
-                FichaFop_id = 500,
-                Data = DateTime.UtcNow,
-                Ocorrencia = "Falha no sensor",
-                Correcao = "Sensor reajustado",
-                Responsavel_id = 1,
-                Peca_id = 1,
-                Molde_id = 1,
-                CriadoEm = DateTime.UtcNow
-            });
-
-        var dto = BuildDto(estado: EstadoProducao.PREPARACAO, maquinaId: 1);
-        dto.Ocorrencia = "  Falha no sensor  ";
-        dto.Correcao = "  Sensor reajustado  ";
-        dto.EncomendaMolde_id = 77;
+        _registosRepository.Setup(r => r.GetUltimoRegistoAsync(1, 1)).ReturnsAsync(new RegistosProducao
+        {
+            Fase_id = 1,
+            Peca_id = 1,
+            Estado_producao = EstadoProducao.CONCLUIDO,
+            Data_hora = DateTime.UtcNow.AddMinutes(-5)
+        });
+        _maquinaRepository.Setup(r => r.GetByIdUnicoAsync(1)).ReturnsAsync(BuildMaquina(id: 1, faseId: 1, estado: EstadoMaquina.DISPONIVEL));
 
         // ACT
-        var result = await _sut.CreateAsync(dto);
+        var result = await _sut.CreateAsync(BuildDto(estado: EstadoProducao.PREPARACAO, maquinaId: 1));
 
         // ASSERT
         result.Estado_producao.Should().Be(EstadoProducao.PREPARACAO);
-        _fichaProducaoService.Verify(s => s.EnsureAsync(It.Is<CreateFichaProducaoDto>(value =>
-            value.Tipo == TipoFicha.FOP &&
-            value.EncomendaMolde_id == 77)), Times.Once);
-        _fichaProducaoService.Verify(s => s.CreateLinhaFopAsync(500, It.Is<CreateFichaFopLinhaDto>(value =>
-            value.Ocorrencia == "Falha no sensor" &&
-            value.Correcao == "Sensor reajustado" &&
-            value.Responsavel_id == 1 &&
-            value.Peca_id == 1 &&
-            value.Molde_id == 1)), Times.Once);
-        _pecaRepository.Verify(r => r.GetMoldeIdByPecaIdAsync(1), Times.Once);
     }
 
     [Test(Description = "TRP011 - MONTAGEM aceita PENDENTE como primeiro estado para assinalar pronta para montar.")]

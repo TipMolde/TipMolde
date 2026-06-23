@@ -20,6 +20,7 @@ using TipMolde.Application.Interface.Desenho.IRegistoTempoProjeto;
 using TipMolde.Application.Interface.Desenho.IRevisao;
 using TipMolde.Application.Interface.Fichas.IFichaDocumento;
 using TipMolde.Application.Interface.Fichas.IFichaProducao;
+using TipMolde.Application.Interface.Ocorrencias;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMaquina;
 using TipMolde.Application.Interface.Producao.IMolde;
@@ -55,6 +56,7 @@ public sealed class ControllerIntegrationTestFactory : WebApplicationFactory<Pro
     public Mock<IRevisaoService> RevisaoService { get; } = new();
     public Mock<IFichaDocumentoService> FichaDocumentoService { get; } = new();
     public Mock<IFichaProducaoService> FichaProducaoService { get; } = new();
+    public Mock<IOcorrenciasService> OcorrenciasService { get; } = new();
     public Mock<IRelatorioService> RelatorioService { get; } = new();
     public Mock<IAuthService> AuthService { get; } = new();
     public Mock<IUserManagementService> UserManagementService { get; } = new();
@@ -80,6 +82,7 @@ public sealed class ControllerIntegrationTestFactory : WebApplicationFactory<Pro
         RevisaoService.Reset();
         FichaDocumentoService.Reset();
         FichaProducaoService.Reset();
+        OcorrenciasService.Reset();
         RelatorioService.Reset();
         AuthService.Reset();
         UserManagementService.Reset();
@@ -138,6 +141,7 @@ public sealed class ControllerIntegrationTestFactory : WebApplicationFactory<Pro
             services.ReplaceScoped(RevisaoService.Object);
             services.ReplaceScoped(FichaDocumentoService.Object);
             services.ReplaceScoped(FichaProducaoService.Object);
+            services.ReplaceScoped(OcorrenciasService.Object);
             services.ReplaceScoped(RelatorioService.Object);
             services.ReplaceScoped(AuthService.Object);
             services.ReplaceScoped(UserManagementService.Object);
