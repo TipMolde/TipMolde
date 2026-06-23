@@ -19,6 +19,19 @@ namespace TipMolde.Application.Interface.Producao.IMolde
         Task<PagedResult<ResponseMoldeDto>> GetAllAsync(int page = 1, int pageSize = 10);
 
         /// <summary>
+        /// Lista moldes que possuem associacao Encomenda-Molde com pesquisa opcional.
+        /// </summary>
+        /// <remarks>
+        /// Este caso de uso serve a pagina de relatorios para mostrar apenas moldes
+        /// que podem ser selecionados no contexto comercial.
+        /// </remarks>
+        /// <param name="searchTerm">Termo opcional para filtrar numero, nome ou numero do cliente.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>Resultado paginado com moldes associados a encomendas.</returns>
+        Task<PagedResult<ResponseMoldeDto>> GetComEncomendaAsync(string? searchTerm = null, int page = 1, int pageSize = 10);
+
+        /// <summary>
         /// Obtem um molde por identificador.
         /// </summary>
         /// <param name="id">Identificador interno do molde.</param>

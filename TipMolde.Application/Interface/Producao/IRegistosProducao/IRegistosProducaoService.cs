@@ -47,6 +47,10 @@ namespace TipMolde.Application.Interface.Producao.IRegistosProducao
         /// <summary>
         /// Cria um novo registo de producao.
         /// </summary>
+        /// <remarks>
+        /// Quando o pedido inclui uma ocorrencia, o servico tambem garante a ficha FOP
+        /// associada e regista a linha correspondente na camada de aplicacao.
+        /// </remarks>
         /// <param name="dto">Dados de entrada do registo de producao.</param>
         /// <returns>DTO do registo criado.</returns>
         Task<ResponseRegistosProducaoDto> CreateAsync(CreateRegistosProducaoDto dto);

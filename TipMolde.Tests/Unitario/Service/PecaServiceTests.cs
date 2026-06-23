@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.Text;
+using TipMolde.Application.Dtos.EncomendaMoldeDto;
 using TipMolde.Application.Dtos.PecaDto;
 using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface.Desenho.IProjeto;
@@ -108,6 +109,58 @@ public class PecaServiceTests
         result.Items.Should().ContainSingle(item => item.PecaId == 21);
         forwardedSearchTerm.Should().Be("Base");
         _pecaRepository.Verify(r => r.GetByMoldeIdWithoutPedidoMaterialAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>()), Times.Once);
+    }
+
+    [Test(Description = "TPECASRV1C - GetFilaTrabalho deve filtrar pela proxima fase quando searchMode e Proxima fase.")]
+    public async Task GetFilaTrabalhoAsync_Should_FilterByProximaFase_When_SearchModeIsNextPhase()
+    {
+        // ARRANGE
+        var faseErosao = new FasesProducao
+        {
+            Fases_producao_id = 7,
+            Nome = NomeFases.EROSAO
+        };
+
+        var peca = BuildPeca(id: 31, moldeId: 8, designacao: "Base");
+        peca.MaterialRecebido = true;
+        peca.ProximaFase_id = 7;
+        peca.ProximaFase = faseErosao;
+
+        _encomendaMoldeService
+            .Setup(s => s.GetFilaGlobalAsync(1, 100))
+            .ReturnsAsync(new PagedResult<FilaGlobalMoldeItemDto>(new[]
+            {
+                new FilaGlobalMoldeItemDto
+                {
+                    EncomendaMolde_id = 50,
+                    Encomenda_id = 1,
+                    Molde_id = 8,
+                    Prioridade = 1,
+                    DataEntregaPrevista = DateTime.UtcNow.AddDays(3),
+                    Quantidade = 1,
+                    NumeroEncomendaCliente = "ENC-1",
+                    NomeCliente = "Cliente",
+                    NumeroMolde = "M-8",
+                    NomeMolde = "Molde Erosao"
+                }
+            }, 1, 1, 100));
+
+        _pecaRepository
+            .Setup(r => r.GetByMoldeIdsAsync(It.IsAny<IEnumerable<int>>()))
+            .ReturnsAsync(new List<Peca> { peca });
+
+        _registosProducaoRepository
+            .Setup(r => r.GetUltimosRegistosGlobaisAsync(It.IsAny<IEnumerable<int>>()))
+            .ReturnsAsync(new List<RegistosProducao>());
+
+        // ACT
+        var result = await _sut.GetFilaTrabalhoAsync(1, 10, "Erosão", "Proxima fase");
+
+        // ASSERT
+        result.TotalCount.Should().Be(1);
+        result.Items.Should().ContainSingle(item =>
+            item.PecaId == 31 &&
+            item.ProximaFaseNome == "EROSAO");
     }
 
     private static MemoryStream BuildCsvStream(string content)

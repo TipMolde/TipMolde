@@ -1,7 +1,9 @@
 using AutoMapper;
 using Microsoft.Extensions.Logging;
+using TipMolde.Application.Dtos.FichaProducaoDto;
 using TipMolde.Application.Dtos.RegistoProducaoDto;
 using TipMolde.Application.Interface;
+using TipMolde.Application.Interface.Fichas.IFichaProducao;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMaquina;
 using TipMolde.Application.Interface.Producao.IPeca;
@@ -27,6 +29,7 @@ namespace TipMolde.Application.Service
         private readonly IUserRepository _userRepository;
         private readonly IPecaRepository _pecaRepository;
         private readonly IMaquinaRepository _maquinaRepository;
+        private readonly IFichaProducaoService _fichaProducaoService;
         private readonly IMapper _mapper;
         private readonly ILogger<RegistosProducaoService> _logger;
 
@@ -46,6 +49,7 @@ namespace TipMolde.Application.Service
             IUserRepository userRepository,
             IMaquinaRepository maquinaRepository,
             IPecaRepository pecaRepository,
+            IFichaProducaoService fichaProducaoService,
             IMapper mapper,
             ILogger<RegistosProducaoService> logger)
         {
@@ -54,6 +58,7 @@ namespace TipMolde.Application.Service
             _userRepository = userRepository;
             _maquinaRepository = maquinaRepository;
             _pecaRepository = pecaRepository;
+            _fichaProducaoService = fichaProducaoService;
             _mapper = mapper;
             _logger = logger;
         }
@@ -121,7 +126,8 @@ namespace TipMolde.Application.Service
         }
 
         /// <summary>
-        /// Cria um novo registo de producao e sincroniza o estado da maquina associada.
+        /// Cria um novo registo de producao, sincroniza o estado da maquina associada
+        /// e regista automaticamente uma linha FOP quando a entrada inclui uma ocorrencia.
         /// </summary>
         /// <remarks>
         /// Fluxo critico:
@@ -130,6 +136,7 @@ namespace TipMolde.Application.Service
         /// 3. Valida a transicao de estado face ao ultimo registo.
         /// 4. Determina a alteracao de maquina necessaria.
         /// 5. Persiste registo e maquina na mesma fronteira transacional.
+        /// 6. Quando existe ocorrencia, garante a ficha FOP e adiciona a linha correspondente.
         /// </remarks>
         /// <param name="dto">Dados de entrada do registo de producao.</param>
         /// <returns>DTO do registo persistido.</returns>
@@ -137,6 +144,9 @@ namespace TipMolde.Application.Service
         {
             if (!dto.Estado_producao.HasValue)
                 throw new ArgumentException("Estado de producao e obrigatorio.");
+
+            if (!string.IsNullOrWhiteSpace(dto.Correcao) && string.IsNullOrWhiteSpace(dto.Ocorrencia))
+                throw new ArgumentException("A correcao so pode ser registada quando existe uma ocorrencia.");
 
             var fase = await _fpRepository.GetByIdAsync(dto.Fase_id)
                 ?? throw new KeyNotFoundException($"Fase com ID {dto.Fase_id} nao encontrada.");
@@ -162,6 +172,9 @@ namespace TipMolde.Application.Service
             var pecaToUpdate = await ResolvePecaToUpdateAsync(dto, peca);
             var created = await _rpRepository.AddWithMachineStateAsync(registo, maquinaToUpdate, pecaToUpdate);
 
+            if (!string.IsNullOrWhiteSpace(dto.Ocorrencia))
+                await CriarLinhaFopAsync(dto, created);
+
             _logger.LogInformation(
                 "Registo de producao {RegistoId} criado para peca {PecaId}, fase {FaseId}, estado {Estado}.",
                 created.Registo_Producao_id,
@@ -170,6 +183,38 @@ namespace TipMolde.Application.Service
                 created.Estado_producao);
 
             return _mapper.Map<ResponseRegistosProducaoDto>(created);
+        }
+
+        /// <summary>
+        /// Garante a ficha FOP e cria a linha de ocorrencia associada ao registo.
+        /// </summary>
+        /// <param name="dto">Dados originais do registo de producao.</param>
+        /// <param name="created">Registo de producao ja persistido.</param>
+        private async Task CriarLinhaFopAsync(CreateRegistosProducaoDto dto, RegistosProducao created)
+        {
+            if (!dto.EncomendaMolde_id.HasValue)
+                throw new ArgumentException("A ocorrencia precisa de um contexto Encomenda-Molde.");
+
+            var moldeId = await _pecaRepository.GetMoldeIdByPecaIdAsync(created.Peca_id)
+                ?? throw new KeyNotFoundException($"Peca com ID {created.Peca_id} nao encontrada.");
+
+            var fichaFop = await _fichaProducaoService.EnsureAsync(new CreateFichaProducaoDto
+            {
+                Tipo = TipoFicha.FOP,
+                EncomendaMolde_id = dto.EncomendaMolde_id.Value
+            });
+
+            await _fichaProducaoService.CreateLinhaFopAsync(
+                fichaFop.FichaProducao_id,
+                new CreateFichaFopLinhaDto
+                {
+                    Data = created.Data_hora,
+                    Ocorrencia = dto.Ocorrencia!.Trim(),
+                    Correcao = string.IsNullOrWhiteSpace(dto.Correcao) ? null : dto.Correcao.Trim(),
+                    Responsavel_id = created.Operador_id,
+                    Peca_id = created.Peca_id,
+                    Molde_id = moldeId
+                });
         }
 
         /// <summary>

@@ -59,6 +59,12 @@ namespace TipMolde.Application.Dtos.RegistoProducaoDto
         public string? Ocorrencia { get; set; }
 
         /// <summary>
+        /// Texto livre da correcao associada a ocorrencia, quando aplicavel.
+        /// </summary>
+        [MaxLength(4000)]
+        public string? Correcao { get; set; }
+
+        /// <summary>
         /// Identificador da associacao Encomenda-Molde a usar na FOP.
         /// </summary>
         [Range(1, int.MaxValue)]

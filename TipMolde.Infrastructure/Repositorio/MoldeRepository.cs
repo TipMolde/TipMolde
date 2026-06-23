@@ -97,6 +97,41 @@ namespace TipMolde.Infrastructure.Repositorio
             return new PagedResult<Molde>(items, totalCount, page, pageSize);
         }
 
+        /// <summary>
+        /// Lista moldes que possuem pelo menos uma associacao Encomenda-Molde.
+        /// </summary>
+        /// <param name="searchTerm">Termo opcional para filtrar numero, nome ou numero do cliente.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>Resultado paginado com moldes associados a encomendas.</returns>
+        public async Task<PagedResult<Molde>> GetComEncomendaAsync(string? searchTerm, int page, int pageSize)
+        {
+            var query = _context.Moldes
+                .AsNoTracking()
+                .Include(m => m.Especificacoes)
+                .Where(m => m.EncomendasMoldes.Any());
+
+            var normalizedSearchTerm = string.IsNullOrWhiteSpace(searchTerm)
+                ? null
+                : searchTerm.Trim();
+
+            if (!string.IsNullOrWhiteSpace(normalizedSearchTerm))
+                query = ApplySearchFilter(query, normalizedSearchTerm);
+
+            query = query
+                .OrderBy(m => m.Numero)
+                .ThenBy(m => m.Nome)
+                .ThenBy(m => m.Molde_id);
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<Molde>(items, totalCount, page, pageSize);
+        }
+
 
         /// <summary>
         /// Persiste molde e especificacoes tecnicas na mesma transacao.
@@ -121,6 +156,22 @@ namespace TipMolde.Infrastructure.Repositorio
             molde.Especificacoes = specs;
             specs.Molde = molde;
             await tx.CommitAsync();
+        }
+
+        /// <summary>
+        /// Aplica a pesquisa textual aos campos funcionais expostos ao frontend.
+        /// </summary>
+        /// <param name="query">Consulta base de moldes.</param>
+        /// <param name="searchTerm">Termo normalizado de pesquisa.</param>
+        /// <returns>Consulta filtrada.</returns>
+        private static IQueryable<Molde> ApplySearchFilter(IQueryable<Molde> query, string searchTerm)
+        {
+            var normalizedTerm = searchTerm.ToLower();
+
+            return query.Where(m =>
+                (m.Numero != null && m.Numero.ToLower().Contains(normalizedTerm)) ||
+                (m.Nome != null && m.Nome.ToLower().Contains(normalizedTerm)) ||
+                (m.NumeroMoldeCliente != null && m.NumeroMoldeCliente.ToLower().Contains(normalizedTerm)));
         }
     }
 }

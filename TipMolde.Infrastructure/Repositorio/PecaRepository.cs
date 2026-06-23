@@ -174,6 +174,20 @@ namespace TipMolde.Infrastructure.Repositorio
         }
 
         /// <summary>
+        /// Obtem o identificador do molde associado a uma peca.
+        /// </summary>
+        /// <param name="pecaId">Identificador da peca.</param>
+        /// <returns>Identificador do molde ou nulo quando a peca nao existe.</returns>
+        public async Task<int?> GetMoldeIdByPecaIdAsync(int pecaId)
+        {
+            return await _context.Pecas
+                .AsNoTracking()
+                .Where(p => p.Peca_id == pecaId)
+                .Select(p => (int?)p.Molde_id)
+                .FirstOrDefaultAsync();
+        }
+
+        /// <summary>
         /// Obtem uma peca pela designacao dentro de um molde.
         /// </summary>
         /// <param name="designacao">Designacao funcional da peca.</param>

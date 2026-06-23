@@ -53,6 +53,31 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Lista moldes que possuem associacao Encomenda-Molde.
+        /// </summary>
+        /// <remarks>
+        /// Este endpoint serve a pagina de relatorios para apresentar apenas os moldes
+        /// que fazem parte de uma encomenda e suportam pesquisa por campos funcionais.
+        /// </remarks>
+        /// <param name="searchTerm">Termo opcional para filtrar numero, nome ou numero do cliente.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>HTTP 200 com resultado paginado; HTTP 400 para paginacao invalida.</returns>
+        [Authorize(Roles = "ADMIN")]
+        [HttpGet("com-encomenda")]
+        public async Task<IActionResult> GetComEncomenda(
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (page < 1 || pageSize < 1)
+                return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
+
+            var result = await _moldeService.GetComEncomendaAsync(searchTerm, page, pageSize);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Obtem um molde por ID.
         /// </summary>
         /// <param name="id">Identificador interno do molde.</param>

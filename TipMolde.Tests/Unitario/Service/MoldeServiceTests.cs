@@ -360,6 +360,27 @@ public class MoldeServiceTests
         result.Items.Single().MoldeId.Should().Be(40);
     }
 
+    [Test(Description = "TMOLDSRV12B - GetComEncomenda deve mapear moldes com associacao e encaminhar o termo normalizado.")]
+    public async Task GetComEncomendaAsync_Should_MapPagedResult_When_RepositoryReturnsItems()
+    {
+        // ARRANGE
+        var paged = new PagedResult<Molde>(new[] { BuildMolde(id: 60, numero: "MOL-060") }, 1, 1, 10);
+        string? forwardedSearchTerm = null;
+
+        _moldeRepository
+            .Setup(r => r.GetComEncomendaAsync(It.IsAny<string?>(), 1, 10))
+            .Callback<string?, int, int>((searchTerm, _, _) => forwardedSearchTerm = searchTerm)
+            .ReturnsAsync(paged);
+
+        // ACT
+        var result = await _sut.GetComEncomendaAsync("  MOL-060  ", 1, 10);
+
+        // ASSERT
+        forwardedSearchTerm.Should().Be("MOL-060");
+        result.TotalCount.Should().Be(1);
+        result.Items.Single().MoldeId.Should().Be(60);
+    }
+
     [Test(Description = "TMOLDSRV13 - Update deve falhar quando molde nao existe.")]
     public async Task UpdateAsync_Should_ThrowKeyNotFoundException_When_MoldeDoesNotExist()
     {

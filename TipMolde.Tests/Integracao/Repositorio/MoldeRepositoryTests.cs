@@ -68,6 +68,81 @@ namespace TipMolde.Tests.Integracao.Repositorio
             result.Items.Should().ContainSingle(m => m.Numero == "M-001");
         }
 
+        [Test(Description = "TMOLREP2B - GetComEncomenda deve devolver apenas moldes associados a encomendas.")]
+        public async Task GetComEncomendaAsync_Should_ReturnOnlyAssociatedMoldes()
+        {
+            // ARRANGE
+            await using var context = CreateContext();
+            var encomenda = new Encomenda { NumeroEncomendaCliente = "ENC-002" };
+            var moldeAssociado = new Molde { Numero = "M-010", NumeroMoldeCliente = "CLI-010", Nome = "Molde A", Numero_cavidades = 2, TipoPedido = TipoPedido.NOVO_MOLDE };
+            var moldeSemAssociacao = new Molde { Numero = "M-011", NumeroMoldeCliente = "CLI-011", Nome = "Molde B", Numero_cavidades = 2, TipoPedido = TipoPedido.NOVO_MOLDE };
+
+            await context.Encomendas.AddAsync(encomenda);
+            await context.Moldes.AddRangeAsync(moldeAssociado, moldeSemAssociacao);
+            await context.SaveChangesAsync();
+
+            await context.EncomendasMoldes.AddAsync(new EncomendaMolde
+            {
+                Encomenda_id = encomenda.Encomenda_id,
+                Molde_id = moldeAssociado.Molde_id,
+                Quantidade = 1,
+                Prioridade = 1,
+                DataEntregaPrevista = DateTime.UtcNow.AddDays(10)
+            });
+            await context.SaveChangesAsync();
+
+            var repository = new MoldeRepository(context);
+
+            // ACT
+            var result = await repository.GetComEncomendaAsync(null, page: 1, pageSize: 10);
+
+            // ASSERT
+            result.TotalCount.Should().Be(1);
+            result.Items.Should().ContainSingle(m => m.Numero == "M-010");
+        }
+
+        [Test(Description = "TMOLREP2C - GetComEncomenda deve aplicar o termo de pesquisa nos campos funcionais.")]
+        public async Task GetComEncomendaAsync_Should_FilterBySearchTerm_When_Provided()
+        {
+            // ARRANGE
+            await using var context = CreateContext();
+            var encomenda = new Encomenda { NumeroEncomendaCliente = "ENC-003" };
+            var moldeA = new Molde { Numero = "M-020", NumeroMoldeCliente = "CLI-020", Nome = "Molde Alfa", Numero_cavidades = 2, TipoPedido = TipoPedido.NOVO_MOLDE };
+            var moldeB = new Molde { Numero = "M-021", NumeroMoldeCliente = "CLI-021", Nome = "Molde Beta", Numero_cavidades = 2, TipoPedido = TipoPedido.NOVO_MOLDE };
+
+            await context.Encomendas.AddAsync(encomenda);
+            await context.Moldes.AddRangeAsync(moldeA, moldeB);
+            await context.SaveChangesAsync();
+
+            await context.EncomendasMoldes.AddRangeAsync(
+                new EncomendaMolde
+                {
+                    Encomenda_id = encomenda.Encomenda_id,
+                    Molde_id = moldeA.Molde_id,
+                    Quantidade = 1,
+                    Prioridade = 1,
+                    DataEntregaPrevista = DateTime.UtcNow.AddDays(10)
+                },
+                new EncomendaMolde
+                {
+                    Encomenda_id = encomenda.Encomenda_id,
+                    Molde_id = moldeB.Molde_id,
+                    Quantidade = 1,
+                    Prioridade = 2,
+                    DataEntregaPrevista = DateTime.UtcNow.AddDays(11)
+                });
+            await context.SaveChangesAsync();
+
+            var repository = new MoldeRepository(context);
+
+            // ACT
+            var result = await repository.GetComEncomendaAsync("cli-021", page: 1, pageSize: 10);
+
+            // ASSERT
+            result.TotalCount.Should().Be(1);
+            result.Items.Should().ContainSingle(m => m.Numero == "M-021");
+        }
+
         [Test(Description = "TMOLREP3 - GetAll deve carregar especificacoes e paginar moldes por ID.")]
         public async Task GetAllAsync_Should_LoadEspecificacoesAndReturnRequestedPage()
         {

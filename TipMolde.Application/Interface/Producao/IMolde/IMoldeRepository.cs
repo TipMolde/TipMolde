@@ -29,6 +29,19 @@ namespace TipMolde.Application.Interface.Producao.IMolde
         Task<PagedResult<Molde>> GetByEncomendaIdAsync(int encomendaId, int page, int pageSize);
 
         /// <summary>
+        /// Lista moldes que possuem pelo menos uma associacao Encomenda-Molde.
+        /// </summary>
+        /// <remarks>
+        /// O termo de pesquisa e aplicado apenas aos campos funcionais expostos no frontend,
+        /// mantendo a filtragem e a paginação no lado do servidor.
+        /// </remarks>
+        /// <param name="searchTerm">Termo opcional para filtrar numero, nome ou numero do cliente.</param>
+        /// <param name="page">Pagina atual da pesquisa.</param>
+        /// <param name="pageSize">Numero maximo de registos por pagina.</param>
+        /// <returns>Resultado paginado com moldes associados a encomendas.</returns>
+        Task<PagedResult<Molde>> GetComEncomendaAsync(string? searchTerm, int page, int pageSize);
+
+        /// <summary>
         /// Persiste o molde e as respetivas especificacoes tecnicas.
         /// </summary>
         /// <remarks>

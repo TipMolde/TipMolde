@@ -33,6 +33,24 @@ namespace TipMolde.Tests.Integracao.Repositorio
             result.Items.Select(p => p.Designacao).Should().Contain(ExpectedDesignacoes);
         }
 
+        [Test(Description = "TPECAREP1A - GetMoldeIdByPecaId deve devolver o molde associado a uma peca.")]
+        public async Task GetMoldeIdByPecaIdAsync_Should_ReturnMoldeId_When_PecaExists()
+        {
+            // ARRANGE
+            await using var context = CreateContext();
+            var peca = new Peca { Designacao = "Placa", Molde_id = 7, Prioridade = 1 };
+            await context.Pecas.AddAsync(peca);
+            await context.SaveChangesAsync();
+
+            var repository = new PecaRepository(context);
+
+            // ACT
+            var result = await repository.GetMoldeIdByPecaIdAsync(peca.Peca_id);
+
+            // ASSERT
+            result.Should().Be(7);
+        }
+
         [Test(Description = "TPECAREP2 - GetByIds deve remover duplicados e devolver pecas ordenadas por ID.")]
         public async Task GetByIdsAsync_Should_ReturnDistinctOrderedPecas_When_IdsHaveDuplicates()
         {

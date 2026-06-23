@@ -4,6 +4,7 @@ using Moq;
 using System.Net;
 using System.Net.Http.Json;
 using TipMolde.Application.Dtos.MoldeDto;
+using TipMolde.Application.Interface;
 using TipMolde.Domain.Enums;
 
 namespace TipMolde.Tests.Integracao.Controller
@@ -131,6 +132,32 @@ namespace TipMolde.Tests.Integracao.Controller
             // ASSERT
             await AssertProblemAsync(response, HttpStatusCode.BadRequest, "Pedido invalido");
             Factory.MoldeService.Verify(s => s.GetByEncomendaIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        }
+
+        [Test(Description = "TMOLAPI6 - GET /api/moldes/com-encomenda devolve moldes com associacao e pesquisa aplicada no backend.")]
+        public async Task GetComEncomenda_Should_ReturnPagedResult_When_RequestIsValid()
+        {
+            // ARRANGE
+            var result = new PagedResult<ResponseMoldeDto>(
+                [new ResponseMoldeDto { MoldeId = 15, Numero = "M-015", Nome = "Molde Relatorios", NumeroMoldeCliente = "CLI-015" }],
+                1,
+                1,
+                10);
+
+            Factory.MoldeService
+                .Setup(s => s.GetComEncomendaAsync("M-015", 1, 10))
+                .ReturnsAsync(result);
+
+            // ACT
+            var response = await Client.GetAsync("/api/moldes/com-encomenda?searchTerm=M-015&page=1&pageSize=10");
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var body = await ReadBodyAsync<PagedResult<ResponseMoldeDto>>(response);
+            body.TotalCount.Should().Be(1);
+            body.Items.Single().MoldeId.Should().Be(15);
+            Factory.MoldeService.Verify(s => s.GetComEncomendaAsync("M-015", 1, 10), Times.Once);
         }
 
         [Test(Description = "TMOLAPI6 - GET /api/moldes/{id}/ciclo-vida-pdf devolve ficheiro PDF.")]

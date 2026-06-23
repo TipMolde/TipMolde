@@ -480,21 +480,39 @@ namespace TipMolde.Application.Service
             return NormalizeSearchMode(searchMode) switch
             {
                 "PECA" => ContainsAny(term, item.Designacao, item.NumeroPeca),
+                "PROXIMA FASE" => ContainsAny(term, item.ProximaFaseNome, item.FaseTrabalho, item.ProximoPasso),
                 _ => ContainsAny(term, item.NumeroMolde, item.NomeMolde, item.NumeroEncomendaCliente, item.NomeCliente)
             };
         }
 
         private static bool ContainsAny(string term, params string?[] values)
         {
-            return values.Any(value => !string.IsNullOrWhiteSpace(value) &&
-                                       value.Contains(term, StringComparison.OrdinalIgnoreCase));
+            var normalizedTerm = NormalizeSearchText(term);
+
+            return values.Any(value =>
+                !string.IsNullOrWhiteSpace(value) &&
+                NormalizeSearchText(value).Contains(normalizedTerm, StringComparison.Ordinal));
+        }
+
+        private static string NormalizeSearchText(string value)
+        {
+            var normalized = value.Trim().ToUpperInvariant().Normalize(NormalizationForm.FormD);
+            var builder = new StringBuilder(normalized.Length);
+
+            foreach (var character in normalized)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+                    builder.Append(character);
+            }
+
+            return builder.ToString();
         }
 
         private static string NormalizeSearchMode(string searchMode)
         {
             return string.IsNullOrWhiteSpace(searchMode)
                 ? "MOLDE"
-                : searchMode.Trim().ToUpperInvariant();
+                : NormalizeSearchText(searchMode);
         }
 
         private static string BuildProximoPasso(string estadoAtual, string proximaFaseNome)

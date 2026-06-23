@@ -62,6 +62,22 @@ namespace TipMolde.Application.Service
         }
 
         /// <summary>
+        /// Lista moldes que possuem associacao Encomenda-Molde com pesquisa opcional.
+        /// </summary>
+        /// <param name="searchTerm">Termo opcional para filtrar numero, nome ou numero do cliente.</param>
+        /// <param name="page">Pagina atual.</param>
+        /// <param name="pageSize">Tamanho da pagina.</param>
+        /// <returns>Resultado paginado com Dtos de molde associados a encomendas.</returns>
+        public async Task<PagedResult<ResponseMoldeDto>> GetComEncomendaAsync(string? searchTerm = null, int page = 1, int pageSize = 10)
+        {
+            var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+            var normalizedSearchTerm = string.IsNullOrWhiteSpace(searchTerm) ? null : searchTerm.Trim();
+            var result = await _moldeRepository.GetComEncomendaAsync(normalizedSearchTerm, normalizedPage, normalizedPageSize);
+            var items = _mapper.Map<IEnumerable<ResponseMoldeDto>>(result.Items);
+            return new PagedResult<ResponseMoldeDto>(items, result.TotalCount, result.CurrentPage, result.PageSize);
+        }
+
+        /// <summary>
         /// Obtem um molde por identificador.
         /// </summary>
         /// <param name="id">Identificador interno do molde.</param>
