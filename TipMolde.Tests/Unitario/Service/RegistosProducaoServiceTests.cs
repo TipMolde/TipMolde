@@ -93,13 +93,15 @@ public class RegistosProducaoServiceTests
         int operadorId = 1,
         int pecaId = 1,
         EstadoProducao? estado = EstadoProducao.PREPARACAO,
-        int? maquinaId = 1) => new()
+        int? maquinaId = 1,
+        int? proximaFaseId = null) => new()
         {
             Fase_id = faseId,
             Operador_id = operadorId,
             Peca_id = pecaId,
             Estado_producao = estado,
-            Maquina_id = maquinaId
+            Maquina_id = maquinaId,
+            ProximaFase_id = proximaFaseId
         };
 
     private void SetupValidDependencies(
@@ -279,6 +281,32 @@ public class RegistosProducaoServiceTests
             It.Is<RegistosProducao>(rp => rp.Maquina_id == 1),
             It.Is<Maquina>(m => m.Estado == EstadoMaquina.DISPONIVEL),
             It.IsAny<Peca?>()), Times.Once);
+    }
+
+    [Test(Description = "TRP009B - CONCLUIDO pode atualizar a proxima fase mesmo com producao ativa.")]
+    public async Task CreateAsync_Should_UpdateNextPhase_When_TransitionIsConcluido()
+    {
+        // ARRANGE
+        SetupValidDependencies();
+        SetupPersistCreated();
+        _registosRepository.Setup(r => r.GetUltimoRegistoAsync(1, 1)).ReturnsAsync(new RegistosProducao
+        {
+            Fase_id = 1,
+            Peca_id = 1,
+            Estado_producao = EstadoProducao.EM_CURSO,
+            Data_hora = DateTime.UtcNow.AddMinutes(-5)
+        });
+        _fasesRepository.Setup(r => r.GetByIdAsync(7)).ReturnsAsync(BuildFase(7, NomeFases.EROSAO));
+
+        // ACT
+        var result = await _sut.CreateAsync(BuildDto(estado: EstadoProducao.CONCLUIDO, maquinaId: null, proximaFaseId: 7));
+
+        // ASSERT
+        result.Estado_producao.Should().Be(EstadoProducao.CONCLUIDO);
+        _registosRepository.Verify(r => r.AddWithMachineStateAsync(
+            It.IsAny<RegistosProducao>(),
+            It.IsAny<Maquina?>(),
+            It.Is<Peca>(p => p.ProximaFase_id == 7)), Times.Once);
     }
 
     [Test(Description = "TRP010 - Criacao falha quando a transicao de estado e invalida.")]

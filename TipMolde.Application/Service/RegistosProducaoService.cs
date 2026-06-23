@@ -158,7 +158,7 @@ namespace TipMolde.Application.Service
             registo.Data_hora = DateTime.UtcNow;
 
             var maquinaToUpdate = await ResolveMaquinaToUpdateAsync(dto, ultimo, registo);
-            await ValidarAlteracaoProximaFaseAsync(peca, dto.ProximaFase_id);
+            await ValidarAlteracaoProximaFaseAsync(peca, dto.Estado_producao.Value, dto.ProximaFase_id);
             var pecaToUpdate = await ResolvePecaToUpdateAsync(dto, peca);
             var created = await _rpRepository.AddWithMachineStateAsync(registo, maquinaToUpdate, pecaToUpdate);
 
@@ -280,12 +280,15 @@ namespace TipMolde.Application.Service
         /// </remarks>
         /// <param name="peca">Peca a atualizar.</param>
         /// <param name="novaProximaFaseId">Nova fase planeada pedida pelo cliente.</param>
-        private async Task ValidarAlteracaoProximaFaseAsync(Peca peca, int? novaProximaFaseId)
+        private async Task ValidarAlteracaoProximaFaseAsync(Peca peca, EstadoProducao novoEstado, int? novaProximaFaseId)
         {
             if (!novaProximaFaseId.HasValue)
                 return;
 
             if (peca.ProximaFase_id.HasValue && peca.ProximaFase_id.Value == novaProximaFaseId.Value)
+                return;
+
+            if (novoEstado == EstadoProducao.CONCLUIDO)
                 return;
 
             var ultimoRegistoGlobal = await _rpRepository.GetUltimosRegistosGlobaisAsync(new[] { peca.Peca_id });
