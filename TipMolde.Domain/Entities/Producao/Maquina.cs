@@ -33,6 +33,13 @@ namespace TipMolde.Domain.Entities.Producao
         public string? IpAddress { get; set; }
 
         /// <summary>
+        /// Protocolo de comunicacao detetado/configurado para a maquina.
+        /// Ex: OPC-UA, MTConnect, SODICK.
+        /// Opcional enquanto a maquina ainda nao foi integrada.
+        /// </summary>
+        public string? ProtocoloComunicacao { get; set; }
+
+        /// <summary>
         /// Estado atual da máquina.
         /// Atualizado automaticamente durante registos de produção (RF-PR-02).
         /// </summary>

@@ -58,6 +58,27 @@ namespace TipMolde.Infrastructure.Repositorio
         }
 
         /// <summary>
+        /// Obtem uma maquina pelo endereco IP configurado.
+        /// </summary>
+        /// <param name="ipAddress">Endereco IP da maquina.</param>
+        /// <returns>Entidade encontrada; nulo caso nao exista.</returns>
+        public async Task<Maquina?> GetByIpAddressAsync(string ipAddress)
+        {
+            var normalizedIp = ipAddress.Trim();
+
+            if (string.IsNullOrWhiteSpace(normalizedIp))
+                return null;
+
+            var maquina = await BuildQuery()
+                .FirstOrDefaultAsync(m => m.IpAddress == normalizedIp);
+
+            if (maquina != null)
+                await LoadFasesDedicadasAsync([maquina]);
+
+            return maquina;
+        }
+
+        /// <summary>
         /// Lista maquinas por estado com paginacao.
         /// </summary>
         /// <param name="estado">Estado operacional a filtrar.</param>
@@ -74,7 +95,7 @@ namespace TipMolde.Infrastructure.Repositorio
         }
 
         /// <summary>
-        /// Pesquisa maquinas por termo livre em numero, modelo, IP, estado ou fase dedicada.
+        /// Pesquisa maquinas por termo livre em numero, modelo, IP, protocolo, estado ou fase dedicada.
         /// </summary>
         /// <param name="searchTerm">Termo de pesquisa a aplicar.</param>
         /// <param name="page">Pagina atual.</param>
@@ -100,6 +121,7 @@ namespace TipMolde.Infrastructure.Repositorio
             var query = BuildQuery().Where(m =>
                 m.NomeModelo.Contains(searchTerm) ||
                 (m.IpAddress != null && m.IpAddress.Contains(searchTerm)) ||
+                (m.ProtocoloComunicacao != null && m.ProtocoloComunicacao.Contains(searchTerm)) ||
                 (hasNumero && m.Numero == numero) ||
                 (hasEstado && m.Estado == estado) ||
                 (hasFase && faseIds.Contains(m.FaseDedicada_id)));

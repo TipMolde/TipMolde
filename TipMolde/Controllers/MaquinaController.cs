@@ -216,6 +216,7 @@ namespace TipMolde.API.Controllers
             return dto.Numero.HasValue
                    || !string.IsNullOrWhiteSpace(dto.NomeModelo)
                    || !string.IsNullOrWhiteSpace(dto.IpAddress)
+                   || !string.IsNullOrWhiteSpace(dto.ProtocoloComunicacao)
                    || dto.FaseDedicada_id.HasValue;
         }
     }

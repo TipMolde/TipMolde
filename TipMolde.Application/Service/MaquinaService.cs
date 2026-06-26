@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using TipMolde.Application.Dtos.MaquinaDto;
 using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
+using TipMolde.Application.Interface.Industrial;
 using TipMolde.Application.Interface.Producao.IMaquina;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
@@ -19,6 +20,7 @@ namespace TipMolde.Application.Service
     public class MaquinaService : IMaquinaService
     {
         private readonly IMaquinaRepository _maquinaRepository;
+        private readonly IIndustrialMiddlewareClient _industrialMiddlewareClient;
         private readonly IMapper _mapper;
         private readonly ILogger<MaquinaService> _logger;
 
@@ -30,10 +32,12 @@ namespace TipMolde.Application.Service
         /// <param name="logger">Logger para rastreabilidade das operacoes criticas.</param>
         public MaquinaService(
             IMaquinaRepository maquinaRepository,
+            IIndustrialMiddlewareClient industrialMiddlewareClient,
             IMapper mapper,
             ILogger<MaquinaService> logger)
         {
             _maquinaRepository = maquinaRepository;
+            _industrialMiddlewareClient = industrialMiddlewareClient;
             _mapper = mapper;
             _logger = logger;
         }
@@ -122,6 +126,8 @@ namespace TipMolde.Application.Service
             if (!await _maquinaRepository.ExistsFaseDedicadaAsync(dto.FaseDedicada_id))
                 throw new KeyNotFoundException($"Fase de producao com ID {dto.FaseDedicada_id} nao encontrada.");
 
+            await DetectAndApplyProtocolAsync(dto);
+
             var maquina = _mapper.Map<Maquina>(dto);
             var created = await _maquinaRepository.CreateAsync(maquina);
 
@@ -160,6 +166,7 @@ namespace TipMolde.Application.Service
             if (dto.FaseDedicada_id.HasValue && !await _maquinaRepository.ExistsFaseDedicadaAsync(dto.FaseDedicada_id.Value))
                 throw new KeyNotFoundException($"Fase de producao com ID {dto.FaseDedicada_id.Value} nao encontrada.");
 
+            await DetectAndApplyProtocolAsync(dto);
 
             _mapper.Map(dto, existing);
 
@@ -194,8 +201,72 @@ namespace TipMolde.Application.Service
             return dto.Numero.HasValue
                 || !string.IsNullOrWhiteSpace(dto.NomeModelo)
                 || !string.IsNullOrWhiteSpace(dto.IpAddress)
+                || !string.IsNullOrWhiteSpace(dto.ProtocoloComunicacao)
                 || dto.Estado.HasValue
                 || dto.FaseDedicada_id.HasValue;
+        }
+
+        /// <summary>
+        /// Quando ha IP, pede ao middleware para detetar o protocolo e aplica o resultado no DTO de criacao.
+        /// </summary>
+        /// <param name="dto">DTO de criacao a normalizar antes de mapear para entidade.</param>
+        /// <returns>Task assincrona concluida apos validacao tecnica do IP.</returns>
+        private async Task DetectAndApplyProtocolAsync(CreateMaquinaDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.IpAddress))
+            {
+                dto.IpAddress = null;
+                dto.ProtocoloComunicacao = null;
+                return;
+            }
+
+            var detection = await _industrialMiddlewareClient.DetectProtocolAsync(dto.IpAddress.Trim());
+            ApplyProtocolDetection(dto, detection.Detected, detection.Protocol, detection.Message);
+        }
+
+        /// <summary>
+        /// Quando o IP e alterado, pede ao middleware para detetar o protocolo e aplica o resultado no DTO de update.
+        /// </summary>
+        /// <param name="dto">DTO de atualizacao a normalizar antes de mapear para entidade.</param>
+        /// <returns>Task assincrona concluida apos validacao tecnica do IP.</returns>
+        private async Task DetectAndApplyProtocolAsync(UpdateMaquinaDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.IpAddress))
+            {
+                return;
+            }
+
+            var detection = await _industrialMiddlewareClient.DetectProtocolAsync(dto.IpAddress.Trim());
+            ApplyProtocolDetection(dto, detection.Detected, detection.Protocol, detection.Message);
+        }
+
+        private static void ApplyProtocolDetection(CreateMaquinaDto dto, bool detected, string? protocol, string? message)
+        {
+            if (!detected || string.IsNullOrWhiteSpace(protocol))
+            {
+                throw new ArgumentException(BuildProtocolDetectionFailureMessage(message));
+            }
+
+            dto.IpAddress = dto.IpAddress?.Trim();
+            dto.ProtocoloComunicacao = protocol.Trim();
+        }
+
+        private static void ApplyProtocolDetection(UpdateMaquinaDto dto, bool detected, string? protocol, string? message)
+        {
+            if (!detected || string.IsNullOrWhiteSpace(protocol))
+            {
+                throw new ArgumentException(BuildProtocolDetectionFailureMessage(message));
+            }
+
+            dto.IpAddress = dto.IpAddress?.Trim();
+            dto.ProtocoloComunicacao = protocol.Trim();
+        }
+
+        private static string BuildProtocolDetectionFailureMessage(string? middlewareMessage)
+        {
+            return string.IsNullOrWhiteSpace(middlewareMessage)
+                ? "Nao foi detetado nenhum protocolo de comunicacao neste IP. Nao coloque este IP na maquina e contacte um tecnico."
+                : middlewareMessage.Trim();
         }
 
         /// <summary>

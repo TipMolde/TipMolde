@@ -2,9 +2,11 @@ using AutoMapper;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
+using TipMolde.Application.Dtos.IndustrialMiddlewareDto;
 using TipMolde.Application.Dtos.MaquinaDto;
 using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
+using TipMolde.Application.Interface.Industrial;
 using TipMolde.Application.Interface.Producao.IMaquina;
 using TipMolde.Application.Service;
 using TipMolde.Domain.Entities.Producao;
@@ -19,6 +21,7 @@ public class MaquinaServiceTests
     private static readonly int[] ExpectedMaquinaIds = [1, 2];
 
     private Mock<IMaquinaRepository> _maquinaRepository = null!;
+    private Mock<IIndustrialMiddlewareClient> _industrialMiddlewareClient = null!;
     private Mock<IMapper> _mapper = null!;
     private Mock<ILogger<MaquinaService>> _logger = null!;
     private MaquinaService _sut = null!;
@@ -27,8 +30,19 @@ public class MaquinaServiceTests
     public void SetUp()
     {
         _maquinaRepository = new Mock<IMaquinaRepository>();
+        _industrialMiddlewareClient = new Mock<IIndustrialMiddlewareClient>();
         _mapper = new Mock<IMapper>();
         _logger = new Mock<ILogger<MaquinaService>>();
+
+        _industrialMiddlewareClient.Setup(c => c.DetectProtocolAsync(It.IsAny<string>()))
+            .ReturnsAsync((string ip) => new ProtocolDetectionResultDto
+            {
+                MachineIp = ip,
+                Detected = true,
+                Protocol = "OPC-UA",
+                EndpointUrl = $"opc.tcp://{ip}:4840",
+                Message = "Protocolo detetado com sucesso."
+            });
 
         _mapper.Setup(m => m.Map<Maquina>(It.IsAny<CreateMaquinaDto>()))
             .Returns((CreateMaquinaDto dto) => new Maquina
@@ -37,6 +51,7 @@ public class MaquinaServiceTests
                 Numero = dto.Numero,
                 NomeModelo = dto.NomeModelo.Trim(),
                 IpAddress = string.IsNullOrWhiteSpace(dto.IpAddress) ? null : dto.IpAddress.Trim(),
+                ProtocoloComunicacao = string.IsNullOrWhiteSpace(dto.ProtocoloComunicacao) ? null : dto.ProtocoloComunicacao.Trim(),
                 Estado = dto.Estado,
                 FaseDedicada_id = dto.FaseDedicada_id
             });
@@ -48,6 +63,7 @@ public class MaquinaServiceTests
                 Numero = maquina.Numero,
                 NomeModelo = maquina.NomeModelo,
                 IpAddress = maquina.IpAddress,
+                ProtocoloComunicacao = maquina.ProtocoloComunicacao,
                 Estado = maquina.Estado,
                 FaseDedicada_id = maquina.FaseDedicada_id
             });
@@ -59,6 +75,7 @@ public class MaquinaServiceTests
                 Numero = maquina.Numero,
                 NomeModelo = maquina.NomeModelo,
                 IpAddress = maquina.IpAddress,
+                ProtocoloComunicacao = maquina.ProtocoloComunicacao,
                 Estado = maquina.Estado,
                 FaseDedicada_id = maquina.FaseDedicada_id
             }).ToList());
@@ -75,6 +92,9 @@ public class MaquinaServiceTests
                 if (!string.IsNullOrWhiteSpace(dto.IpAddress))
                     entity.IpAddress = dto.IpAddress.Trim();
 
+                if (!string.IsNullOrWhiteSpace(dto.ProtocoloComunicacao))
+                    entity.ProtocoloComunicacao = dto.ProtocoloComunicacao.Trim();
+
                 if (dto.Estado.HasValue)
                     entity.Estado = dto.Estado.Value;
 
@@ -84,6 +104,7 @@ public class MaquinaServiceTests
 
         _sut = new MaquinaService(
             _maquinaRepository.Object,
+            _industrialMiddlewareClient.Object,
             _mapper.Object,
             _logger.Object);
     }
@@ -93,6 +114,7 @@ public class MaquinaServiceTests
         int numero = 10,
         string nomeModelo = "Makino V33",
         string? ipAddress = "192.168.1.10",
+        string? protocoloComunicacao = "OPC-UA",
         EstadoMaquina estado = EstadoMaquina.DISPONIVEL,
         int faseDedicadaId = 5)
     {
@@ -102,6 +124,7 @@ public class MaquinaServiceTests
             Numero = numero,
             NomeModelo = nomeModelo,
             IpAddress = ipAddress,
+            ProtocoloComunicacao = protocoloComunicacao,
             Estado = estado,
             FaseDedicada_id = faseDedicadaId
         };
@@ -112,6 +135,7 @@ public class MaquinaServiceTests
         int numero = 10,
         string nomeModelo = "Makino V33",
         string? ipAddress = "192.168.1.10",
+        string? protocoloComunicacao = "OPC-UA",
         EstadoMaquina estado = EstadoMaquina.DISPONIVEL,
         int faseDedicadaId = 5)
     {
@@ -121,6 +145,7 @@ public class MaquinaServiceTests
             Numero = numero,
             NomeModelo = nomeModelo,
             IpAddress = ipAddress,
+            ProtocoloComunicacao = protocoloComunicacao,
             Estado = estado,
             FaseDedicada_id = faseDedicadaId
         };
@@ -173,6 +198,7 @@ public class MaquinaServiceTests
             numero: 9,
             nomeModelo: "  Haas VF2  ",
             ipAddress: " 10.0.0.9 ",
+            protocoloComunicacao: " MTConnect ",
             estado: EstadoMaquina.DISPONIVEL,
             faseDedicadaId: 6);
 
@@ -193,6 +219,7 @@ public class MaquinaServiceTests
         result.Numero.Should().Be(9);
         result.NomeModelo.Should().Be("Haas VF2");
         result.IpAddress.Should().Be("10.0.0.9");
+        result.ProtocoloComunicacao.Should().Be("OPC-UA");
         result.Estado.Should().Be(EstadoMaquina.DISPONIVEL);
         result.FaseDedicada_id.Should().Be(6);
 
@@ -201,6 +228,7 @@ public class MaquinaServiceTests
             m.Numero == 9 &&
             m.NomeModelo == "Haas VF2" &&
             m.IpAddress == "10.0.0.9" &&
+            m.ProtocoloComunicacao == "OPC-UA" &&
             m.Estado == EstadoMaquina.DISPONIVEL &&
             m.FaseDedicada_id == 6)), Times.Once);
     }
@@ -214,6 +242,7 @@ public class MaquinaServiceTests
             numero: 15,
             nomeModelo: "Makino Antiga",
             ipAddress: "192.168.0.15",
+            protocoloComunicacao: "SODICK",
             estado: EstadoMaquina.EM_USO,
             faseDedicadaId: 8);
 
@@ -235,8 +264,38 @@ public class MaquinaServiceTests
             m.Numero == 15 &&
             m.NomeModelo == "Makino Atualizada" &&
             m.IpAddress == "10.10.10.15" &&
+            m.ProtocoloComunicacao == "OPC-UA" &&
             m.Estado == EstadoMaquina.EM_USO &&
             m.FaseDedicada_id == 8)), Times.Once);
+    }
+
+    [Test(Description = "TMAQSERV4B - Create deve falhar quando middleware nao deteta protocolo no IP informado.")]
+    public async Task CreateAsync_Should_ThrowArgumentException_When_MiddlewareDoesNotDetectProtocol()
+    {
+        // ARRANGE
+        var dto = BuildCreateDto(id: 33, numero: 11, ipAddress: "192.168.1.250");
+
+        _maquinaRepository.Setup(r => r.GetByIdUnicoAsync(dto.Maquina_id))
+            .ReturnsAsync((Maquina?)null);
+        _maquinaRepository.Setup(r => r.ExistsNumeroAsync(dto.Numero, null))
+            .ReturnsAsync(false);
+        _maquinaRepository.Setup(r => r.ExistsFaseDedicadaAsync(dto.FaseDedicada_id))
+            .ReturnsAsync(true);
+        _industrialMiddlewareClient.Setup(c => c.DetectProtocolAsync("192.168.1.250"))
+            .ReturnsAsync(new ProtocolDetectionResultDto
+            {
+                MachineIp = "192.168.1.250",
+                Detected = false,
+                Message = "Nao foi detetado nenhum protocolo de comunicacao neste IP. Nao coloque este IP na maquina e contacte um tecnico."
+            });
+
+        // ACT
+        Func<Task> act = () => _sut.CreateAsync(dto);
+
+        // ASSERT
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*Nao foi detetado nenhum protocolo*");
+        _maquinaRepository.Verify(r => r.CreateAsync(It.IsAny<Maquina>()), Times.Never);
     }
 
     [Test(Description = "TMAQSERV5 - Update deve falhar com conflito quando o numero ja existe noutra maquina.")]

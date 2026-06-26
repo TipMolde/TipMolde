@@ -41,6 +41,12 @@ namespace TipMolde.Application.Dtos.MaquinaDto
         public string? IpAddress { get; set; }
 
         /// <summary>
+        /// Protocolo de comunicacao opcional da maquina.
+        /// </summary>
+        [MaxLength(30)]
+        public string? ProtocoloComunicacao { get; set; }
+
+        /// <summary>
         /// Estado operacional inicial da maquina.
         /// </summary>
         [Required]

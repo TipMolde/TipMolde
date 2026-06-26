@@ -16,6 +16,13 @@ namespace TipMolde.Application.Interface.Producao.IMaquina
         Task<Maquina?> GetByIdUnicoAsync(int id);
 
         /// <summary>
+        /// Obtem uma maquina pelo endereco IP configurado.
+        /// </summary>
+        /// <param name="ipAddress">Endereco IP da maquina.</param>
+        /// <returns>Entidade encontrada; nulo caso nao exista.</returns>
+        Task<Maquina?> GetByIpAddressAsync(string ipAddress);
+
+        /// <summary>
         /// Lista maquinas por estado com paginacao.
         /// </summary>
         /// <param name="estado">Estado operacional a filtrar.</param>
@@ -25,7 +32,7 @@ namespace TipMolde.Application.Interface.Producao.IMaquina
         Task<PagedResult<Maquina>> GetByEstadoAsync(EstadoMaquina estado, int page, int pageSize);
 
         /// <summary>
-        /// Pesquisa maquinas por termo livre em numero, modelo, estado, IP ou fase dedicada.
+        /// Pesquisa maquinas por termo livre em numero, modelo, estado, IP, protocolo ou fase dedicada.
         /// </summary>
         /// <param name="searchTerm">Termo de pesquisa a aplicar.</param>
         /// <param name="page">Pagina atual.</param>

@@ -78,6 +78,26 @@ namespace TipMolde.Tests.Integracao.Repositorio
             result.Items.Should().ContainSingle(item => item.Numero == 18);
         }
 
+        [Test(Description = "TMAQREP1D - Search deve devolver maquinas que correspondem ao protocolo de comunicacao.")]
+        public async Task SearchAsync_Should_ReturnResults_When_SearchTermMatchesProtocol()
+        {
+            // ARRANGE
+            await using var context = CreateContext();
+            await context.Maquinas.AddRangeAsync(
+                new Maquina { Numero = 21, NomeModelo = "Fanuc OPC", ProtocoloComunicacao = "OPC-UA", Estado = EstadoMaquina.DISPONIVEL, FaseDedicada_id = 1 },
+                new Maquina { Numero = 22, NomeModelo = "Fanuc MTConnect", ProtocoloComunicacao = "MTConnect", Estado = EstadoMaquina.DISPONIVEL, FaseDedicada_id = 1 });
+            await context.SaveChangesAsync();
+
+            var repository = new MaquinaRepository(context);
+
+            // ACT
+            var result = await repository.SearchAsync("OPC-UA", page: 1, pageSize: 10);
+
+            // ASSERT
+            result.TotalCount.Should().Be(1);
+            result.Items.Should().ContainSingle(item => item.Numero == 21);
+        }
+
         [Test(Description = "TMAQREP2 - ExistsNumero deve devolver false quando numero pertence a maquina excluida.")]
         public async Task ExistsNumeroAsync_Should_ReturnFalse_When_ExistingMachineIsExcluded()
         {

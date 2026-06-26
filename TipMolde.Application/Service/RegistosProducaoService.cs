@@ -135,6 +135,22 @@ namespace TipMolde.Application.Service
         /// <returns>DTO do registo persistido.</returns>
         public async Task<ResponseRegistosProducaoDto> CreateAsync(CreateRegistosProducaoDto dto)
         {
+            return await CreateCoreAsync(dto, DateTime.UtcNow);
+        }
+
+        /// <summary>
+        /// Cria um registo de producao a partir de um evento industrial preservando o timestamp tecnico.
+        /// </summary>
+        /// <param name="dto">Dados de entrada do registo de producao.</param>
+        /// <param name="dataHoraIndustrial">Data/hora real recebida da maquina.</param>
+        /// <returns>DTO do registo persistido.</returns>
+        public async Task<ResponseRegistosProducaoDto> CreateFromIndustrialEventAsync(CreateRegistosProducaoDto dto, DateTime dataHoraIndustrial)
+        {
+            return await CreateCoreAsync(dto, NormalizeIndustrialTimestamp(dataHoraIndustrial));
+        }
+
+        private async Task<ResponseRegistosProducaoDto> CreateCoreAsync(CreateRegistosProducaoDto dto, DateTime dataHora)
+        {
             if (!dto.Estado_producao.HasValue)
                 throw new ArgumentException("Estado de producao e obrigatorio.");
 
@@ -155,7 +171,7 @@ namespace TipMolde.Application.Service
             await ValidarRegrasDeMontagemAsync(dto, fase.Nome, peca);
 
             var registo = _mapper.Map<RegistosProducao>(dto);
-            registo.Data_hora = DateTime.UtcNow;
+            registo.Data_hora = dataHora;
 
             var maquinaToUpdate = await ResolveMaquinaToUpdateAsync(dto, ultimo, registo);
             await ValidarAlteracaoProximaFaseAsync(peca, dto.Estado_producao.Value, dto.ProximaFase_id);
@@ -170,6 +186,16 @@ namespace TipMolde.Application.Service
                 created.Estado_producao);
 
             return _mapper.Map<ResponseRegistosProducaoDto>(created);
+        }
+
+        private static DateTime NormalizeIndustrialTimestamp(DateTime dataHoraIndustrial)
+        {
+            return dataHoraIndustrial.Kind switch
+            {
+                DateTimeKind.Utc => dataHoraIndustrial,
+                DateTimeKind.Local => dataHoraIndustrial.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(dataHoraIndustrial, DateTimeKind.Utc)
+            };
         }
 
         /// <summary>

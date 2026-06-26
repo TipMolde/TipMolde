@@ -28,6 +28,11 @@ namespace TipMolde.Application.Dtos.MaquinaDto
         public string? IpAddress { get; set; }
 
         /// <summary>
+        /// Protocolo de comunicacao da maquina.
+        /// </summary>
+        public string? ProtocoloComunicacao { get; set; }
+
+        /// <summary>
         /// Estado operacional atual da maquina.
         /// </summary>
         public EstadoMaquina Estado { get; set; }

@@ -31,6 +31,7 @@ namespace TipMolde.Application.Mappings
                 .ForMember(dest => dest.Numero, opt => opt.MapFrom(src => src.Numero))
                 .MapTrimmedRequired(dest => dest.NomeModelo, src => src.NomeModelo)
                 .MapTrimmedOptional(dest => dest.IpAddress, src => src.IpAddress)
+                .MapTrimmedOptional(dest => dest.ProtocoloComunicacao, src => src.ProtocoloComunicacao)
                 .ForMember(dest => dest.Estado, opt => opt.MapFrom(src => src.Estado))
                 .ForMember(dest => dest.FaseDedicada_id, opt => opt.MapFrom(src => src.FaseDedicada_id))
                 .ForMember(dest => dest.FaseDedicada, opt => opt.Ignore());
@@ -42,6 +43,7 @@ namespace TipMolde.Application.Mappings
                 .MapValueIfProvided(dest => dest.Numero, src => src.Numero)
                 .MapTrimmedIfProvided(dest => dest.NomeModelo, src => src.NomeModelo)
                 .MapTrimmedIfProvided(dest => dest.IpAddress, src => src.IpAddress)
+                .MapTrimmedIfProvided(dest => dest.ProtocoloComunicacao, src => src.ProtocoloComunicacao)
                 .MapValueIfProvided(dest => dest.Estado, src => src.Estado)
                 .MapValueIfProvided(dest => dest.FaseDedicada_id, src => src.FaseDedicada_id)
                 .ForMember(dest => dest.Maquina_id, opt => opt.Ignore())

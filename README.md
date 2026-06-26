@@ -162,6 +162,13 @@ dotnet test TipMolde.Tests/TipMolde.Tests.csproj
 
 Existe um `Dockerfile` para publicar a API em .NET 8.
 
+Se quiseres arrancar tudo com `compose.yaml`, o fluxo recomendado e:
+
+1. Garantir que existe um `.env` na mesma pasta do `compose.yaml`.
+2. Preencher os valores reais no `.env`.
+3. Garantir que `tipmolde-api:latest` foi carregada a partir do `tipmolde-api.tar`.
+4. Executar `docker compose up -d` a partir da pasta `TipMolde`.
+
 Build:
 
 ```powershell

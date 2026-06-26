@@ -4,21 +4,25 @@ services:
     container_name: tipmolde-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: Root123456!
-      MYSQL_DATABASE: tipmolde_test
-      MYSQL_USER: tipmolde
-      MYSQL_PASSWORD: TipMolde2018#
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pRoot123456!"]
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"
+        ]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 30s
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
 
   backend:
     image: tipmolde-api:latest
@@ -28,17 +32,35 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: Server=mysql;Port=3306;Database=tipmolde_test;Uid=tipmolde;Pwd=TipMolde2018#;
-      Jwt__SecretKey: TROCAR_POR_CHAVE_FORTE_COM_32+_CARACTERES
-      Jwt__Issuer: TipMolde.Api
-      Jwt__Audience: TipMolde.Client
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
+      ConnectionStrings__DefaultConnection: "Server=mysql;Port=3306;Database=${MYSQL_DATABASE};Uid=${MYSQL_USER};Pwd=${MYSQL_PASSWORD};"
+      Jwt__SecretKey: "${JWT_SECRET_KEY}"
+      Jwt__Issuer: "${JWT_ISSUER:-TipMolde.Api}"
+      Jwt__Audience: "${JWT_AUDIENCE:-TipMolde.Client}"
     ports:
-      - "8080:8080"
+      - "${BACKEND_PORT:-8080}:8080"
     volumes:
       - ./Storage:/app/Storage
       - ./Templates:/app/Templates
       - ./DataProtection-Keys:/home/app/.aspnet/DataProtection-Keys
+
+  industrial-middleware:
+    image: tipmolde-industrial-middleware:latest
+    build:
+      context: ../IndustrialMiddleware/TipMolde_IndustrialMiddleware
+      dockerfile: Dockerfile
+    container_name: tipmolde-industrial-middleware
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
+      IndustrialMiddleware__BackendBaseUrl: "http://backend:8080"
+      IndustrialMiddleware__BackendBearerToken: "${INDUSTRIAL_MIDDLEWARE_BACKEND_BEARER_TOKEN:-}"
+      IndustrialMiddleware__EmitToBackend: "${INDUSTRIAL_MIDDLEWARE_EMIT_TO_BACKEND:-true}"
+    ports:
+      - "${INDUSTRIAL_MIDDLEWARE_PORT:-8081}:8080"
 
 volumes:
   mysql-data:

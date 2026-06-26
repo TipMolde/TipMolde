@@ -43,6 +43,7 @@ public class MaquinaProfileTests
             Numero = 101,
             NomeModelo = "  Makino V33  ",
             IpAddress = " 10.0.0.9 ",
+            ProtocoloComunicacao = " OPC-UA ",
             Estado = EstadoMaquina.DISPONIVEL,
             FaseDedicada_id = 4
         };
@@ -55,6 +56,7 @@ public class MaquinaProfileTests
         result.Numero.Should().Be(101);
         result.NomeModelo.Should().Be("Makino V33");
         result.IpAddress.Should().Be("10.0.0.9");
+        result.ProtocoloComunicacao.Should().Be("OPC-UA");
         result.Estado.Should().Be(EstadoMaquina.DISPONIVEL);
         result.FaseDedicada_id.Should().Be(4);
     }
@@ -69,6 +71,7 @@ public class MaquinaProfileTests
             Numero = 220,
             NomeModelo = "Haas VF2",
             IpAddress = "10.0.0.12",
+            ProtocoloComunicacao = "MTConnect",
             Estado = EstadoMaquina.EM_USO,
             FaseDedicada_id = 6
         };
@@ -81,6 +84,7 @@ public class MaquinaProfileTests
         result.Numero.Should().Be(220);
         result.NomeModelo.Should().Be("Haas VF2");
         result.IpAddress.Should().Be("10.0.0.12");
+        result.ProtocoloComunicacao.Should().Be("MTConnect");
         result.Estado.Should().Be(EstadoMaquina.EM_USO);
         result.FaseDedicada_id.Should().Be(6);
     }
@@ -101,6 +105,7 @@ public class MaquinaProfileTests
             Numero = 33,
             NomeModelo = "Modelo Antigo",
             IpAddress = "10.0.0.3",
+            ProtocoloComunicacao = "SODICK",
             Estado = EstadoMaquina.EM_USO,
             FaseDedicada_id = 7
         };
@@ -113,6 +118,7 @@ public class MaquinaProfileTests
         destination.Numero.Should().Be(33);
         destination.NomeModelo.Should().Be("Novo Modelo");
         destination.IpAddress.Should().Be("10.0.0.3");
+        destination.ProtocoloComunicacao.Should().Be("SODICK");
         destination.Estado.Should().Be(EstadoMaquina.EM_USO);
         destination.FaseDedicada_id.Should().Be(9);
     }

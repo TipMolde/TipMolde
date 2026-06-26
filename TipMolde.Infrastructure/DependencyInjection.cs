@@ -13,7 +13,9 @@ using TipMolde.Application.Interface.Desenho.IRegistoTempoProjeto;
 using TipMolde.Application.Interface.Desenho.IRevisao;
 using TipMolde.Application.Interface.Fichas.IFichaDocumento;
 using TipMolde.Application.Interface.Fichas.IFichaProducao;
+using TipMolde.Application.Interface.Industrial;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
+using TipMolde.Application.Interface.Producao.IIndustrial;
 using TipMolde.Application.Interface.Producao.IMaquina;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Interface.Producao.IPeca;
@@ -48,6 +50,12 @@ public static class DependencyInjection
             .Validate(x => !string.IsNullOrWhiteSpace(x.RootPath), "Templates:RootPath e obrigatorio.")
             .ValidateOnStart();
 
+        services.AddOptions<IndustrialMiddlewareOptions>()
+            .Bind(configuration.GetSection(IndustrialMiddlewareOptions.SectionName))
+            .Validate(x => !string.IsNullOrWhiteSpace(x.BaseUrl), "IndustrialMiddleware:BaseUrl e obrigatorio.")
+            .Validate(x => x.RequestTimeoutSeconds >= 1, "IndustrialMiddleware:RequestTimeoutSeconds deve ser >= 1.")
+            .ValidateOnStart();
+
         if (environment.IsEnvironment("Testing"))
         {
             services.AddDbContext<ApplicationDbContext>();
@@ -72,6 +80,8 @@ public static class DependencyInjection
         services.AddScoped<IFasesProducaoRepository, FasesProducaoRepository>();
         services.AddScoped<IPecaRepository, PecaRepository>();
         services.AddScoped<IRegistosProducaoRepository, RegistosProducaoRepository>();
+        services.AddScoped<IEventoMaquinaIndustrialRepository, EventoMaquinaIndustrialRepository>();
+        services.AddScoped<ISessaoMaquinaIndustrialRepository, SessaoMaquinaIndustrialRepository>();
         services.AddScoped<IFornecedorRepository, FornecedorRepository>();
         services.AddScoped<IPedidoMaterialRepository, PedidoMaterialRepository>();
         services.AddScoped<IItemPedidoMaterialRepository, ItemPedidoMaterialRepository>();
@@ -94,6 +104,12 @@ public static class DependencyInjection
         services.AddScoped<IRevisaoAttachmentStorage, RevisaoAttachmentStorage>();
         services.AddScoped<IFichaDocumentoStorage, FichaDocumentoFileStorage>();
         services.AddScoped<IFichaDocumentoUnitOfWork, FichaDocumentoUnitOfWork>();
+        services.AddHttpClient<IIndustrialMiddlewareClient, IndustrialMiddlewareClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<IndustrialMiddlewareOptions>>().Value;
+            client.BaseAddress = new Uri(options.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds);
+        });
 
         return services;
     }

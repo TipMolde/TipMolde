@@ -367,6 +367,7 @@ actions-runner/
 
 # Local Docker environment
 .env
+.env.*
 compose.yaml
 docker/mysql/data/
 

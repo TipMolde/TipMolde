@@ -10,6 +10,7 @@ using TipMolde.Application.Interface.Desenho.IRevisao;
 using TipMolde.Application.Interface.Fichas.IFichaProducao;
 using TipMolde.Application.Interface.Ocorrencias;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
+using TipMolde.Application.Interface.Producao.IIndustrial;
 using TipMolde.Application.Interface.Producao.IMaquina;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Interface.Producao.IPeca;
@@ -37,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<IEncomendaMoldeService, EncomendaMoldeService>();
         services.AddScoped<IPrioridadeGlobalMoldeService, PrioridadeGlobalMoldeService>();
         services.AddScoped<IMaquinaService, MaquinaService>();
+        services.AddScoped<IIndustrialProducaoService, IndustrialProducaoService>();
         services.AddScoped<IProjetoService, ProjetoService>();
         services.AddScoped<IRevisaoService, RevisaoService>();
         services.AddScoped<IRegistoTempoProjetoService, RegistoTempoProjetoService>();

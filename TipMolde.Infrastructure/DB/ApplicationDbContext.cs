@@ -28,6 +28,8 @@ namespace TipMolde.Infrastructure.DB
         public virtual DbSet<ItemPedidoMaterial> ItensPedidoMaterial { get; set; }
         public virtual DbSet<FasesProducao> Fases_Producao { get; set; }
         public virtual DbSet<RegistosProducao> RegistosProducao { get; set; }
+        public virtual DbSet<SessaoMaquinaIndustrial> SessoesMaquinaIndustrial { get; set; }
+        public virtual DbSet<EventoMaquinaIndustrial> EventosMaquinaIndustrial { get; set; }
         public virtual DbSet<Projeto> Projetos { get; set; }
         public virtual DbSet<Revisao> Revisoes { get; set; }
         public virtual DbSet<RegistoTempoProjeto> RegistosTempoProjeto { get; set; }
@@ -58,6 +60,8 @@ namespace TipMolde.Infrastructure.DB
             modelBuilder.Entity<PedidoMaterial>().ToTable("pedidosmaterial");
             modelBuilder.Entity<Projeto>().ToTable("projetos");
             modelBuilder.Entity<RegistosProducao>().ToTable("registosproducao");
+            modelBuilder.Entity<SessaoMaquinaIndustrial>().ToTable("sessoesmaquinaindustrial");
+            modelBuilder.Entity<EventoMaquinaIndustrial>().ToTable("eventosmaquinaindustrial");
             modelBuilder.Entity<RegistoTempoProjeto>().ToTable("registostempoprojeto");
             modelBuilder.Entity<Revisao>().ToTable("revisoes");
             modelBuilder.Entity<RevokedToken>().ToTable("revokedtokens");
@@ -73,6 +77,8 @@ namespace TipMolde.Infrastructure.DB
             modelBuilder.Entity<PedidoMaterial>().HasKey(x => x.PedidoMaterial_id);
             modelBuilder.Entity<FasesProducao>().HasKey(x => x.Fases_producao_id);
             modelBuilder.Entity<RegistosProducao>().HasKey(x => x.Registo_Producao_id);
+            modelBuilder.Entity<SessaoMaquinaIndustrial>().HasKey(x => x.SessaoMaquinaIndustrial_id);
+            modelBuilder.Entity<EventoMaquinaIndustrial>().HasKey(x => x.EventoMaquinaIndustrial_id);
             modelBuilder.Entity<Projeto>().HasKey(x => x.Projeto_id);
             modelBuilder.Entity<Revisao>().HasKey(x => x.Revisao_id);
             modelBuilder.Entity<RegistoTempoProjeto>().HasKey(x => x.Registo_Tempo_Projeto_id);
@@ -221,6 +227,10 @@ namespace TipMolde.Infrastructure.DB
                 .Property(m => m.Estado).HasConversion<string>().HasMaxLength(30);
 
             modelBuilder.Entity<Maquina>()
+                .Property(m => m.ProtocoloComunicacao)
+                .HasMaxLength(30);
+
+            modelBuilder.Entity<Maquina>()
                 .HasIndex(m => m.Numero)
                 .IsUnique();
 
@@ -250,6 +260,151 @@ namespace TipMolde.Infrastructure.DB
 
             modelBuilder.Entity<RegistosProducao>()
                 .Property(r => r.Estado_producao).HasConversion<string>().HasMaxLength(30);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .Property(s => s.EstadoSessao)
+                .HasConversion<string>()
+                .HasMaxLength(40);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .Property(s => s.UltimoEstadoMaquina)
+                .HasMaxLength(40);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .HasIndex(s => s.Maquina_id);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .HasIndex(s => s.Operador_id);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .HasIndex(s => s.Peca_id);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .HasIndex(s => s.Fase_id);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .HasIndex(s => s.EstadoSessao);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .HasOne(s => s.Maquina)
+                .WithMany()
+                .HasForeignKey(s => s.Maquina_id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .HasOne(s => s.Operador)
+                .WithMany()
+                .HasForeignKey(s => s.Operador_id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .HasOne(s => s.Peca)
+                .WithMany()
+                .HasForeignKey(s => s.Peca_id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .HasOne(s => s.Fase)
+                .WithMany()
+                .HasForeignKey(s => s.Fase_id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .HasOne(s => s.RegistoProducaoInicio)
+                .WithMany()
+                .HasForeignKey(s => s.RegistoProducaoInicio_id)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<SessaoMaquinaIndustrial>()
+                .HasOne(s => s.RegistoProducaoConclusao)
+                .WithMany()
+                .HasForeignKey(s => s.RegistoProducaoConclusao_id)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .Property(e => e.IpMaquina)
+                .HasMaxLength(45)
+                .IsRequired();
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .Property(e => e.Protocolo)
+                .HasMaxLength(30)
+                .IsRequired();
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .Property(e => e.EstadoMaquina)
+                .HasMaxLength(40)
+                .IsRequired();
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .Property(e => e.Programa)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .Property(e => e.CodigoOperador)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .Property(e => e.CodigoPeca)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .Property(e => e.CodigoMolde)
+                .HasMaxLength(100);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .Property(e => e.CamposEmFalta)
+                .HasMaxLength(255);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .Property(e => e.EstadoResolucao)
+                .HasConversion<string>()
+                .HasMaxLength(40);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .Property(e => e.ResolvidoComoEstadoProducao)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .Property(e => e.FonteResolucao)
+                .HasMaxLength(60);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .HasIndex(e => e.SessaoMaquinaIndustrial_id);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .HasIndex(e => e.Maquina_id);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .HasIndex(e => e.IpMaquina);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .HasIndex(e => e.EstadoMaquina);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .HasIndex(e => e.EstadoResolucao);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .HasIndex(e => e.OccurredAt);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .HasOne(e => e.SessaoMaquinaIndustrial)
+                .WithMany()
+                .HasForeignKey(e => e.SessaoMaquinaIndustrial_id)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .HasOne(e => e.Maquina)
+                .WithMany()
+                .HasForeignKey(e => e.Maquina_id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<EventoMaquinaIndustrial>()
+                .HasOne(e => e.RegistoProducao)
+                .WithMany()
+                .HasForeignKey(e => e.RegistoProducao_id)
+                .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<FichaProducao>()
                 .Property(f => f.Tipo).HasConversion<string>().HasMaxLength(10);
