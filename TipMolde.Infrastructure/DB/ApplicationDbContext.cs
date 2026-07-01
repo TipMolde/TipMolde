@@ -204,6 +204,11 @@ namespace TipMolde.Infrastructure.DB
                 .HasForeignKey(p => p.ProximaFase_id)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<Peca>()
+                .HasOne(p => p.Molde)
+                .WithMany(m => m.Pecas)
+                .HasForeignKey(p => p.Molde_id);
+
             modelBuilder.Entity<Fornecedor>()
                 .HasIndex(f => f.NIF)
                 .IsUnique();
@@ -217,6 +222,16 @@ namespace TipMolde.Infrastructure.DB
                 .HasMany(p => p.Itens)
                 .WithOne(i => i.PedidoMaterial)
                 .HasForeignKey(i => i.PedidoMaterial_id);
+
+            modelBuilder.Entity<PedidoMaterial>()
+                .HasOne(p => p.Fornecedor)
+                .WithMany()
+                .HasForeignKey(p => p.Fornecedor_id);
+
+            modelBuilder.Entity<PedidoMaterial>()
+                .HasOne(p => p.Conferente)
+                .WithMany()
+                .HasForeignKey(p => p.UserConferente_id);
 
             modelBuilder.Entity<ItemPedidoMaterial>()
                 .HasOne(i => i.Peca)
@@ -257,6 +272,21 @@ namespace TipMolde.Infrastructure.DB
                 .HasOne(r => r.Maquina)
                 .WithMany()
                 .HasForeignKey(r => r.Maquina_id);
+
+            modelBuilder.Entity<RegistosProducao>()
+                .HasOne(r => r.Fase)
+                .WithMany()
+                .HasForeignKey(r => r.Fase_id);
+
+            modelBuilder.Entity<RegistosProducao>()
+                .HasOne(r => r.Operador)
+                .WithMany()
+                .HasForeignKey(r => r.Operador_id);
+
+            modelBuilder.Entity<RegistosProducao>()
+                .HasOne(r => r.Peca)
+                .WithMany()
+                .HasForeignKey(r => r.Peca_id);
 
             modelBuilder.Entity<RegistosProducao>()
                 .Property(r => r.Estado_producao).HasConversion<string>().HasMaxLength(30);
@@ -425,7 +455,7 @@ namespace TipMolde.Infrastructure.DB
                 .IsUnique();
 
             modelBuilder.Entity<FichaDocumento>()
-                .HasOne<User>()
+                .HasOne(x => x.CriadoPor)
                 .WithMany()
                 .HasForeignKey(x => x.CriadoPor_user_id)
                 .OnDelete(DeleteBehavior.Restrict);

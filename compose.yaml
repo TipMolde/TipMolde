@@ -45,6 +45,8 @@ services:
       - ./DataProtection-Keys:/home/app/.aspnet/DataProtection-Keys
 
   industrial-middleware:
+    profiles:
+      - industrial
     image: tipmolde-industrial-middleware:latest
     build:
       context: ../IndustrialMiddleware/TipMolde_IndustrialMiddleware
