@@ -83,6 +83,43 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Obtem o perfil do utilizador autenticado.
+        /// </summary>
+        /// <remarks>
+        /// Resolve o identificador a partir dos claims do token e devolve a representacao atual
+        /// persistida no backend para evitar que o frontend dependa da role embebida no JWT.
+        /// </remarks>
+        /// <returns>Resultado HTTP com o utilizador autenticado ou erro quando o token nao e valido.</returns>
+        [Authorize]
+        [HttpGet("me")]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            int authenticatedUserId;
+            try
+            {
+                authenticatedUserId = this.GetAuthenticatedUserId();
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(this.CreateProblem(
+                    StatusCodes.Status401Unauthorized,
+                    "Nao autorizado",
+                    ex.Message));
+            }
+
+            var user = await _userService.GetCurrentAsync(authenticatedUserId);
+            if (user == null)
+            {
+                return NotFound(this.CreateProblem(
+                    StatusCodes.Status404NotFound,
+                    "Recurso nao encontrado",
+                    "Utilizador autenticado nao encontrado."));
+            }
+
+            return Ok(user);
+        }
+
+        /// <summary>
         /// Pesquisa utilizadores por nome.
         /// </summary>
         /// <param name="searchTerm">Termo parcial de pesquisa aplicado ao nome do utilizador.</param>

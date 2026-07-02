@@ -259,6 +259,37 @@ public class UserManagementServiceTests
         result.Email.Should().Be("ana@tipmolde.pt");
     }
 
+    [Test(Description = "T12.1USR - GetCurrent deve devolver nulo quando utilizador autenticado nao existe.")]
+    public async Task GetCurrentAsync_Should_ReturnNull_When_AuthenticatedUserDoesNotExist()
+    {
+        // ARRANGE
+        _userRepository.Setup(r => r.GetByIdAsync(91)).ReturnsAsync((User?)null);
+
+        // ACT
+        var result = await _sut.GetCurrentAsync(91);
+
+        // ASSERT
+        result.Should().BeNull();
+    }
+
+    [Test(Description = "T12.2USR - GetCurrent deve mapear o utilizador autenticado quando registo existe.")]
+    public async Task GetCurrentAsync_Should_MapResponse_When_AuthenticatedUserExists()
+    {
+        // ARRANGE
+        _userRepository
+            .Setup(r => r.GetByIdAsync(12))
+            .ReturnsAsync(BuildUser(id: 12, nome: "Ana", email: "ana@tipmolde.pt"));
+
+        // ACT
+        var result = await _sut.GetCurrentAsync(12);
+
+        // ASSERT
+        result.Should().NotBeNull();
+        result!.User_id.Should().Be(12);
+        result.Nome.Should().Be("Ana");
+        result.Email.Should().Be("ana@tipmolde.pt");
+    }
+
     [Test(Description = "T13USR - Search por nome deve devolver vazio quando termo e branco.")]
     public async Task SearchByNameAsync_Should_ReturnEmpty_When_SearchTermIsBlank()
     {

@@ -28,6 +28,13 @@ namespace TipMolde.Application.Interface.Utilizador.IUser
         Task<ResponseUserDto?> GetByIdAsync(int id);
 
         /// <summary>
+        /// Obtem o utilizador autenticado a partir do identificador resolvido pelo pipeline HTTP.
+        /// </summary>
+        /// <param name="authenticatedUserId">Identificador do utilizador autenticado.</param>
+        /// <returns>Utilizador autenticado encontrado ou nulo quando nao existe registo correspondente.</returns>
+        Task<ResponseUserDto?> GetCurrentAsync(int authenticatedUserId);
+
+        /// <summary>
         /// Obtem um utilizador pelo email.
         /// </summary>
         /// <param name="email">Email unico do utilizador.</param>

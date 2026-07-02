@@ -53,6 +53,47 @@ public sealed class UserControllerTests : ControllerHttpTestBase
         await AssertProblemAsync(response, HttpStatusCode.NotFound, "Recurso nao encontrado");
     }
 
+    [Test(Description = "TUSERAPI3.1 - GET /api/users/me devolve o utilizador autenticado quando o token e valido.")]
+    public async Task GetCurrentUser_Should_ReturnCurrentUser_When_RequestIsAuthenticated()
+    {
+        // ARRANGE
+        Client.AuthenticateAs("7", "GESTOR_PRODUCAO");
+        var currentUser = new ResponseUserDto
+        {
+            User_id = 7,
+            Nome = "Gestor Producao",
+            Email = "gestor@tipmolde.pt",
+            Role = "GESTOR_PRODUCAO"
+        };
+
+        Factory.UserManagementService
+            .Setup(s => s.GetCurrentAsync(7))
+            .ReturnsAsync(currentUser);
+
+        // ACT
+        var response = await Client.GetAsync("/api/users/me");
+
+        // ASSERT
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await ReadBodyAsync<ResponseUserDto>(response);
+        body.Should().BeEquivalentTo(currentUser);
+        Factory.UserManagementService.Verify(s => s.GetCurrentAsync(7), Times.Once);
+    }
+
+    [Test(Description = "TUSERAPI3.2 - GET /api/users/me devolve 401 quando o token nao contem utilizador.")]
+    public async Task GetCurrentUser_Should_ReturnUnauthorized_When_UserClaimIsMissing()
+    {
+        // ARRANGE
+        Client.AuthenticateAs(TestAuthHandler.MissingUserId, "GESTOR_PRODUCAO");
+
+        // ACT
+        var response = await Client.GetAsync("/api/users/me");
+
+        // ASSERT
+        await AssertProblemAsync(response, HttpStatusCode.Unauthorized, "Nao autorizado");
+        Factory.UserManagementService.Verify(s => s.GetCurrentAsync(It.IsAny<int>()), Times.Never);
+    }
+
     [Test(Description = "TUSERAPI4 - POST /api/users devolve 201 quando request e valida.")]
     public async Task CreateUser_Should_ReturnCreatedJson_When_RequestIsValid()
     {

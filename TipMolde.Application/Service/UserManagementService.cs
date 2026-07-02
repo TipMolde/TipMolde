@@ -68,6 +68,20 @@ namespace TipMolde.Application.Service
         }
 
         /// <summary>
+        /// Obtem o utilizador autenticado a partir do identificador validado pelo pipeline de autenticacao.
+        /// </summary>
+        /// <param name="authenticatedUserId">Identificador do utilizador autenticado.</param>
+        /// <returns>DTO do utilizador autenticado ou nulo quando o registo nao existe.</returns>
+        public async Task<ResponseUserDto?> GetCurrentAsync(int authenticatedUserId)
+        {
+            if (authenticatedUserId <= 0)
+                throw new ArgumentException("O identificador do utilizador autenticado e invalido.");
+
+            var user = await _userRepository.GetByIdAsync(authenticatedUserId);
+            return user == null ? null : _mapper.Map<ResponseUserDto>(user);
+        }
+
+        /// <summary>
         /// Pesquisa utilizadores por nome com paginacao.
         /// </summary>
         /// <param name="searchTerm">Termo parcial para pesquisa no nome.</param>
