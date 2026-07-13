@@ -456,6 +456,23 @@ public class EncomendaServiceTests
         result!.Encomenda_id.Should().Be(50);
     }
 
+    [Test(Description = "TENCSRV17B - GetByNumero deve normalizar espacos antes de consultar o repositorio.")]
+    public async Task GetByNumeroEncomendaClienteAsync_Should_TrimNumeroBeforeRepository_When_InputContainsSpaces()
+    {
+        // ARRANGE
+        _encomendaRepository
+            .Setup(r => r.GetByNumeroEncomendaClienteAsync("ENC-051"))
+            .ReturnsAsync(BuildEncomenda(id: 51, numero: "ENC-051"));
+
+        // ACT
+        var result = await _sut.GetByNumeroEncomendaClienteAsync("  ENC-051  ");
+
+        // ASSERT
+        result.Should().NotBeNull();
+        result!.Encomenda_id.Should().Be(51);
+        _encomendaRepository.Verify(r => r.GetByNumeroEncomendaClienteAsync("ENC-051"), Times.Once);
+    }
+
     [Test(Description = "TENCSRV18 - Update deve falhar quando nenhum campo e enviado.")]
     public async Task UpdateAsync_Should_ThrowArgumentException_When_NoFieldsProvided()
     {
@@ -498,5 +515,28 @@ public class EncomendaServiceTests
 
         // ASSERT
         _prioridadeGlobalMoldeService.Verify(s => s.RecalcularAsync(), Times.Once);
+    }
+
+    [Test(Description = "TENCSRV21 - SearchEncomendasEmProducao deve normalizar pesquisa e paginacao antes de consultar o repositorio.")]
+    public async Task SearchEncomendasEmProducaoAsync_Should_TrimSearchTermAndNormalizePagination()
+    {
+        // ARRANGE
+        var paged = new PagedResult<Encomenda>(
+            new[] { BuildEncomenda(id: 70, numero: "ENC-070", estado: EstadoEncomenda.EM_PRODUCAO) },
+            1,
+            1,
+            200);
+        _encomendaRepository
+            .Setup(r => r.SearchEncomendasEmProducaoAsync("Molde Base", 1, 200))
+            .ReturnsAsync(paged);
+
+        // ACT
+        var result = await _sut.SearchEncomendasEmProducaoAsync("  Molde Base  ", 0, 999);
+
+        // ASSERT
+        result.TotalCount.Should().Be(1);
+        result.CurrentPage.Should().Be(1);
+        result.PageSize.Should().Be(200);
+        result.Items.Single().Encomenda_id.Should().Be(70);
     }
 }

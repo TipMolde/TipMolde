@@ -63,6 +63,9 @@ services:
       IndustrialMiddleware__EmitToBackend: "${INDUSTRIAL_MIDDLEWARE_EMIT_TO_BACKEND:-true}"
     ports:
       - "${INDUSTRIAL_MIDDLEWARE_PORT:-8081}:8080"
+    volumes:
+      - industrial-middleware-outbox:/app/App_Data/backend-outbox
 
 volumes:
   mysql-data:
+  industrial-middleware-outbox:

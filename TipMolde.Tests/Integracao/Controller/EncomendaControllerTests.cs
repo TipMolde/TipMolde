@@ -92,6 +92,20 @@ namespace TipMolde.Tests.Integracao.Controller
             await AssertProblemAsync(response, HttpStatusCode.NotFound, "Recurso nao encontrado");
         }
 
+        [Test(Description = "TENCAPI5B - GET /api/encomendas/{id} devolve 403 quando a role nao tem permissao para consultar detalhe comercial.")]
+        public async Task GetEncomendaById_Should_ReturnForbidden_When_RoleIsNotAllowed()
+        {
+            // ARRANGE
+            Client.AuthenticateAs("7", "GESTOR_PRODUCAO");
+
+            // ACT
+            var response = await Client.GetAsync("/api/encomendas/44");
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            Factory.EncomendaService.Verify(s => s.GetByIdAsync(It.IsAny<int>()), Times.Never);
+        }
+
         [Test(Description = "TENCAPI6 - GET /api/encomendas/{id}/moldes devolve 404 quando encomenda nao existe.")]
         public async Task GetEncomendaWithMoldes_Should_ReturnProblemDetails_When_EncomendaDoesNotExist()
         {
@@ -144,6 +158,22 @@ namespace TipMolde.Tests.Integracao.Controller
             // ASSERT
             await AssertProblemAsync(response, HttpStatusCode.BadRequest, "Pedido invalido");
             Factory.EncomendaService.Verify(s => s.GetEncomendasEmProducaoAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        }
+
+        [Test(Description = "TENCAPI8C - GET /api/encomendas/em-producao/search devolve 403 quando a role nao tem permissao para a pesquisa comercial.")]
+        public async Task SearchEncomendasEmProducao_Should_ReturnForbidden_When_RoleIsNotAllowed()
+        {
+            // ARRANGE
+            Client.AuthenticateAs("9", "GESTOR_PRODUCAO");
+
+            // ACT
+            var response = await Client.GetAsync("/api/encomendas/em-producao/search?searchTerm=Molde&page=1&pageSize=10");
+
+            // ASSERT
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            Factory.EncomendaService.Verify(
+                s => s.SearchEncomendasEmProducaoAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()),
+                Times.Never);
         }
 
         [Test(Description = "TENCAPI9 - PUT /api/encomendas/{id} devolve 204 quando request e valida.")]

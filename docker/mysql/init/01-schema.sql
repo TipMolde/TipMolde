@@ -186,6 +186,49 @@ CREATE TABLE `especificacoestecnicas` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `eventosmaquinaindustrial`
+--
+
+DROP TABLE IF EXISTS `eventosmaquinaindustrial`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `eventosmaquinaindustrial` (
+  `EventoMaquinaIndustrial_id` int NOT NULL AUTO_INCREMENT,
+  `SessaoMaquinaIndustrial_id` int DEFAULT NULL,
+  `Maquina_id` int NOT NULL,
+  `IpMaquina` varchar(45) NOT NULL,
+  `Protocolo` varchar(30) NOT NULL,
+  `EstadoMaquina` varchar(40) NOT NULL,
+  `OccurredAt` datetime(6) NOT NULL,
+  `Programa` varchar(100) DEFAULT NULL,
+  `ContadorPecas` int DEFAULT NULL,
+  `CodigoOperador` varchar(100) DEFAULT NULL,
+  `CodigoPeca` varchar(100) DEFAULT NULL,
+  `CodigoMolde` varchar(100) DEFAULT NULL,
+  `CamposEmFalta` varchar(255) DEFAULT NULL,
+  `PayloadBruto` longtext,
+  `EstadoResolucao` varchar(40) NOT NULL DEFAULT 'PENDENTE',
+  `ResolvidoComoEstadoProducao` varchar(30) DEFAULT NULL,
+  `FonteResolucao` varchar(60) DEFAULT NULL,
+  `ResolvedAt` datetime(6) DEFAULT NULL,
+  `RegistoProducao_id` int DEFAULT NULL,
+  `CreatedAt` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `UpdatedAt` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`EventoMaquinaIndustrial_id`),
+  KEY `IX_eventosmaquinaindustrial_Sessao_id` (`SessaoMaquinaIndustrial_id`),
+  KEY `IX_eventosmaquinaindustrial_Maquina_id` (`Maquina_id`),
+  KEY `IX_eventosmaquinaindustrial_IpMaquina` (`IpMaquina`),
+  KEY `IX_eventosmaquinaindustrial_EstadoMaquina` (`EstadoMaquina`),
+  KEY `IX_eventosmaquinaindustrial_EstadoResolucao` (`EstadoResolucao`),
+  KEY `IX_eventosmaquinaindustrial_OccurredAt` (`OccurredAt`),
+  KEY `IX_eventosmaquinaindustrial_RegistoProducao_id` (`RegistoProducao_id`),
+  CONSTRAINT `FK_eventosmaquinaindustrial_maquinas_Maquina_id` FOREIGN KEY (`Maquina_id`) REFERENCES `maquinas` (`Maquina_id`) ON DELETE RESTRICT,
+  CONSTRAINT `FK_eventosmaquinaindustrial_registos_RegistoProducao_id` FOREIGN KEY (`RegistoProducao_id`) REFERENCES `registosproducao` (`Registo_Producao_id`) ON DELETE SET NULL,
+  CONSTRAINT `FK_eventosmaquinaindustrial_sessoes_Sessao_id` FOREIGN KEY (`SessaoMaquinaIndustrial_id`) REFERENCES `sessoesmaquinaindustrial` (`SessaoMaquinaIndustrial_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `fases_producao`
 --
 
@@ -197,7 +240,7 @@ CREATE TABLE `fases_producao` (
   `Nome` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `Descricao` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   PRIMARY KEY (`Fases_producao_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=86 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=97 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -259,7 +302,7 @@ CREATE TABLE `fornecedores` (
   `Telefone` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
   `Morada` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
   PRIMARY KEY (`Fornecedor_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=77 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=88 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -294,6 +337,7 @@ CREATE TABLE `maquinas` (
   `Numero` int NOT NULL,
   `NomeModelo` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `IpAddress` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
+  `ProtocoloComunicacao` varchar(30) DEFAULT NULL,
   `Estado` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `FaseDedicada_id` int NOT NULL,
   PRIMARY KEY (`Maquina_id`),
@@ -319,7 +363,7 @@ CREATE TABLE `moldes` (
   `TipoPedido` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `ImagemCapaPath` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
   PRIMARY KEY (`Molde_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=99 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=110 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -344,8 +388,8 @@ CREATE TABLE `pecas` (
   `ProximaFase_id` int DEFAULT NULL,
   `Molde_id` int NOT NULL,
   PRIMARY KEY (`Peca_id`),
-  KEY `IX_Pecas_Molde_id` (`Molde_id`),
   KEY `IX_Pecas_ProximaFase_id` (`ProximaFase_id`),
+  KEY `IX_Pecas_Molde_id` (`Molde_id`),
   CONSTRAINT `FK_Pecas_FasesProducao_ProximaFase_id` FOREIGN KEY (`ProximaFase_id`) REFERENCES `fases_producao` (`Fases_producao_id`) ON DELETE RESTRICT,
   CONSTRAINT `FK_Pecas_Moldes_Molde_id` FOREIGN KEY (`Molde_id`) REFERENCES `moldes` (`Molde_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=400 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -370,7 +414,7 @@ CREATE TABLE `pedidosmaterial` (
   KEY `IX_PedidosMaterial_UserConferente_id` (`UserConferente_id`),
   CONSTRAINT `FK_PedidosMaterial_Fornecedores_Fornecedor_id` FOREIGN KEY (`Fornecedor_id`) REFERENCES `fornecedores` (`Fornecedor_id`),
   CONSTRAINT `FK_PedidosMaterial_Users_UserConferente_id` FOREIGN KEY (`UserConferente_id`) REFERENCES `users` (`User_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=86 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=97 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -409,8 +453,8 @@ CREATE TABLE `registosproducao` (
   `Peca_id` int NOT NULL,
   `Maquina_id` int DEFAULT NULL,
   PRIMARY KEY (`Registo_Producao_id`),
-  KEY `IX_RegistosProducao_Fase_id` (`Fase_id`),
   KEY `FK_RegistosProducao_Maquinas_Maquina_id` (`Maquina_id`),
+  KEY `IX_RegistosProducao_Fase_id` (`Fase_id`),
   KEY `IX_RegistosProducao_Operador_id` (`Operador_id`),
   KEY `IX_RegistosProducao_Peca_id` (`Peca_id`),
   CONSTRAINT `FK_RegistosProducao_Fases_Producao_Fase_id` FOREIGN KEY (`Fase_id`) REFERENCES `fases_producao` (`Fases_producao_id`),
@@ -481,6 +525,45 @@ CREATE TABLE `revokedtokens` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `sessoesmaquinaindustrial`
+--
+
+DROP TABLE IF EXISTS `sessoesmaquinaindustrial`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sessoesmaquinaindustrial` (
+  `SessaoMaquinaIndustrial_id` int NOT NULL AUTO_INCREMENT,
+  `Maquina_id` int NOT NULL,
+  `Operador_id` int NOT NULL,
+  `Peca_id` int NOT NULL,
+  `Fase_id` int NOT NULL,
+  `RegistoProducaoInicio_id` int DEFAULT NULL,
+  `RegistoProducaoConclusao_id` int DEFAULT NULL,
+  `EstadoSessao` varchar(40) NOT NULL,
+  `UltimoEstadoMaquina` varchar(40) DEFAULT NULL,
+  `StartedAt` datetime(6) NOT NULL,
+  `LastSeenAt` datetime(6) NOT NULL,
+  `ClosedAt` datetime(6) DEFAULT NULL,
+  `CreatedAt` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `UpdatedAt` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`SessaoMaquinaIndustrial_id`),
+  KEY `IX_sessoesmaquinaindustrial_Maquina_id` (`Maquina_id`),
+  KEY `IX_sessoesmaquinaindustrial_Operador_id` (`Operador_id`),
+  KEY `IX_sessoesmaquinaindustrial_Peca_id` (`Peca_id`),
+  KEY `IX_sessoesmaquinaindustrial_Fase_id` (`Fase_id`),
+  KEY `IX_sessoesmaquinaindustrial_EstadoSessao` (`EstadoSessao`),
+  KEY `IX_sessoesmaquinaindustrial_RegistoProducaoInicio_id` (`RegistoProducaoInicio_id`),
+  KEY `IX_sessoesmaquinaindustrial_RegistoProducaoConclusao_id` (`RegistoProducaoConclusao_id`),
+  CONSTRAINT `FK_sessoesmaquinaindustrial_fases_Fase_id` FOREIGN KEY (`Fase_id`) REFERENCES `fases_producao` (`Fases_producao_id`) ON DELETE RESTRICT,
+  CONSTRAINT `FK_sessoesmaquinaindustrial_maquinas_Maquina_id` FOREIGN KEY (`Maquina_id`) REFERENCES `maquinas` (`Maquina_id`) ON DELETE RESTRICT,
+  CONSTRAINT `FK_sessoesmaquinaindustrial_pecas_Peca_id` FOREIGN KEY (`Peca_id`) REFERENCES `pecas` (`Peca_id`) ON DELETE RESTRICT,
+  CONSTRAINT `FK_sessoesmaquinaindustrial_registos_Conclusao` FOREIGN KEY (`RegistoProducaoConclusao_id`) REFERENCES `registosproducao` (`Registo_Producao_id`) ON DELETE SET NULL,
+  CONSTRAINT `FK_sessoesmaquinaindustrial_registos_Inicio` FOREIGN KEY (`RegistoProducaoInicio_id`) REFERENCES `registosproducao` (`Registo_Producao_id`) ON DELETE SET NULL,
+  CONSTRAINT `FK_sessoesmaquinaindustrial_users_Operador_id` FOREIGN KEY (`Operador_id`) REFERENCES `users` (`User_id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `users`
 --
 
@@ -495,7 +578,7 @@ CREATE TABLE `users` (
   `Role` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `CreatedAt` datetime(6) NOT NULL,
   PRIMARY KEY (`User_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=385 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=396 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -515,4 +598,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-06-25  9:33:13
+-- Dump completed on 2026-07-09 15:14:35

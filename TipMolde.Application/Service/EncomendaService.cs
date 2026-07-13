@@ -155,7 +155,8 @@ namespace TipMolde.Application.Service
             if (string.IsNullOrWhiteSpace(numero))
                 throw new ArgumentException("O numero de encomenda do cliente e obrigatorio.");
 
-            var encomenda = await _encomendaRepository.GetByNumeroEncomendaClienteAsync(numero);
+            var numeroNormalizado = numero.Trim();
+            var encomenda = await _encomendaRepository.GetByNumeroEncomendaClienteAsync(numeroNormalizado);
             return encomenda == null ? null : _mapper.Map<ResponseEncomendaDto>(encomenda);
         }
 
