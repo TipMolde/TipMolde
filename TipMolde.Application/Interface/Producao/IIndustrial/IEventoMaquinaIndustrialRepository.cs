@@ -9,6 +9,8 @@ namespace TipMolde.Application.Interface.Producao.IIndustrial
     {
         Task<PagedResult<EventoMaquinaIndustrial>> GetPendentesAsync(int page, int pageSize);
 
+        Task<EventoMaquinaIndustrial?> GetMaisRecentePendentePorMaquinaAsync(int maquinaId, string estadoMaquina);
+
         Task<EventoMaquinaIndustrial?> GetUltimoStoppedPendenteAsync(int sessaoId);
     }
 }

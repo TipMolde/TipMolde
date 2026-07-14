@@ -8,6 +8,7 @@ using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Comercio.IEncomendaMolde;
 using TipMolde.Application.Interface.Desenho.IProjeto;
+using TipMolde.Application.Interface.Producao.IIndustrial;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Interface.Producao.IPeca;
@@ -45,6 +46,7 @@ namespace TipMolde.Application.Service
         private readonly IFasesProducaoRepository _fasesProducaoRepository;
         private readonly IEncomendaMoldeService _encomendaMoldeService;
         private readonly IRegistosProducaoRepository _registosProducaoRepository;
+        private readonly ISessaoMaquinaIndustrialRepository _sessaoMaquinaIndustrialRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<PecaService> _logger;
 
@@ -62,6 +64,7 @@ namespace TipMolde.Application.Service
             IFasesProducaoRepository fasesProducaoRepository,
             IEncomendaMoldeService encomendaMoldeService,
             IRegistosProducaoRepository registosProducaoRepository,
+            ISessaoMaquinaIndustrialRepository sessaoMaquinaIndustrialRepository,
             IMapper mapper,
             ILogger<PecaService> logger)
         {
@@ -71,6 +74,7 @@ namespace TipMolde.Application.Service
             _fasesProducaoRepository = fasesProducaoRepository;
             _encomendaMoldeService = encomendaMoldeService;
             _registosProducaoRepository = registosProducaoRepository;
+            _sessaoMaquinaIndustrialRepository = sessaoMaquinaIndustrialRepository;
             _mapper = mapper;
             _logger = logger;
         }
@@ -159,7 +163,8 @@ namespace TipMolde.Application.Service
             int page = 1,
             int pageSize = 10,
             string? searchTerm = null,
-            string searchMode = "Molde")
+            string searchMode = "Molde",
+            int? faseId = null)
         {
             var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
             var moldesFila = await GetAllFilaGlobalMoldeAsync();
@@ -177,11 +182,14 @@ namespace TipMolde.Application.Service
 
             var ultimosRegistos = await _registosProducaoRepository.GetUltimosRegistosGlobaisAsync(pecas.Select(item => item.Peca_id));
             var ultimosPorPeca = ultimosRegistos.ToDictionary(item => item.Peca_id);
+            var pecasComSessaoIndustrialAberta = await _sessaoMaquinaIndustrialRepository.GetPecaIdsComSessaoAbertaAsync(
+                pecas.Select(item => item.Peca_id));
 
             var itens = pecas
-                .Select(peca => BuildFilaTrabalhoItem(peca, moldesPorId, ultimosPorPeca))
+                .Select(peca => BuildFilaTrabalhoItem(peca, moldesPorId, ultimosPorPeca, pecasComSessaoIndustrialAberta))
                 .Where(item => item is not null)
                 .Cast<ResponsePecaFilaTrabalhoDto>()
+                .Where(item => !faseId.HasValue || item.ProximaFaseId == faseId.Value)
                 .Where(item => MatchesSearch(item, searchTerm, searchMode))
                 .OrderBy(item => item.PrioridadeMolde)
                 .ThenBy(item => item.PrioridadePeca)
@@ -430,7 +438,8 @@ namespace TipMolde.Application.Service
         private static ResponsePecaFilaTrabalhoDto? BuildFilaTrabalhoItem(
             Peca peca,
             IReadOnlyDictionary<int, FilaGlobalMoldeItemDto> moldesPorId,
-            IReadOnlyDictionary<int, RegistosProducao> ultimosPorPeca)
+            IReadOnlyDictionary<int, RegistosProducao> ultimosPorPeca,
+            IReadOnlySet<int> pecasComSessaoIndustrialAberta)
         {
             if (!moldesPorId.TryGetValue(peca.Molde_id, out var molde))
                 return null;
@@ -440,6 +449,9 @@ namespace TipMolde.Application.Service
 
             ultimosPorPeca.TryGetValue(peca.Peca_id, out var ultimo);
             if (ultimo is not null && EstadoEstaAtivo(ultimo.Estado_producao))
+                return null;
+
+            if (pecasComSessaoIndustrialAberta.Contains(peca.Peca_id))
                 return null;
 
             var proximaFaseNome = peca.ProximaFase?.Nome.ToString() ?? string.Empty;

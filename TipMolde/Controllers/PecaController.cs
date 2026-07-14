@@ -138,12 +138,13 @@ namespace TipMolde.API.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] string? searchTerm = null,
-            [FromQuery] string searchMode = "Molde")
+            [FromQuery] string searchMode = "Molde",
+            [FromQuery] int? faseId = null)
         {
             if (page < 1 || pageSize < 1)
                 return BadRequest(this.CreateProblem(StatusCodes.Status400BadRequest, PedidoInvalido, "Page e pageSize devem ser >= 1."));
 
-            var result = await _pecaService.GetFilaTrabalhoAsync(page, pageSize, searchTerm, searchMode);
+            var result = await _pecaService.GetFilaTrabalhoAsync(page, pageSize, searchTerm, searchMode, faseId);
             return Ok(result);
         }
 

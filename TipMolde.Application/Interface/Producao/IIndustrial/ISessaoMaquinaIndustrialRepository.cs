@@ -8,5 +8,9 @@ namespace TipMolde.Application.Interface.Producao.IIndustrial
     public interface ISessaoMaquinaIndustrialRepository : IGenericRepository<SessaoMaquinaIndustrial, int>
     {
         Task<SessaoMaquinaIndustrial?> GetAbertaPorMaquinaAsync(int maquinaId);
+
+        Task<SessaoMaquinaIndustrial?> GetAbertaComDetalhePorMaquinaAsync(int maquinaId);
+
+        Task<HashSet<int>> GetPecaIdsComSessaoAbertaAsync(IEnumerable<int> pecaIds);
     }
 }

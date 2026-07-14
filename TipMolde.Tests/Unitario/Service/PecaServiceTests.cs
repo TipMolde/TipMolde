@@ -8,6 +8,7 @@ using TipMolde.Application.Dtos.PecaDto;
 using TipMolde.Application.Exceptions;
 using TipMolde.Application.Interface.Desenho.IProjeto;
 using TipMolde.Application.Interface;
+using TipMolde.Application.Interface.Producao.IIndustrial;
 using TipMolde.Application.Interface.Producao.IFasesProducao;
 using TipMolde.Application.Interface.Producao.IMolde;
 using TipMolde.Application.Interface.Producao.IPeca;
@@ -33,6 +34,7 @@ public class PecaServiceTests
     private Mock<IFasesProducaoRepository> _fasesProducaoRepository = null!;
     private Mock<IEncomendaMoldeService> _encomendaMoldeService = null!;
     private Mock<IRegistosProducaoRepository> _registosProducaoRepository = null!;
+    private Mock<ISessaoMaquinaIndustrialRepository> _sessaoMaquinaIndustrialRepository = null!;
     private Mock<ILogger<PecaService>> _logger = null!;
     private PecaService _sut = null!;
 
@@ -46,6 +48,7 @@ public class PecaServiceTests
         _fasesProducaoRepository = new Mock<IFasesProducaoRepository>();
         _encomendaMoldeService = new Mock<IEncomendaMoldeService>();
         _registosProducaoRepository = new Mock<IRegistosProducaoRepository>();
+        _sessaoMaquinaIndustrialRepository = new Mock<ISessaoMaquinaIndustrialRepository>();
         _logger = new Mock<ILogger<PecaService>>();
 
         var mapperConfig = new MapperConfiguration(cfg =>
@@ -62,6 +65,7 @@ public class PecaServiceTests
             _fasesProducaoRepository.Object,
             _encomendaMoldeService.Object,
             _registosProducaoRepository.Object,
+            _sessaoMaquinaIndustrialRepository.Object,
             mapper,
             _logger.Object);
     }
@@ -152,6 +156,9 @@ public class PecaServiceTests
         _registosProducaoRepository
             .Setup(r => r.GetUltimosRegistosGlobaisAsync(It.IsAny<IEnumerable<int>>()))
             .ReturnsAsync(new List<RegistosProducao>());
+        _sessaoMaquinaIndustrialRepository
+            .Setup(r => r.GetPecaIdsComSessaoAbertaAsync(It.IsAny<IEnumerable<int>>()))
+            .ReturnsAsync(new HashSet<int>());
 
         // ACT
         var result = await _sut.GetFilaTrabalhoAsync(1, 10, "Erosão", "Proxima fase");
@@ -161,6 +168,67 @@ public class PecaServiceTests
         result.Items.Should().ContainSingle(item =>
             item.PecaId == 31 &&
             item.ProximaFaseNome == "EROSAO");
+    }
+
+    [Test(Description = "TPECASRV1D - GetFilaTrabalho deve esconder pecas com sessao industrial ainda aberta, mesmo que o ultimo registo esteja pausado.")]
+    public async Task GetFilaTrabalhoAsync_Should_ExcludePiecesWithOpenIndustrialSession()
+    {
+        var faseMaquinacao = new FasesProducao
+        {
+            Fases_producao_id = 3,
+            Nome = NomeFases.MAQUINACAO
+        };
+
+        var peca = BuildPeca(id: 41, moldeId: 8, designacao: "Base industrial");
+        peca.MaterialRecebido = true;
+        peca.ProximaFase_id = 3;
+        peca.ProximaFase = faseMaquinacao;
+
+        _encomendaMoldeService
+            .Setup(s => s.GetFilaGlobalAsync(1, 100))
+            .ReturnsAsync(new PagedResult<FilaGlobalMoldeItemDto>(new[]
+            {
+                new FilaGlobalMoldeItemDto
+                {
+                    EncomendaMolde_id = 51,
+                    Encomenda_id = 1,
+                    Molde_id = 8,
+                    Prioridade = 1,
+                    DataEntregaPrevista = DateTime.UtcNow.AddDays(3),
+                    Quantidade = 1,
+                    NumeroEncomendaCliente = "ENC-2",
+                    NomeCliente = "Cliente",
+                    NumeroMolde = "M-8",
+                    NomeMolde = "Molde Maquinacao"
+                }
+            }, 1, 1, 100));
+
+        _pecaRepository
+            .Setup(r => r.GetByMoldeIdsAsync(It.IsAny<IEnumerable<int>>()))
+            .ReturnsAsync(new List<Peca> { peca });
+
+        _registosProducaoRepository
+            .Setup(r => r.GetUltimosRegistosGlobaisAsync(It.IsAny<IEnumerable<int>>()))
+            .ReturnsAsync(new List<RegistosProducao>
+            {
+                new()
+                {
+                    Peca_id = 41,
+                    Fase_id = 3,
+                    Estado_producao = EstadoProducao.PAUSADO,
+                    Data_hora = DateTime.UtcNow.AddMinutes(-15),
+                    Fase = faseMaquinacao
+                }
+            });
+
+        _sessaoMaquinaIndustrialRepository
+            .Setup(r => r.GetPecaIdsComSessaoAbertaAsync(It.IsAny<IEnumerable<int>>()))
+            .ReturnsAsync(new HashSet<int> { 41 });
+
+        var result = await _sut.GetFilaTrabalhoAsync(1, 10);
+
+        result.TotalCount.Should().Be(0);
+        result.Items.Should().BeEmpty();
     }
 
     private static MemoryStream BuildCsvStream(string content)

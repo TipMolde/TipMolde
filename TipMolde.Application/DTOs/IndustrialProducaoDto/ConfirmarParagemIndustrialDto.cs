@@ -9,5 +9,7 @@ namespace TipMolde.Application.Dtos.IndustrialProducaoDto
     {
         [Required]
         public bool TrabalhoConcluido { get; set; }
+
+        public int? ProximaFase_id { get; set; }
     }
 }

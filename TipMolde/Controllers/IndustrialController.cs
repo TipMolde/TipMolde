@@ -91,6 +91,28 @@ namespace TipMolde.API.Controllers
         }
 
         /// <summary>
+        /// Obtem a acao manual pendente mais relevante para uma maquina.
+        /// </summary>
+        [Authorize(Roles = "ADMIN,GESTOR_PRODUCAO")]
+        [HttpGet("maquinas/{maquinaId:int}/evento-pendente")]
+        public async Task<IActionResult> GetEventoPendenteMaquina(int maquinaId)
+        {
+            var result = await _industrialProducaoService.GetEventoPendenteMaquinaAsync(maquinaId);
+            return result is null ? NotFound() : Ok(result);
+        }
+
+        /// <summary>
+        /// Obtem a sessao industrial ativa de uma maquina para apresentar a peca atualmente em producao.
+        /// </summary>
+        [Authorize(Roles = "ADMIN,GESTOR_PRODUCAO")]
+        [HttpGet("maquinas/{maquinaId:int}/sessao-ativa")]
+        public async Task<IActionResult> GetSessaoAtiva(int maquinaId)
+        {
+            var result = await _industrialProducaoService.GetSessaoAtivaAsync(maquinaId);
+            return result is null ? NotFound() : Ok(result);
+        }
+
+        /// <summary>
         /// Completa o contexto de um evento RUNNING pendente.
         /// </summary>
         [Authorize(Roles = "ADMIN,GESTOR_PRODUCAO")]

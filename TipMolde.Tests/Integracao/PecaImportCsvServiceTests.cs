@@ -50,6 +50,7 @@ public class PecaImportCsvServiceTests
         var prioridadeGlobalMoldeService = new PrioridadeGlobalMoldeService(encomendaMoldeRepository);
         var encomendaLogger = new Mock<ILogger<EncomendaMoldeService>>();
         var registosProducaoRepository = new RegistosProducaoRepository(ctx);
+        var sessaoMaquinaIndustrialRepository = new SessaoMaquinaIndustrialRepository(ctx);
         var logger = new Mock<ILogger<PecaService>>();
 
         var encomendaMoldeService = new EncomendaMoldeService(
@@ -67,6 +68,7 @@ public class PecaImportCsvServiceTests
             fasesRepository,
             encomendaMoldeService,
             registosProducaoRepository,
+            sessaoMaquinaIndustrialRepository,
             mapperConfig.CreateMapper(),
             logger.Object);
     }

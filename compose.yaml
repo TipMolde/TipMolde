@@ -37,8 +37,19 @@ services:
       Jwt__SecretKey: "${JWT_SECRET_KEY}"
       Jwt__Issuer: "${JWT_ISSUER:-TipMolde.Api}"
       Jwt__Audience: "${JWT_AUDIENCE:-TipMolde.Client}"
+      IndustrialMiddleware__BaseUrl: "http://industrial-middleware:8080"
     ports:
       - "${BACKEND_PORT:-8080}:8080"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl --fail --silent http://localhost:8080/api/health > /dev/null || exit 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     volumes:
       - ./Storage:/app/Storage
       - ./Templates:/app/Templates
@@ -55,7 +66,7 @@ services:
     restart: unless-stopped
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
       IndustrialMiddleware__BackendBaseUrl: "http://backend:8080"

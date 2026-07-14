@@ -65,7 +65,8 @@ namespace TipMolde.Application.Interface.Producao.IPeca
             int page = 1,
             int pageSize = 10,
             string? searchTerm = null,
-            string searchMode = "Molde");
+            string searchMode = "Molde",
+            int? faseId = null);
 
         /// <summary>
         /// Obtem uma peca pela designacao dentro de um molde.

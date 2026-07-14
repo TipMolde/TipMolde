@@ -112,6 +112,76 @@ namespace TipMolde.Tests.Integracao.Repositorio
             context.Maquinas.Single(m => m.Maquina_id == maquina.Maquina_id).Estado.Should().Be(EstadoMaquina.EM_USO);
         }
 
+        [Test(Description = "TRPREP4B - AddWithMachineState ignora navegacoes de fase destacadas para evitar conflitos de tracking.")]
+        public async Task AddWithMachineStateAsync_Should_Persist_When_DetachedPhaseNavigationsShareKeys()
+        {
+            // ARRANGE
+            await using var context = CreateContext();
+            await context.Fases_Producao.AddRangeAsync(
+                new FasesProducao { Fases_producao_id = 1, Nome = NomeFases.MAQUINACAO, Descricao = "Maquinacao" },
+                new FasesProducao { Fases_producao_id = 2, Nome = NomeFases.EROSAO, Descricao = "Erosao" });
+            await context.Maquinas.AddAsync(new Maquina
+            {
+                Maquina_id = 10,
+                Numero = 10,
+                NomeModelo = "Makino",
+                Estado = EstadoMaquina.DISPONIVEL,
+                FaseDedicada_id = 1
+            });
+            await context.Pecas.AddAsync(new Peca
+            {
+                Peca_id = 20,
+                Designacao = "Peca 20",
+                Prioridade = 1,
+                Quantidade = 1,
+                MaterialRecebido = true,
+                Molde_id = 1,
+                ProximaFase_id = 1
+            });
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+
+            _ = await context.Maquinas.FindAsync(10);
+            _ = await context.Fases_Producao.FindAsync(1);
+
+            var maquina = new Maquina
+            {
+                Maquina_id = 10,
+                Numero = 10,
+                NomeModelo = "Makino",
+                Estado = EstadoMaquina.EM_USO,
+                FaseDedicada_id = 1,
+                FaseDedicada = new FasesProducao { Fases_producao_id = 1, Nome = NomeFases.MAQUINACAO, Descricao = "Detached" }
+            };
+            var peca = new Peca
+            {
+                Peca_id = 20,
+                Designacao = "Peca 20",
+                Prioridade = 1,
+                Quantidade = 1,
+                MaterialRecebido = true,
+                Molde_id = 1,
+                ProximaFase_id = 1,
+                ProximaFase = new FasesProducao { Fases_producao_id = 1, Nome = NomeFases.MAQUINACAO, Descricao = "Detached duplicate" }
+            };
+            var registo = BuildRegisto(
+                faseId: 1,
+                pecaId: 20,
+                EstadoProducao.CONCLUIDO,
+                DateTime.UtcNow,
+                maquinaId: 10);
+
+            var repository = new RegistosProducaoRepository(context);
+
+            // ACT
+            var result = await repository.AddWithMachineStateAsync(registo, maquina, peca);
+
+            // ASSERT
+            result.Registo_Producao_id.Should().BeGreaterThan(0);
+            context.Maquinas.Single(m => m.Maquina_id == 10).Estado.Should().Be(EstadoMaquina.EM_USO);
+            context.Pecas.Single(p => p.Peca_id == 20).ProximaFase_id.Should().Be(1);
+        }
+
         [Test(Description = "TRPREP5 - GetUltimoRegisto devolve null quando nao existe historico.")]
         public async Task GetUltimoRegistoAsync_Should_ReturnNull_When_HistoryDoesNotExist()
         {

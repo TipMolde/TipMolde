@@ -11,6 +11,10 @@ namespace TipMolde.Application.Interface.Producao.IIndustrial
 
         Task<PagedResult<ResponseEventoMaquinaIndustrialDto>> GetEventosPendentesAsync(int page = 1, int pageSize = 10);
 
+        Task<ResponseEventoMaquinaIndustrialDto?> GetEventoPendenteMaquinaAsync(int maquinaId);
+
+        Task<ResponseContextoAtivoMaquinaIndustrialDto?> GetSessaoAtivaAsync(int maquinaId);
+
         Task<ResponseSessaoMaquinaIndustrialDto> CompletarContextoAsync(int eventoId, CompletarContextoEventoIndustrialDto dto);
 
         Task<ResponseEventoMaquinaIndustrialDto> ConfirmarParagemAsync(int eventoId, ConfirmarParagemIndustrialDto dto);

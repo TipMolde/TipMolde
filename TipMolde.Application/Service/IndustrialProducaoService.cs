@@ -4,6 +4,7 @@ using TipMolde.Application.Dtos.RegistoProducaoDto;
 using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Producao.IIndustrial;
 using TipMolde.Application.Interface.Producao.IMaquina;
+using TipMolde.Application.Interface.Producao.IPeca;
 using TipMolde.Application.Interface.Producao.IRegistosProducao;
 using TipMolde.Domain.Entities.Producao;
 using TipMolde.Domain.Enums;
@@ -23,6 +24,7 @@ namespace TipMolde.Application.Service
         private readonly IEventoMaquinaIndustrialRepository _eventoRepository;
         private readonly ISessaoMaquinaIndustrialRepository _sessaoRepository;
         private readonly IMaquinaRepository _maquinaRepository;
+        private readonly IPecaRepository _pecaRepository;
         private readonly IRegistosProducaoService _registosProducaoService;
         private readonly ILogger<IndustrialProducaoService> _logger;
 
@@ -30,12 +32,14 @@ namespace TipMolde.Application.Service
             IEventoMaquinaIndustrialRepository eventoRepository,
             ISessaoMaquinaIndustrialRepository sessaoRepository,
             IMaquinaRepository maquinaRepository,
+            IPecaRepository pecaRepository,
             IRegistosProducaoService registosProducaoService,
             ILogger<IndustrialProducaoService> logger)
         {
             _eventoRepository = eventoRepository;
             _sessaoRepository = sessaoRepository;
             _maquinaRepository = maquinaRepository;
+            _pecaRepository = pecaRepository;
             _registosProducaoService = registosProducaoService;
             _logger = logger;
         }
@@ -89,6 +93,37 @@ namespace TipMolde.Application.Service
         }
 
         /// <summary>
+        /// Obtem a acao manual pendente relevante para o detalhe de uma maquina.
+        /// </summary>
+        public async Task<ResponseEventoMaquinaIndustrialDto?> GetEventoPendenteMaquinaAsync(int maquinaId)
+        {
+            var sessao = await _sessaoRepository.GetAbertaPorMaquinaAsync(maquinaId);
+
+            if (sessao is not null)
+            {
+                if (sessao.EstadoSessao == EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM)
+                {
+                    var stoppedPendente = await _eventoRepository.GetUltimoStoppedPendenteAsync(sessao.SessaoMaquinaIndustrial_id);
+                    return stoppedPendente is null ? null : MapEvento(stoppedPendente);
+                }
+
+                return null;
+            }
+
+            var runningPendente = await _eventoRepository.GetMaisRecentePendentePorMaquinaAsync(maquinaId, EstadoRunning);
+            return runningPendente is null ? null : MapEvento(runningPendente);
+        }
+
+        /// <summary>
+        /// Obtem a sessao industrial ainda ativa de uma maquina para apresentacao no frontend.
+        /// </summary>
+        public async Task<ResponseContextoAtivoMaquinaIndustrialDto?> GetSessaoAtivaAsync(int maquinaId)
+        {
+            var sessao = await _sessaoRepository.GetAbertaComDetalhePorMaquinaAsync(maquinaId);
+            return sessao is null ? null : MapContextoAtivo(sessao);
+        }
+
+        /// <summary>
         /// Completa o contexto de um evento RUNNING pendente e inicia a sessao industrial.
         /// </summary>
         public async Task<ResponseSessaoMaquinaIndustrialDto> CompletarContextoAsync(int eventoId, CompletarContextoEventoIndustrialDto dto)
@@ -105,6 +140,21 @@ namespace TipMolde.Application.Service
             var sessaoAberta = await _sessaoRepository.GetAbertaPorMaquinaAsync(evento.Maquina_id);
             if (sessaoAberta != null)
                 throw new ArgumentException("A maquina ja tem uma sessao industrial aberta.");
+
+            var maquina = await _maquinaRepository.GetByIdAsync(evento.Maquina_id)
+                ?? throw new KeyNotFoundException($"Maquina com ID {evento.Maquina_id} nao encontrada.");
+
+            if (maquina.FaseDedicada_id != dto.Fase_id)
+                throw new ArgumentException("A fase informada nao corresponde a fase dedicada da maquina.");
+
+            var peca = await _pecaRepository.GetByIdAsync(dto.Peca_id)
+                ?? throw new KeyNotFoundException($"Peca com ID {dto.Peca_id} nao encontrada.");
+
+            if (!peca.ProximaFase_id.HasValue)
+                throw new ArgumentException("A peca selecionada nao tem proxima fase planeada.");
+
+            if (peca.ProximaFase_id.Value != maquina.FaseDedicada_id)
+                throw new ArgumentException("A peca selecionada nao pertence a fase dedicada desta maquina.");
 
             var dataEvento = NormalizeTimestamp(evento.OccurredAt);
             var now = DateTime.UtcNow;
@@ -156,23 +206,39 @@ namespace TipMolde.Application.Service
             var sessao = await _sessaoRepository.GetByIdAsync(evento.SessaoMaquinaIndustrial_id.Value)
                 ?? throw new KeyNotFoundException($"Sessao industrial com ID {evento.SessaoMaquinaIndustrial_id.Value} nao encontrada.");
 
+            if (dto.TrabalhoConcluido && !dto.ProximaFase_id.HasValue)
+                throw new ArgumentException("Na conclusao do trabalho e obrigatorio indicar a proxima fase da peca.");
+
             var estadoProducao = dto.TrabalhoConcluido ? EstadoProducao.CONCLUIDO : EstadoProducao.PAUSADO;
-            var registo = await CriarRegistoProducaoAsync(sessao, estadoProducao, NormalizeTimestamp(evento.OccurredAt));
-
-            if (dto.TrabalhoConcluido)
+            var ultimoRegisto = await _registosProducaoService.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id);
+            ultimoRegisto = await EnsureSessaoInicioSincronizadoAsync(sessao, ultimoRegisto);
+            if (ultimoRegisto?.Estado_producao == estadoProducao)
             {
-                sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.FECHADA;
-                sessao.ClosedAt = NormalizeTimestamp(evento.OccurredAt);
-                sessao.RegistoProducaoConclusao_id = registo.Registo_Producao_id;
-            }
-            else
-            {
-                sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.ATIVA;
+                _logger.LogWarning(
+                    "Evento STOPPED {EventoId} recebido para uma sessao ja sincronizada no estado {Estado}. A resolver sem criar novo registo.",
+                    eventoId,
+                    estadoProducao);
+
+                AtualizarSessaoAposConfirmacao(sessao, evento, dto.TrabalhoConcluido, ultimoRegisto.Registo_Producao_id);
+                await _sessaoRepository.UpdateAsync(sessao);
+
+                ResolverEvento(
+                    evento,
+                    estadoProducao,
+                    dto.TrabalhoConcluido ? "UTILIZADOR_CONFIRMOU_CONCLUIDO_IDEMPOTENTE" : "UTILIZADOR_CONFIRMOU_PAUSADO_IDEMPOTENTE",
+                    ultimoRegisto.Registo_Producao_id);
+                await _eventoRepository.UpdateAsync(evento);
+
+                return MapEvento(evento);
             }
 
-            sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
-            sessao.UltimoEstadoMaquina = EstadoStopped;
-            sessao.UpdatedAt = DateTime.UtcNow;
+            var registo = await CriarRegistoProducaoAsync(
+                sessao,
+                estadoProducao,
+                NormalizeTimestamp(evento.OccurredAt),
+                dto.TrabalhoConcluido ? dto.ProximaFase_id : null);
+
+            AtualizarSessaoAposConfirmacao(sessao, evento, dto.TrabalhoConcluido, registo.Registo_Producao_id);
             await _sessaoRepository.UpdateAsync(sessao);
 
             ResolverEvento(
@@ -268,6 +334,11 @@ namespace TipMolde.Application.Service
                     var registoRetoma = await CriarRegistoProducaoAsync(sessao, EstadoProducao.EM_CURSO, NormalizeTimestamp(evento.OccurredAt));
                     ResolverEvento(evento, EstadoProducao.EM_CURSO, "AUTO_RUNNING_APOS_PARAGEM_RESOLVIDA", registoRetoma.Registo_Producao_id);
                 }
+                else if (!sessao.RegistoProducaoInicio_id.HasValue)
+                {
+                    var registoInicio = await EnsureSessaoInicioSincronizadoAsync(sessao);
+                    ResolverEvento(evento, EstadoProducao.EM_CURSO, "AUTO_RUNNING_SINCRONIZOU_INICIO_SESSAO", registoInicio?.Registo_Producao_id);
+                }
                 else
                 {
                     ResolverEvento(evento, null, "RUNNING_CONTEXTO_JA_ATIVO", null);
@@ -329,12 +400,66 @@ namespace TipMolde.Application.Service
         private async Task<ResponseRegistosProducaoDto> CriarRegistoProducaoAsync(
             SessaoMaquinaIndustrial sessao,
             EstadoProducao estado,
-            DateTime dataHora)
+            DateTime dataHora,
+            int? proximaFaseId = null)
         {
-            return await _registosProducaoService.CreateFromIndustrialEventAsync(BuildRegistoDto(sessao, estado), dataHora);
+            return await _registosProducaoService.CreateFromIndustrialEventAsync(
+                BuildRegistoDto(sessao, estado, proximaFaseId),
+                dataHora);
         }
 
-        private static CreateRegistosProducaoDto BuildRegistoDto(SessaoMaquinaIndustrial sessao, EstadoProducao estado)
+        private async Task<ResponseRegistosProducaoDto?> EnsureSessaoInicioSincronizadoAsync(
+            SessaoMaquinaIndustrial sessao,
+            ResponseRegistosProducaoDto? ultimoRegisto = null)
+        {
+            if (sessao.RegistoProducaoInicio_id.HasValue)
+                return ultimoRegisto ?? await _registosProducaoService.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id);
+
+            ultimoRegisto ??= await _registosProducaoService.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id);
+            var startedAt = NormalizeTimestamp(sessao.StartedAt);
+
+            if (ultimoRegisto?.Estado_producao == EstadoProducao.PREPARACAO)
+            {
+                _logger.LogWarning(
+                    "Sessao industrial {SessaoId} ficou apenas com PREPARACAO no arranque. A completar automaticamente EM_CURSO para recuperar a sessao.",
+                    sessao.SessaoMaquinaIndustrial_id);
+
+                var registoEmCurso = await CriarRegistoProducaoAsync(sessao, EstadoProducao.EM_CURSO, startedAt);
+                sessao.RegistoProducaoInicio_id = registoEmCurso.Registo_Producao_id;
+                sessao.UpdatedAt = DateTime.UtcNow;
+                await _sessaoRepository.UpdateAsync(sessao);
+                return registoEmCurso;
+            }
+
+            if (ultimoRegisto is not null && ultimoRegisto.Data_hora >= startedAt)
+            {
+                if (ultimoRegisto.Estado_producao == EstadoProducao.EM_CURSO)
+                {
+                    sessao.RegistoProducaoInicio_id = ultimoRegisto.Registo_Producao_id;
+                    sessao.UpdatedAt = DateTime.UtcNow;
+                    await _sessaoRepository.UpdateAsync(sessao);
+                    return ultimoRegisto;
+                }
+
+                return ultimoRegisto;
+            }
+
+            _logger.LogWarning(
+                "Sessao industrial {SessaoId} sem registo inicial associado. A sincronizar arranque da sessao antes de processar novos estados.",
+                sessao.SessaoMaquinaIndustrial_id);
+
+            var registoInicio = await CriarRegistoEmCursoAsync(sessao, startedAt);
+            sessao.RegistoProducaoInicio_id = registoInicio.Registo_Producao_id;
+            sessao.UpdatedAt = DateTime.UtcNow;
+            await _sessaoRepository.UpdateAsync(sessao);
+
+            return registoInicio;
+        }
+
+        private static CreateRegistosProducaoDto BuildRegistoDto(
+            SessaoMaquinaIndustrial sessao,
+            EstadoProducao estado,
+            int? proximaFaseId = null)
         {
             return new CreateRegistosProducaoDto
             {
@@ -342,7 +467,8 @@ namespace TipMolde.Application.Service
                 Peca_id = sessao.Peca_id,
                 Fase_id = sessao.Fase_id,
                 Maquina_id = sessao.Maquina_id,
-                Estado_producao = estado
+                Estado_producao = estado,
+                ProximaFase_id = proximaFaseId
             };
         }
 
@@ -428,6 +554,53 @@ namespace TipMolde.Application.Service
                 LastSeenAt = sessao.LastSeenAt,
                 ClosedAt = sessao.ClosedAt
             };
+        }
+
+        private static ResponseContextoAtivoMaquinaIndustrialDto MapContextoAtivo(SessaoMaquinaIndustrial sessao)
+        {
+            return new ResponseContextoAtivoMaquinaIndustrialDto
+            {
+                SessaoMaquinaIndustrial_id = sessao.SessaoMaquinaIndustrial_id,
+                Maquina_id = sessao.Maquina_id,
+                Operador_id = sessao.Operador_id,
+                OperadorNome = sessao.Operador?.Nome ?? string.Empty,
+                Peca_id = sessao.Peca_id,
+                NumeroPeca = sessao.Peca?.NumeroPeca ?? string.Empty,
+                DesignacaoPeca = sessao.Peca?.Designacao ?? string.Empty,
+                Molde_id = sessao.Peca?.Molde_id ?? 0,
+                NumeroMolde = sessao.Peca?.Molde?.Numero ?? string.Empty,
+                Fase_id = sessao.Fase_id,
+                FaseNome = sessao.Fase?.Nome.ToString() ?? string.Empty,
+                ProximaFasePlaneada_id = sessao.Peca?.ProximaFase_id,
+                ProximaFasePlaneadaNome = sessao.Peca?.ProximaFase?.Nome.ToString() ?? string.Empty,
+                EstadoSessao = sessao.EstadoSessao.ToString(),
+                UltimoEstadoMaquina = sessao.UltimoEstadoMaquina ?? string.Empty,
+                StartedAt = sessao.StartedAt,
+                LastSeenAt = sessao.LastSeenAt,
+                ClosedAt = sessao.ClosedAt
+            };
+        }
+
+        private static void AtualizarSessaoAposConfirmacao(
+            SessaoMaquinaIndustrial sessao,
+            EventoMaquinaIndustrial evento,
+            bool trabalhoConcluido,
+            int registoProducaoId)
+        {
+            if (trabalhoConcluido)
+            {
+                sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.FECHADA;
+                sessao.ClosedAt = NormalizeTimestamp(evento.OccurredAt);
+                sessao.RegistoProducaoConclusao_id = registoProducaoId;
+            }
+            else
+            {
+                sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.ATIVA;
+            }
+
+            sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
+            sessao.UltimoEstadoMaquina = EstadoStopped;
+            sessao.UpdatedAt = DateTime.UtcNow;
         }
 
         private static string NormalizeState(string? state)

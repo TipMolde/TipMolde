@@ -126,10 +126,10 @@ namespace TipMolde.Infrastructure.Repositorio
             try
             {
                 if (maquinaToUpdate != null)
-                    _context.Maquinas.Update(maquinaToUpdate);
+                    ApplyMaquinaUpdate(maquinaToUpdate);
 
                 if (pecaToUpdate != null)
-                    _context.Pecas.Update(pecaToUpdate);
+                    ApplyPecaUpdate(pecaToUpdate);
 
                 await _context.RegistosProducao.AddAsync(registo);
                 await _context.SaveChangesAsync();
@@ -141,6 +141,73 @@ namespace TipMolde.Infrastructure.Repositorio
             {
                 await transaction.RollbackAsync();
                 throw;
+            }
+        }
+
+        private void ApplyMaquinaUpdate(Maquina maquinaToUpdate)
+        {
+            maquinaToUpdate.FaseDedicada = null;
+
+            var tracked = _context.ChangeTracker
+                .Entries<Maquina>()
+                .Select(entry => entry.Entity)
+                .FirstOrDefault(item => item.Maquina_id == maquinaToUpdate.Maquina_id);
+            if (tracked != null)
+            {
+                _context.Entry(tracked).CurrentValues.SetValues(maquinaToUpdate);
+                return;
+            }
+
+            try
+            {
+                _context.Maquinas.Attach(maquinaToUpdate);
+                _context.Entry(maquinaToUpdate).State = EntityState.Modified;
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("entity type 'Maquina' cannot be tracked", StringComparison.OrdinalIgnoreCase))
+            {
+                tracked = _context.ChangeTracker
+                    .Entries<Maquina>()
+                    .Select(entry => entry.Entity)
+                    .FirstOrDefault(item => item.Maquina_id == maquinaToUpdate.Maquina_id);
+
+                if (tracked == null)
+                    throw;
+
+                _context.Entry(tracked).CurrentValues.SetValues(maquinaToUpdate);
+            }
+        }
+
+        private void ApplyPecaUpdate(Peca pecaToUpdate)
+        {
+            pecaToUpdate.ProximaFase = null;
+            pecaToUpdate.Molde = null;
+
+            var tracked = _context.ChangeTracker
+                .Entries<Peca>()
+                .Select(entry => entry.Entity)
+                .FirstOrDefault(item => item.Peca_id == pecaToUpdate.Peca_id);
+            if (tracked != null)
+            {
+                _context.Entry(tracked).CurrentValues.SetValues(pecaToUpdate);
+                return;
+            }
+
+            try
+            {
+                _context.Pecas.Attach(pecaToUpdate);
+                _context.Entry(pecaToUpdate).State = EntityState.Modified;
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("entity type 'Peca' cannot be tracked", StringComparison.OrdinalIgnoreCase))
+            {
+                tracked = _context.ChangeTracker
+                    .Entries<Peca>()
+                    .Select(entry => entry.Entity)
+                    .FirstOrDefault(item => item.Peca_id == pecaToUpdate.Peca_id);
+
+                if (tracked == null)
+                    throw;
+
+                _context.Entry(tracked).CurrentValues.SetValues(pecaToUpdate);
             }
         }
     }

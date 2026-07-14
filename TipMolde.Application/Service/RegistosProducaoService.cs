@@ -289,11 +289,11 @@ namespace TipMolde.Application.Service
             if (!dto.ProximaFase_id.HasValue)
                 return null;
 
-            var proximaFase = await _fpRepository.GetByIdAsync(dto.ProximaFase_id.Value)
+            _ = await _fpRepository.GetByIdAsync(dto.ProximaFase_id.Value)
                 ?? throw new KeyNotFoundException($"Fase com ID {dto.ProximaFase_id.Value} nao encontrada.");
 
-            peca.ProximaFase_id = proximaFase.Fases_producao_id;
-            peca.ProximaFase = proximaFase;
+            peca.ProximaFase_id = dto.ProximaFase_id.Value;
+            peca.ProximaFase = null;
             return peca;
         }
 

@@ -39,6 +39,21 @@ namespace TipMolde.Infrastructure.Repositorio
         }
 
         /// <summary>
+        /// Obtem o evento pendente mais recente de uma maquina para um estado tecnico especifico.
+        /// </summary>
+        public Task<EventoMaquinaIndustrial?> GetMaisRecentePendentePorMaquinaAsync(int maquinaId, string estadoMaquina)
+        {
+            return _context.EventosMaquinaIndustrial
+                .AsNoTracking()
+                .Where(e =>
+                    e.Maquina_id == maquinaId &&
+                    e.EstadoResolucao == EstadoResolucaoEventoMaquinaIndustrial.PENDENTE &&
+                    e.EstadoMaquina == estadoMaquina)
+                .OrderByDescending(e => e.OccurredAt)
+                .FirstOrDefaultAsync();
+        }
+
+        /// <summary>
         /// Obtem o ultimo STOPPED pendente de uma sessao.
         /// </summary>
         /// <param name="sessaoId">Identificador da sessao.</param>

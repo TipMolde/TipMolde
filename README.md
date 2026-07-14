@@ -130,12 +130,12 @@ dotnet run --project TipMolde/TipMolde.API.csproj
 
 Em `Development`, o `launchSettings.json` define:
 
-- Swagger: `https://localhost:57663/swagger`
-- Alternativa HTTP: `http://localhost:57664/swagger`
+- Swagger: `https://localhost:5081/swagger`
+- Alternativa HTTP: `http://localhost:5080/swagger`
 
 Health check:
 
-- `GET http://localhost:57664/api/health`
+- `GET http://localhost:5080/api/health`
 
 ## Testes
 

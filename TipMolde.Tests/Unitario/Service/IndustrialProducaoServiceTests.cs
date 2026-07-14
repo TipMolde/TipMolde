@@ -5,6 +5,7 @@ using TipMolde.Application.Dtos.IndustrialProducaoDto;
 using TipMolde.Application.Dtos.RegistoProducaoDto;
 using TipMolde.Application.Interface.Producao.IIndustrial;
 using TipMolde.Application.Interface.Producao.IMaquina;
+using TipMolde.Application.Interface.Producao.IPeca;
 using TipMolde.Application.Interface.Producao.IRegistosProducao;
 using TipMolde.Application.Service;
 using TipMolde.Domain.Entities.Producao;
@@ -19,6 +20,7 @@ public class IndustrialProducaoServiceTests
     private Mock<IEventoMaquinaIndustrialRepository> _eventoRepository = null!;
     private Mock<ISessaoMaquinaIndustrialRepository> _sessaoRepository = null!;
     private Mock<IMaquinaRepository> _maquinaRepository = null!;
+    private Mock<IPecaRepository> _pecaRepository = null!;
     private Mock<IRegistosProducaoService> _registosProducaoService = null!;
     private IndustrialProducaoService _sut = null!;
 
@@ -28,12 +30,14 @@ public class IndustrialProducaoServiceTests
         _eventoRepository = new Mock<IEventoMaquinaIndustrialRepository>();
         _sessaoRepository = new Mock<ISessaoMaquinaIndustrialRepository>();
         _maquinaRepository = new Mock<IMaquinaRepository>();
+        _pecaRepository = new Mock<IPecaRepository>();
         _registosProducaoService = new Mock<IRegistosProducaoService>();
 
         _sut = new IndustrialProducaoService(
             _eventoRepository.Object,
             _sessaoRepository.Object,
             _maquinaRepository.Object,
+            _pecaRepository.Object,
             _registosProducaoService.Object,
             NullLogger<IndustrialProducaoService>.Instance);
     }
@@ -65,6 +69,52 @@ public class IndustrialProducaoServiceTests
     }
 
     [Test]
+    public async Task GetEventoPendenteMaquinaAsync_SessaoAguardarConfirmacao_DevePriorizarStoppedDaSessao()
+    {
+        var sessao = BuildSessao();
+        sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM;
+        var stopped = WithId(BuildEvento("STOPPED", new DateTime(2026, 6, 26, 8, 30, 0, DateTimeKind.Utc)), 71);
+        stopped.SessaoMaquinaIndustrial_id = sessao.SessaoMaquinaIndustrial_id;
+
+        _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5)).ReturnsAsync(sessao);
+        _eventoRepository.Setup(r => r.GetUltimoStoppedPendenteAsync(100)).ReturnsAsync(stopped);
+
+        var result = await _sut.GetEventoPendenteMaquinaAsync(5);
+
+        result.Should().NotBeNull();
+        result!.EventoMaquinaIndustrial_id.Should().Be(71);
+        result.EstadoMaquina.Should().Be("STOPPED");
+        _eventoRepository.Verify(r => r.GetMaisRecentePendentePorMaquinaAsync(It.IsAny<int>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Test]
+    public async Task GetEventoPendenteMaquinaAsync_SessaoAtivaSemAcaoManual_DeveIgnorarPendentesAntigos()
+    {
+        _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5)).ReturnsAsync(BuildSessao());
+
+        var result = await _sut.GetEventoPendenteMaquinaAsync(5);
+
+        result.Should().BeNull();
+        _eventoRepository.Verify(r => r.GetUltimoStoppedPendenteAsync(It.IsAny<int>()), Times.Never);
+        _eventoRepository.Verify(r => r.GetMaisRecentePendentePorMaquinaAsync(It.IsAny<int>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Test]
+    public async Task GetEventoPendenteMaquinaAsync_SemSessaoAberta_DeveUsarRunningMaisRecente()
+    {
+        var running = WithId(BuildEvento("RUNNING", new DateTime(2026, 6, 26, 8, 30, 0, DateTimeKind.Utc)), 81);
+
+        _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5)).ReturnsAsync((SessaoMaquinaIndustrial?)null);
+        _eventoRepository.Setup(r => r.GetMaisRecentePendentePorMaquinaAsync(5, "RUNNING")).ReturnsAsync(running);
+
+        var result = await _sut.GetEventoPendenteMaquinaAsync(5);
+
+        result.Should().NotBeNull();
+        result!.EventoMaquinaIndustrial_id.Should().Be(81);
+        result.EstadoMaquina.Should().Be("RUNNING");
+    }
+
+    [Test]
     public async Task CompletarContextoAsync_EventoRunningPendente_CriaSessaoEIniciaProducao()
     {
         var evento = BuildEvento("RUNNING");
@@ -76,6 +126,8 @@ public class IndustrialProducaoServiceTests
         _eventoRepository.Setup(r => r.GetByIdAsync(20)).ReturnsAsync(evento);
         _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5))
             .ReturnsAsync((SessaoMaquinaIndustrial?)null);
+        _maquinaRepository.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(BuildMaquina());
+        _pecaRepository.Setup(r => r.GetByIdAsync(30)).ReturnsAsync(BuildPeca());
         _sessaoRepository.Setup(r => r.AddAsync(It.IsAny<SessaoMaquinaIndustrial>()))
             .Callback<SessaoMaquinaIndustrial>(s =>
             {
@@ -111,12 +163,35 @@ public class IndustrialProducaoServiceTests
     }
 
     [Test]
+    public async Task CompletarContextoAsync_PecaForaDaFaseDaMaquina_DeveFalhar()
+    {
+        var evento = BuildEvento("RUNNING");
+
+        _eventoRepository.Setup(r => r.GetByIdAsync(20)).ReturnsAsync(evento);
+        _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5))
+            .ReturnsAsync((SessaoMaquinaIndustrial?)null);
+        _maquinaRepository.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(BuildMaquina());
+        _pecaRepository.Setup(r => r.GetByIdAsync(30)).ReturnsAsync(BuildPeca(proximaFaseId: 8));
+
+        var act = async () => await _sut.CompletarContextoAsync(20, new CompletarContextoEventoIndustrialDto
+        {
+            Operador_id = 3,
+            Peca_id = 30,
+            Fase_id = 7
+        });
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*nao pertence a fase dedicada desta maquina*");
+    }
+
+    [Test]
     public async Task ConfirmarParagemAsync_TrabalhoConcluido_CriaRegistoConcluidoEFechaSessao()
     {
         var stoppedAt = new DateTime(2026, 6, 26, 8, 30, 0, DateTimeKind.Utc);
         var evento = WithId(BuildEvento("STOPPED", stoppedAt), 40);
         evento.SessaoMaquinaIndustrial_id = 100;
         var sessao = BuildSessao();
+        sessao.RegistoProducaoInicio_id = 250;
         var sessaoAtualizada = (SessaoMaquinaIndustrial?)null;
         var eventoAtualizado = (EventoMaquinaIndustrial?)null;
         CreateRegistosProducaoDto? dtoCriado = null;
@@ -124,6 +199,8 @@ public class IndustrialProducaoServiceTests
 
         _eventoRepository.Setup(r => r.GetByIdAsync(40)).ReturnsAsync(evento);
         _sessaoRepository.Setup(r => r.GetByIdAsync(100)).ReturnsAsync(sessao);
+        _registosProducaoService.Setup(s => s.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id))
+            .ReturnsAsync(new ResponseRegistosProducaoDto { Estado_producao = EstadoProducao.EM_CURSO });
         _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>()))
             .Callback<CreateRegistosProducaoDto, DateTime>((dto, data) =>
             {
@@ -138,15 +215,186 @@ public class IndustrialProducaoServiceTests
             .Callback<EventoMaquinaIndustrial>(e => eventoAtualizado = e)
             .Returns(Task.CompletedTask);
 
-        var result = await _sut.ConfirmarParagemAsync(40, new ConfirmarParagemIndustrialDto { TrabalhoConcluido = true });
+        var result = await _sut.ConfirmarParagemAsync(40, new ConfirmarParagemIndustrialDto
+        {
+            TrabalhoConcluido = true,
+            ProximaFase_id = 12
+        });
 
         result.ResolvidoComoEstadoProducao.Should().Be(EstadoProducao.CONCLUIDO);
         dtoCriado!.Estado_producao.Should().Be(EstadoProducao.CONCLUIDO);
+        dtoCriado.ProximaFase_id.Should().Be(12);
         dataCriada.Should().Be(stoppedAt);
         sessaoAtualizada!.EstadoSessao.Should().Be(EstadoSessaoMaquinaIndustrial.FECHADA);
         sessaoAtualizada.ClosedAt.Should().Be(stoppedAt);
         sessaoAtualizada.RegistoProducaoConclusao_id.Should().Be(300);
         eventoAtualizado!.RegistoProducao_id.Should().Be(300);
+    }
+
+    [Test]
+    public async Task ConfirmarParagemAsync_TrabalhoConcluidoJaPersistido_FechaSessaoSemNovoRegisto()
+    {
+        var stoppedAt = new DateTime(2026, 6, 26, 8, 30, 0, DateTimeKind.Utc);
+        var evento = WithId(BuildEvento("STOPPED", stoppedAt), 40);
+        evento.SessaoMaquinaIndustrial_id = 100;
+        var sessao = BuildSessao();
+        sessao.RegistoProducaoInicio_id = 250;
+        var sessaoAtualizada = (SessaoMaquinaIndustrial?)null;
+        var eventoAtualizado = (EventoMaquinaIndustrial?)null;
+
+        _eventoRepository.Setup(r => r.GetByIdAsync(40)).ReturnsAsync(evento);
+        _sessaoRepository.Setup(r => r.GetByIdAsync(100)).ReturnsAsync(sessao);
+        _registosProducaoService.Setup(s => s.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id))
+            .ReturnsAsync(new ResponseRegistosProducaoDto
+            {
+                Registo_Producao_id = 300,
+                Estado_producao = EstadoProducao.CONCLUIDO
+            });
+        _sessaoRepository.Setup(r => r.UpdateAsync(It.IsAny<SessaoMaquinaIndustrial>()))
+            .Callback<SessaoMaquinaIndustrial>(s => sessaoAtualizada = s)
+            .Returns(Task.CompletedTask);
+        _eventoRepository.Setup(r => r.UpdateAsync(It.IsAny<EventoMaquinaIndustrial>()))
+            .Callback<EventoMaquinaIndustrial>(e => eventoAtualizado = e)
+            .Returns(Task.CompletedTask);
+
+        var result = await _sut.ConfirmarParagemAsync(40, new ConfirmarParagemIndustrialDto
+        {
+            TrabalhoConcluido = true,
+            ProximaFase_id = 12
+        });
+
+        result.RegistoProducao_id.Should().Be(300);
+        result.ResolvidoComoEstadoProducao.Should().Be(EstadoProducao.CONCLUIDO);
+        sessaoAtualizada!.EstadoSessao.Should().Be(EstadoSessaoMaquinaIndustrial.FECHADA);
+        sessaoAtualizada.RegistoProducaoConclusao_id.Should().Be(300);
+        sessaoAtualizada.ClosedAt.Should().Be(stoppedAt);
+        eventoAtualizado!.FonteResolucao.Should().Be("UTILIZADOR_CONFIRMOU_CONCLUIDO_IDEMPOTENTE");
+        _registosProducaoService.Verify(
+            s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>()),
+            Times.Never);
+    }
+
+    [Test]
+    public async Task ConfirmarParagemAsync_SessaoSemRegistoInicial_ReconstroiInicioAntesDePausar()
+    {
+        var stoppedAt = new DateTime(2026, 6, 26, 8, 30, 0, DateTimeKind.Utc);
+        var evento = WithId(BuildEvento("STOPPED", stoppedAt), 40);
+        evento.SessaoMaquinaIndustrial_id = 100;
+        var sessao = BuildSessao();
+        var sessaoAtualizada = (SessaoMaquinaIndustrial?)null;
+        var eventoAtualizado = (EventoMaquinaIndustrial?)null;
+        var estadosCriados = new List<EstadoProducao?>();
+        var datasCriadas = new List<DateTime>();
+
+        _eventoRepository.Setup(r => r.GetByIdAsync(40)).ReturnsAsync(evento);
+        _sessaoRepository.Setup(r => r.GetByIdAsync(100)).ReturnsAsync(sessao);
+        _registosProducaoService.Setup(s => s.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id))
+            .ReturnsAsync(new ResponseRegistosProducaoDto
+            {
+                Registo_Producao_id = 200,
+                Estado_producao = EstadoProducao.CONCLUIDO,
+                Data_hora = new DateTime(2026, 6, 23, 14, 47, 4, DateTimeKind.Utc)
+            });
+        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>()))
+            .Callback<CreateRegistosProducaoDto, DateTime>((dto, data) =>
+            {
+                estadosCriados.Add(dto.Estado_producao);
+                datasCriadas.Add(data);
+            })
+            .ReturnsAsync((CreateRegistosProducaoDto dto, DateTime data) => new ResponseRegistosProducaoDto
+            {
+                Registo_Producao_id = 300 + estadosCriados.Count,
+                Estado_producao = dto.Estado_producao!.Value,
+                Data_hora = data
+            });
+        _sessaoRepository.Setup(r => r.UpdateAsync(It.IsAny<SessaoMaquinaIndustrial>()))
+            .Callback<SessaoMaquinaIndustrial>(s => sessaoAtualizada = s)
+            .Returns(Task.CompletedTask);
+        _eventoRepository.Setup(r => r.UpdateAsync(It.IsAny<EventoMaquinaIndustrial>()))
+            .Callback<EventoMaquinaIndustrial>(e => eventoAtualizado = e)
+            .Returns(Task.CompletedTask);
+
+        var result = await _sut.ConfirmarParagemAsync(40, new ConfirmarParagemIndustrialDto
+        {
+            TrabalhoConcluido = false
+        });
+
+        result.ResolvidoComoEstadoProducao.Should().Be(EstadoProducao.PAUSADO);
+        estadosCriados.Should().Equal(EstadoProducao.EM_CURSO, EstadoProducao.PAUSADO);
+        datasCriadas.Should().Equal(sessao.StartedAt, stoppedAt);
+        sessaoAtualizada!.RegistoProducaoInicio_id.Should().Be(301);
+        sessaoAtualizada.EstadoSessao.Should().Be(EstadoSessaoMaquinaIndustrial.ATIVA);
+        eventoAtualizado!.RegistoProducao_id.Should().Be(302);
+    }
+
+    [Test]
+    public async Task ConfirmarParagemAsync_SessaoComPreparacaoSemEmCurso_RecuperaEmCursoAntesDePausar()
+    {
+        var stoppedAt = new DateTime(2026, 6, 26, 8, 30, 0, DateTimeKind.Utc);
+        var evento = WithId(BuildEvento("STOPPED", stoppedAt), 40);
+        evento.SessaoMaquinaIndustrial_id = 100;
+        var sessao = BuildSessao();
+        var sessaoAtualizada = (SessaoMaquinaIndustrial?)null;
+        var eventoAtualizado = (EventoMaquinaIndustrial?)null;
+        var estadosCriados = new List<EstadoProducao?>();
+        var datasCriadas = new List<DateTime>();
+
+        _eventoRepository.Setup(r => r.GetByIdAsync(40)).ReturnsAsync(evento);
+        _sessaoRepository.Setup(r => r.GetByIdAsync(100)).ReturnsAsync(sessao);
+        _registosProducaoService.Setup(s => s.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id))
+            .ReturnsAsync(new ResponseRegistosProducaoDto
+            {
+                Registo_Producao_id = 200,
+                Estado_producao = EstadoProducao.PREPARACAO,
+                Data_hora = sessao.StartedAt
+            });
+        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>()))
+            .Callback<CreateRegistosProducaoDto, DateTime>((dto, data) =>
+            {
+                estadosCriados.Add(dto.Estado_producao);
+                datasCriadas.Add(data);
+            })
+            .ReturnsAsync((CreateRegistosProducaoDto dto, DateTime data) => new ResponseRegistosProducaoDto
+            {
+                Registo_Producao_id = 300 + estadosCriados.Count,
+                Estado_producao = dto.Estado_producao!.Value,
+                Data_hora = data
+            });
+        _sessaoRepository.Setup(r => r.UpdateAsync(It.IsAny<SessaoMaquinaIndustrial>()))
+            .Callback<SessaoMaquinaIndustrial>(s => sessaoAtualizada = s)
+            .Returns(Task.CompletedTask);
+        _eventoRepository.Setup(r => r.UpdateAsync(It.IsAny<EventoMaquinaIndustrial>()))
+            .Callback<EventoMaquinaIndustrial>(e => eventoAtualizado = e)
+            .Returns(Task.CompletedTask);
+
+        var result = await _sut.ConfirmarParagemAsync(40, new ConfirmarParagemIndustrialDto
+        {
+            TrabalhoConcluido = false
+        });
+
+        result.ResolvidoComoEstadoProducao.Should().Be(EstadoProducao.PAUSADO);
+        estadosCriados.Should().Equal(EstadoProducao.EM_CURSO, EstadoProducao.PAUSADO);
+        datasCriadas.Should().Equal(sessao.StartedAt, stoppedAt);
+        sessaoAtualizada!.RegistoProducaoInicio_id.Should().Be(301);
+        eventoAtualizado!.RegistoProducao_id.Should().Be(302);
+    }
+
+    [Test]
+    public async Task ConfirmarParagemAsync_ConclusaoSemProximaFase_DeveFalhar()
+    {
+        var evento = WithId(BuildEvento("STOPPED"), 40);
+        evento.SessaoMaquinaIndustrial_id = 100;
+
+        _eventoRepository.Setup(r => r.GetByIdAsync(40)).ReturnsAsync(evento);
+        _sessaoRepository.Setup(r => r.GetByIdAsync(100)).ReturnsAsync(BuildSessao());
+
+        var act = async () => await _sut.ConfirmarParagemAsync(40, new ConfirmarParagemIndustrialDto
+        {
+            TrabalhoConcluido = true
+        });
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*obrigatorio indicar a proxima fase*");
     }
 
     [Test]
@@ -232,6 +480,15 @@ public class IndustrialProducaoServiceTests
         UltimoEstadoMaquina = "STOPPED",
         StartedAt = new DateTime(2026, 6, 26, 7, 0, 0, DateTimeKind.Utc),
         LastSeenAt = new DateTime(2026, 6, 26, 8, 0, 0, DateTimeKind.Utc)
+    };
+
+    private static Peca BuildPeca(int proximaFaseId = 7) => new()
+    {
+        Peca_id = 30,
+        Designacao = "Peca teste",
+        ProximaFase_id = proximaFaseId,
+        Molde_id = 1,
+        MaterialRecebido = true
     };
 
     private static EventoMaquinaIndustrial BuildEvento(string state, DateTime? occurredAt = null) => new()
