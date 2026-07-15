@@ -17,6 +17,25 @@ namespace TipMolde.Infrastructure.Repositorio
         }
 
         /// <summary>
+        /// Lista eventos recentemente recebidos pelo backend e ainda nao processados.
+        /// </summary>
+        public async Task<PagedResult<EventoMaquinaIndustrial>> GetRecebidosAsync(int page, int pageSize)
+        {
+            var query = _context.EventosMaquinaIndustrial
+                .AsNoTracking()
+                .Where(e => e.EstadoResolucao == EstadoResolucaoEventoMaquinaIndustrial.RECEBIDO)
+                .OrderBy(e => e.OccurredAt);
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<EventoMaquinaIndustrial>(items, totalCount, page, pageSize);
+        }
+
+        /// <summary>
         /// Lista eventos ainda pendentes de intervencao do utilizador.
         /// </summary>
         /// <param name="page">Pagina atual.</param>
@@ -36,6 +55,20 @@ namespace TipMolde.Infrastructure.Repositorio
                 .ToListAsync();
 
             return new PagedResult<EventoMaquinaIndustrial>(items, totalCount, page, pageSize);
+        }
+
+        /// <summary>
+        /// Obtem o evento pendente mais recente de uma maquina.
+        /// </summary>
+        public Task<EventoMaquinaIndustrial?> GetMaisRecentePendentePorMaquinaAsync(int maquinaId)
+        {
+            return _context.EventosMaquinaIndustrial
+                .AsNoTracking()
+                .Where(e =>
+                    e.Maquina_id == maquinaId &&
+                    e.EstadoResolucao == EstadoResolucaoEventoMaquinaIndustrial.PENDENTE)
+                .OrderByDescending(e => e.OccurredAt)
+                .FirstOrDefaultAsync();
         }
 
         /// <summary>

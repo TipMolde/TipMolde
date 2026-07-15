@@ -7,7 +7,11 @@ namespace TipMolde.Application.Interface.Producao.IIndustrial
     /// </summary>
     public interface IEventoMaquinaIndustrialRepository : IGenericRepository<EventoMaquinaIndustrial, int>
     {
+        Task<PagedResult<EventoMaquinaIndustrial>> GetRecebidosAsync(int page, int pageSize);
+
         Task<PagedResult<EventoMaquinaIndustrial>> GetPendentesAsync(int page, int pageSize);
+
+        Task<EventoMaquinaIndustrial?> GetMaisRecentePendentePorMaquinaAsync(int maquinaId);
 
         Task<EventoMaquinaIndustrial?> GetMaisRecentePendentePorMaquinaAsync(int maquinaId, string estadoMaquina);
 

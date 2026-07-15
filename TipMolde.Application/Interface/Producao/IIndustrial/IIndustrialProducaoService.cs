@@ -7,7 +7,9 @@ namespace TipMolde.Application.Interface.Producao.IIndustrial
     /// </summary>
     public interface IIndustrialProducaoService
     {
-        Task<IndustrialTelemetryProcessResultDto> ProcessarTelemetriaAsync(IEnumerable<IndustrialTelemetryDto> eventos);
+        Task<IndustrialTelemetryIngestResultDto> ReceberTelemetriaAsync(IEnumerable<IndustrialTelemetryDto> eventos);
+
+        Task ProcessarEventosRecebidosAsync(CancellationToken cancellationToken = default);
 
         Task<PagedResult<ResponseEventoMaquinaIndustrialDto>> GetEventosPendentesAsync(int page = 1, int pageSize = 10);
 

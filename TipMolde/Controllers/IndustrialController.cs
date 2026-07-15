@@ -60,17 +60,15 @@ namespace TipMolde.API.Controllers
                     "Dados de telemetria industrial invalidos."));
             }
 
-            var result = await _industrialProducaoService.ProcessarTelemetriaAsync(eventos);
+            var result = await _industrialProducaoService.ReceberTelemetriaAsync(eventos);
 
             _logger.LogInformation(
-                "Controller: telemetria industrial recebida. Recebidos={Recebidos}, Processados={Processados}, Pendentes={Pendentes}, Resolvidos={Resolvidos}, Ignorados={Ignorados}.",
+                "Controller: telemetria industrial recebida. Recebidos={Recebidos}, Guardados={Guardados}, Ignorados={Ignorados}.",
                 result.Recebidos,
-                result.Processados,
-                result.Pendentes,
-                result.Resolvidos,
+                result.Guardados,
                 result.Ignorados);
 
-            return Ok(result);
+            return Accepted(result);
         }
 
         /// <summary>

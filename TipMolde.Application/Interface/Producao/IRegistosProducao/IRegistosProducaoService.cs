@@ -56,7 +56,8 @@ namespace TipMolde.Application.Interface.Producao.IRegistosProducao
         /// </summary>
         /// <param name="dto">Dados de entrada do registo de producao.</param>
         /// <param name="dataHoraIndustrial">Data/hora real da transicao recebida da maquina.</param>
+        /// <param name="permitirPrimeiroEstadoEmCurso">Permite iniciar a fase diretamente em EM_CURSO no fluxo industrial.</param>
         /// <returns>DTO do registo criado.</returns>
-        Task<ResponseRegistosProducaoDto> CreateFromIndustrialEventAsync(CreateRegistosProducaoDto dto, DateTime dataHoraIndustrial);
+        Task<ResponseRegistosProducaoDto> CreateFromIndustrialEventAsync(CreateRegistosProducaoDto dto, DateTime dataHoraIndustrial, bool permitirPrimeiroEstadoEmCurso = false);
     }
 }

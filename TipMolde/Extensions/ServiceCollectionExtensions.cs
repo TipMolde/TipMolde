@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
+using TipMolde.API.HostedServices;
 using TipMolde.Application.Interface.Utilizador.IAuth;
 using TipMolde.Infrastructure.Settings;
 
@@ -121,6 +122,7 @@ public static class ServiceCollectionExtensions
             });
 
         services.AddAuthorization();
+        services.AddHostedService<IndustrialEventosRecebidosWorker>();
 
         return services;
     }

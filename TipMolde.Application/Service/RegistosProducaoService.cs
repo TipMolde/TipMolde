@@ -143,13 +143,14 @@ namespace TipMolde.Application.Service
         /// </summary>
         /// <param name="dto">Dados de entrada do registo de producao.</param>
         /// <param name="dataHoraIndustrial">Data/hora real recebida da maquina.</param>
+        /// <param name="permitirPrimeiroEstadoEmCurso">Permite que o primeiro registo da fase industrial comece em EM_CURSO.</param>
         /// <returns>DTO do registo persistido.</returns>
-        public async Task<ResponseRegistosProducaoDto> CreateFromIndustrialEventAsync(CreateRegistosProducaoDto dto, DateTime dataHoraIndustrial)
+        public async Task<ResponseRegistosProducaoDto> CreateFromIndustrialEventAsync(CreateRegistosProducaoDto dto, DateTime dataHoraIndustrial, bool permitirPrimeiroEstadoEmCurso = false)
         {
-            return await CreateCoreAsync(dto, NormalizeIndustrialTimestamp(dataHoraIndustrial));
+            return await CreateCoreAsync(dto, NormalizeIndustrialTimestamp(dataHoraIndustrial), permitirPrimeiroEstadoEmCurso);
         }
 
-        private async Task<ResponseRegistosProducaoDto> CreateCoreAsync(CreateRegistosProducaoDto dto, DateTime dataHora)
+        private async Task<ResponseRegistosProducaoDto> CreateCoreAsync(CreateRegistosProducaoDto dto, DateTime dataHora, bool permitirPrimeiroEstadoEmCurso = false)
         {
             if (!dto.Estado_producao.HasValue)
                 throw new ArgumentException("Estado de producao e obrigatorio.");
@@ -167,7 +168,7 @@ namespace TipMolde.Application.Service
                 throw new ArgumentException("Nao e possivel iniciar producao sem material recebido.");
 
             var ultimo = await _rpRepository.GetUltimoRegistoAsync(dto.Fase_id, dto.Peca_id);
-            ValidarTransicaoEstado(ultimo?.Estado_producao, dto.Estado_producao.Value, fase.Nome);
+            ValidarTransicaoEstado(ultimo?.Estado_producao, dto.Estado_producao.Value, fase.Nome, permitirPrimeiroEstadoEmCurso);
             await ValidarRegrasDeMontagemAsync(dto, fase.Nome, peca);
 
             var registo = _mapper.Map<RegistosProducao>(dto);
@@ -368,13 +369,19 @@ namespace TipMolde.Application.Service
         private static void ValidarTransicaoEstado(
             EstadoProducao? estadoActual,
             EstadoProducao novoEstado,
-            NomeFases nomeFase)
+            NomeFases nomeFase,
+            bool permitirPrimeiroEstadoEmCurso = false)
         {
             if (estadoActual is null)
             {
                 var primeiroEstadoValido = nomeFase == NomeFases.MONTAGEM
                     ? EstadoProducao.PENDENTE
                     : EstadoProducao.PREPARACAO;
+
+                if (permitirPrimeiroEstadoEmCurso
+                    && nomeFase != NomeFases.MONTAGEM
+                    && novoEstado == EstadoProducao.EM_CURSO)
+                    return;
 
                 if (novoEstado != primeiroEstadoValido)
                     throw new ArgumentException($"Primeiro estado deve ser {primeiroEstadoValido}.");

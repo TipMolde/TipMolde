@@ -45,6 +45,46 @@ namespace TipMolde.Application.Service
         }
 
         /// <summary>
+        /// Recebe telemetria industrial, valida apenas o necessario para identificar a maquina
+        /// e persiste o evento bruto para processamento posterior.
+        /// </summary>
+        public async Task<IndustrialTelemetryIngestResultDto> ReceberTelemetriaAsync(IEnumerable<IndustrialTelemetryDto> eventos)
+        {
+            if (eventos == null)
+                throw new ArgumentException("Eventos industriais sao obrigatorios.");
+
+            var result = new IndustrialTelemetryIngestResultDto();
+
+            foreach (var dto in eventos)
+            {
+                result.Recebidos++;
+
+                var ip = dto.MachineIp?.Trim();
+                if (string.IsNullOrWhiteSpace(ip))
+                    throw new ArgumentException("MachineIp e obrigatorio.");
+
+                var maquina = await _maquinaRepository.GetByIpAddressAsync(ip);
+                if (maquina == null)
+                {
+                    _logger.LogWarning("Telemetria industrial ignorada na ingestao: maquina com IP {MachineIp} nao existe no backend.", ip);
+                    result.Ignorados++;
+                    continue;
+                }
+
+                var evento = BuildEvento(dto, maquina.Maquina_id, NormalizeState(dto.State));
+                evento.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.RECEBIDO;
+                evento.FonteResolucao = "RECEBIDO";
+                evento.CreatedAt = DateTime.UtcNow;
+                evento.UpdatedAt = DateTime.UtcNow;
+
+                await _eventoRepository.AddAsync(evento);
+                result.Guardados++;
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Processa uma lista de eventos recebidos do middleware industrial.
         /// </summary>
         /// <param name="eventos">Eventos tecnicos normalizados.</param>
@@ -75,6 +115,183 @@ namespace TipMolde.Application.Service
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Processa todos os eventos industriais que ainda estao apenas recebidos e nao foram resolvidos.
+        /// </summary>
+        public async Task ProcessarEventosRecebidosAsync(CancellationToken cancellationToken = default)
+        {
+            const int batchSize = 50;
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var pagina = await _eventoRepository.GetRecebidosAsync(1, batchSize);
+                var eventos = pagina.Items.ToList();
+                if (eventos.Count == 0)
+                    return;
+
+                foreach (var evento in eventos)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await ProcessarEventoRecebidoAsync(evento);
+                }
+
+                if (eventos.Count < batchSize)
+                    return;
+            }
+        }
+
+        private async Task<ProcessStatus> ProcessarEventoRecebidoAsync(EventoMaquinaIndustrial evento)
+        {
+            if (evento.EstadoResolucao != EstadoResolucaoEventoMaquinaIndustrial.RECEBIDO)
+                return ProcessStatus.Resolvido;
+
+            var maquina = await _maquinaRepository.GetByIdAsync(evento.Maquina_id);
+            if (maquina == null)
+            {
+                IgnorarEvento(evento, "MAQUINA_NAO_ENCONTRADA");
+                await _eventoRepository.UpdateAsync(evento);
+                return ProcessStatus.Ignorado;
+            }
+
+            var bloqueioPendente = await _eventoRepository.GetMaisRecentePendentePorMaquinaAsync(maquina.Maquina_id);
+            if (bloqueioPendente != null)
+            {
+                _logger.LogDebug(
+                    "Processamento adiado para maquina {MaquinaId}: existe evento pendente {EventoId} a aguardar resolucao.",
+                    maquina.Maquina_id,
+                    bloqueioPendente.EventoMaquinaIndustrial_id);
+                return ProcessStatus.Pendente;
+            }
+
+            var sessao = await _sessaoRepository.GetAbertaPorMaquinaAsync(maquina.Maquina_id);
+            if (sessao != null && sessao.EstadoSessao == EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM)
+            {
+                _logger.LogDebug(
+                    "Processamento adiado para maquina {MaquinaId}: existe sessao {SessaoId} a aguardar confirmacao de paragem.",
+                    maquina.Maquina_id,
+                    sessao.SessaoMaquinaIndustrial_id);
+                return ProcessStatus.Pendente;
+            }
+
+            if (sessao == null)
+                return await ProcessarEventoRecebidoSemSessaoAsync(evento);
+
+            evento.SessaoMaquinaIndustrial_id = sessao.SessaoMaquinaIndustrial_id;
+            return await ProcessarEventoRecebidoComSessaoAsync(evento, sessao);
+        }
+
+        private async Task<ProcessStatus> ProcessarEventoRecebidoSemSessaoAsync(EventoMaquinaIndustrial evento)
+        {
+            if (IsState(evento.EstadoMaquina, EstadoRunning))
+            {
+                evento.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.PENDENTE;
+                evento.CamposEmFalta = "Operador_id,Peca_id,Fase_id";
+                evento.FonteResolucao = "RUNNING_PENDENTE_CONTEXTO";
+                evento.ResolvedAt = null;
+                evento.UpdatedAt = DateTime.UtcNow;
+                await _eventoRepository.UpdateAsync(evento);
+                return ProcessStatus.Pendente;
+            }
+
+            if (IsState(evento.EstadoMaquina, EstadoAlarm))
+            {
+                evento.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.PENDENTE;
+                evento.CamposEmFalta = "Ocorrencia";
+                evento.FonteResolucao = "ALARM_PENDENTE_CONTEXTO";
+                evento.ResolvedAt = null;
+                evento.UpdatedAt = DateTime.UtcNow;
+                await _eventoRepository.UpdateAsync(evento);
+                return ProcessStatus.Pendente;
+            }
+
+            IgnorarEvento(evento, IsState(evento.EstadoMaquina, EstadoStopped)
+                ? "STOPPED_SEM_SESSAO_ATIVA"
+                : "ESTADO_SEM_SESSAO_ATIVA");
+
+            await _eventoRepository.UpdateAsync(evento);
+            return ProcessStatus.Ignorado;
+        }
+
+        private async Task<ProcessStatus> ProcessarEventoRecebidoComSessaoAsync(EventoMaquinaIndustrial evento, SessaoMaquinaIndustrial sessao)
+        {
+            if (IsState(evento.EstadoMaquina, EstadoStopped))
+            {
+                evento.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.PENDENTE;
+                evento.FonteResolucao = "STOPPED_AGUARDA_CONFIRMACAO";
+                evento.ResolvedAt = null;
+                evento.UpdatedAt = DateTime.UtcNow;
+                await _eventoRepository.UpdateAsync(evento);
+
+                sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM;
+                sessao.UltimoEstadoMaquina = EstadoStopped;
+                sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
+                sessao.UpdatedAt = DateTime.UtcNow;
+                await _sessaoRepository.UpdateAsync(sessao);
+
+                return ProcessStatus.Pendente;
+            }
+
+            if (IsState(evento.EstadoMaquina, EstadoRunning))
+            {
+                var stoppedPendente = await _eventoRepository.GetUltimoStoppedPendenteAsync(sessao.SessaoMaquinaIndustrial_id);
+                if (stoppedPendente != null)
+                {
+                    var registoPausa = await CriarRegistoProducaoAsync(sessao, EstadoProducao.PAUSADO, NormalizeTimestamp(stoppedPendente.OccurredAt));
+                    ResolverEvento(stoppedPendente, EstadoProducao.PAUSADO, "AUTO_RUNNING_APOS_STOPPED", registoPausa.Registo_Producao_id);
+                    await _eventoRepository.UpdateAsync(stoppedPendente);
+
+                    var registoRetoma = await CriarRegistoProducaoAsync(sessao, EstadoProducao.EM_CURSO, NormalizeTimestamp(evento.OccurredAt));
+                    ResolverEvento(evento, EstadoProducao.EM_CURSO, "AUTO_RUNNING_RETOMOU_PRODUCAO", registoRetoma.Registo_Producao_id);
+                }
+                else if (IsState(sessao.UltimoEstadoMaquina, EstadoStopped))
+                {
+                    var registoRetoma = await CriarRegistoProducaoAsync(sessao, EstadoProducao.EM_CURSO, NormalizeTimestamp(evento.OccurredAt));
+                    ResolverEvento(evento, EstadoProducao.EM_CURSO, "AUTO_RUNNING_APOS_PARAGEM_RESOLVIDA", registoRetoma.Registo_Producao_id);
+                }
+                else if (!sessao.RegistoProducaoInicio_id.HasValue)
+                {
+                    _logger.LogWarning(
+                        "Evento RUNNING recebido para a sessao industrial {SessaoId} sem registo de inicio associado. O contexto deve ser completado pelo utilizador antes de criar novos registos de producao.",
+                        sessao.SessaoMaquinaIndustrial_id);
+
+                    ResolverEvento(evento, null, "RUNNING_SEM_REGISTO_INICIAL", null);
+                }
+                else
+                {
+                    ResolverEvento(evento, null, "RUNNING_CONTEXTO_JA_ATIVO", null);
+                }
+
+                sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.ATIVA;
+                sessao.UltimoEstadoMaquina = EstadoRunning;
+                sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
+                sessao.UpdatedAt = DateTime.UtcNow;
+                await _sessaoRepository.UpdateAsync(sessao);
+                await _eventoRepository.UpdateAsync(evento);
+
+                return ProcessStatus.Resolvido;
+            }
+
+            if (IsState(evento.EstadoMaquina, EstadoAlarm))
+            {
+                evento.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.PENDENTE;
+                evento.CamposEmFalta = "Ocorrencia";
+                evento.FonteResolucao = "ALARM_PENDENTE_CONTEXTO";
+                evento.ResolvedAt = null;
+                evento.UpdatedAt = DateTime.UtcNow;
+                await _eventoRepository.UpdateAsync(evento);
+                return ProcessStatus.Pendente;
+            }
+
+            ResolverEvento(evento, null, IsState(evento.EstadoMaquina, EstadoIdle) ? "IDLE_RECEBIDO" : "ESTADO_TECNICO_RECEBIDO", null);
+            sessao.UltimoEstadoMaquina = evento.EstadoMaquina;
+            sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
+            sessao.UpdatedAt = DateTime.UtcNow;
+            await _sessaoRepository.UpdateAsync(sessao);
+            await _eventoRepository.UpdateAsync(evento);
+
+            return ProcessStatus.Resolvido;
         }
 
         /// <summary>
@@ -336,8 +553,11 @@ namespace TipMolde.Application.Service
                 }
                 else if (!sessao.RegistoProducaoInicio_id.HasValue)
                 {
-                    var registoInicio = await EnsureSessaoInicioSincronizadoAsync(sessao);
-                    ResolverEvento(evento, EstadoProducao.EM_CURSO, "AUTO_RUNNING_SINCRONIZOU_INICIO_SESSAO", registoInicio?.Registo_Producao_id);
+                    _logger.LogWarning(
+                        "Evento RUNNING recebido para a sessao industrial {SessaoId} sem registo de inicio associado. O contexto deve ser completado pelo utilizador antes de criar novos registos de producao.",
+                        sessao.SessaoMaquinaIndustrial_id);
+
+                    ResolverEvento(evento, null, "RUNNING_SEM_REGISTO_INICIAL", null);
                 }
                 else
                 {
@@ -375,26 +595,7 @@ namespace TipMolde.Application.Service
         private async Task<ResponseRegistosProducaoDto> CriarRegistoEmCursoAsync(SessaoMaquinaIndustrial sessao, DateTime dataHora)
         {
             var dto = BuildRegistoDto(sessao, EstadoProducao.EM_CURSO);
-
-            try
-            {
-                return await _registosProducaoService.CreateFromIndustrialEventAsync(dto, dataHora);
-            }
-            catch (ArgumentException ex) when (ex.Message.Contains("Primeiro estado deve ser PREPARACAO", StringComparison.OrdinalIgnoreCase))
-            {
-                await CriarRegistoProducaoAsync(sessao, EstadoProducao.PREPARACAO, dataHora);
-                return await CriarRegistoProducaoAsync(sessao, EstadoProducao.EM_CURSO, dataHora);
-            }
-            catch (ArgumentException ex) when (ex.Message.Contains("Primeiro estado deve ser PENDENTE", StringComparison.OrdinalIgnoreCase))
-            {
-                await CriarRegistoProducaoAsync(sessao, EstadoProducao.PENDENTE, dataHora);
-                return await CriarRegistoProducaoAsync(sessao, EstadoProducao.EM_CURSO, dataHora);
-            }
-            catch (ArgumentException ex) when (ex.Message.Contains("nao e possivel passar de CONCLUIDO para EM_CURSO", StringComparison.OrdinalIgnoreCase))
-            {
-                await CriarRegistoProducaoAsync(sessao, EstadoProducao.PREPARACAO, dataHora);
-                return await CriarRegistoProducaoAsync(sessao, EstadoProducao.EM_CURSO, dataHora);
-            }
+            return await _registosProducaoService.CreateFromIndustrialEventAsync(dto, dataHora, permitirPrimeiroEstadoEmCurso: true);
         }
 
         private async Task<ResponseRegistosProducaoDto> CriarRegistoProducaoAsync(

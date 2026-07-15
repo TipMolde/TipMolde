@@ -155,8 +155,8 @@ public class IndustrialProducaoServiceTests
         sessaoCriada!.Operador_id.Should().Be(3);
         sessaoCriada.Peca_id.Should().Be(30);
         sessaoCriada.Fase_id.Should().Be(7);
-        sessaoAtualizada!.RegistoProducaoInicio_id.Should().Be(1003);
-        estadosCriados.Should().Equal(EstadoProducao.EM_CURSO, EstadoProducao.PREPARACAO, EstadoProducao.EM_CURSO);
+        sessaoAtualizada!.RegistoProducaoInicio_id.Should().Be(1001);
+        estadosCriados.Should().Equal(EstadoProducao.EM_CURSO);
         eventoAtualizado!.EstadoResolucao.Should().Be(EstadoResolucaoEventoMaquinaIndustrial.RESOLVIDO);
         eventoAtualizado.ResolvidoComoEstadoProducao.Should().Be(EstadoProducao.EM_CURSO);
         eventoAtualizado.SessaoMaquinaIndustrial_id.Should().Be(100);
@@ -201,8 +201,8 @@ public class IndustrialProducaoServiceTests
         _sessaoRepository.Setup(r => r.GetByIdAsync(100)).ReturnsAsync(sessao);
         _registosProducaoService.Setup(s => s.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id))
             .ReturnsAsync(new ResponseRegistosProducaoDto { Estado_producao = EstadoProducao.EM_CURSO });
-        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>()))
-            .Callback<CreateRegistosProducaoDto, DateTime>((dto, data) =>
+        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>(), It.IsAny<bool>()))
+            .Callback<CreateRegistosProducaoDto, DateTime, bool>((dto, data, _) =>
             {
                 dtoCriado = dto;
                 dataCriada = data;
@@ -270,7 +270,7 @@ public class IndustrialProducaoServiceTests
         sessaoAtualizada.ClosedAt.Should().Be(stoppedAt);
         eventoAtualizado!.FonteResolucao.Should().Be("UTILIZADOR_CONFIRMOU_CONCLUIDO_IDEMPOTENTE");
         _registosProducaoService.Verify(
-            s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>()),
+            s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>(), It.IsAny<bool>()),
             Times.Never);
     }
 
@@ -295,13 +295,13 @@ public class IndustrialProducaoServiceTests
                 Estado_producao = EstadoProducao.CONCLUIDO,
                 Data_hora = new DateTime(2026, 6, 23, 14, 47, 4, DateTimeKind.Utc)
             });
-        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>()))
-            .Callback<CreateRegistosProducaoDto, DateTime>((dto, data) =>
+        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>(), It.IsAny<bool>()))
+            .Callback<CreateRegistosProducaoDto, DateTime, bool>((dto, data, _) =>
             {
                 estadosCriados.Add(dto.Estado_producao);
                 datasCriadas.Add(data);
             })
-            .ReturnsAsync((CreateRegistosProducaoDto dto, DateTime data) => new ResponseRegistosProducaoDto
+            .ReturnsAsync((CreateRegistosProducaoDto dto, DateTime data, bool _) => new ResponseRegistosProducaoDto
             {
                 Registo_Producao_id = 300 + estadosCriados.Count,
                 Estado_producao = dto.Estado_producao!.Value,
@@ -348,13 +348,13 @@ public class IndustrialProducaoServiceTests
                 Estado_producao = EstadoProducao.PREPARACAO,
                 Data_hora = sessao.StartedAt
             });
-        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>()))
-            .Callback<CreateRegistosProducaoDto, DateTime>((dto, data) =>
+        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>(), It.IsAny<bool>()))
+            .Callback<CreateRegistosProducaoDto, DateTime, bool>((dto, data, _) =>
             {
                 estadosCriados.Add(dto.Estado_producao);
                 datasCriadas.Add(data);
             })
-            .ReturnsAsync((CreateRegistosProducaoDto dto, DateTime data) => new ResponseRegistosProducaoDto
+            .ReturnsAsync((CreateRegistosProducaoDto dto, DateTime data, bool _) => new ResponseRegistosProducaoDto
             {
                 Registo_Producao_id = 300 + estadosCriados.Count,
                 Estado_producao = dto.Estado_producao!.Value,
@@ -417,13 +417,13 @@ public class IndustrialProducaoServiceTests
             .ReturnsAsync(sessao);
         _eventoRepository.Setup(r => r.GetUltimoStoppedPendenteAsync(100))
             .ReturnsAsync(stoppedPendente);
-        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>()))
-            .Callback<CreateRegistosProducaoDto, DateTime>((dto, data) =>
+        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>(), It.IsAny<bool>()))
+            .Callback<CreateRegistosProducaoDto, DateTime, bool>((dto, data, _) =>
             {
                 estadosCriados.Add(dto.Estado_producao);
                 datasCriadas.Add(data);
             })
-            .ReturnsAsync((CreateRegistosProducaoDto dto, DateTime data) => new ResponseRegistosProducaoDto
+            .ReturnsAsync((CreateRegistosProducaoDto dto, DateTime data, bool _) => new ResponseRegistosProducaoDto
             {
                 Registo_Producao_id = estadosCriados.Count,
                 Estado_producao = dto.Estado_producao!.Value,
@@ -446,6 +446,40 @@ public class IndustrialProducaoServiceTests
         stoppedAtualizado!.ResolvidoComoEstadoProducao.Should().Be(EstadoProducao.PAUSADO);
         runningCriado!.ResolvidoComoEstadoProducao.Should().Be(EstadoProducao.EM_CURSO);
         sessao.UltimoEstadoMaquina.Should().Be("RUNNING");
+    }
+
+    [Test]
+    public async Task ProcessarTelemetriaAsync_RunningComSessaoAtivaSemRegistoInicio_NaoCriaRegistoAutomatico()
+    {
+        var runningAt = new DateTime(2026, 6, 26, 8, 10, 0, DateTimeKind.Utc);
+        var sessao = BuildSessao();
+        sessao.UltimoEstadoMaquina = "IDLE";
+        sessao.RegistoProducaoInicio_id = null;
+        var eventoCriado = (EventoMaquinaIndustrial?)null;
+
+        _maquinaRepository.Setup(r => r.GetByIpAddressAsync("192.168.1.111"))
+            .ReturnsAsync(BuildMaquina());
+        _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5))
+            .ReturnsAsync(sessao);
+        _eventoRepository.Setup(r => r.AddAsync(It.IsAny<EventoMaquinaIndustrial>()))
+            .Callback<EventoMaquinaIndustrial>(e => eventoCriado = e)
+            .ReturnsAsync((EventoMaquinaIndustrial e) => e);
+
+        var result = await _sut.ProcessarTelemetriaAsync([BuildTelemetry("RUNNING", runningAt)]);
+
+        result.Resolvidos.Should().Be(1);
+        eventoCriado.Should().NotBeNull();
+        eventoCriado!.FonteResolucao.Should().Be("RUNNING_SEM_REGISTO_INICIAL");
+        eventoCriado.ResolvidoComoEstadoProducao.Should().BeNull();
+        _registosProducaoService.Verify(
+            s => s.CreateFromIndustrialEventAsync(
+                It.IsAny<CreateRegistosProducaoDto>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<bool>()),
+            Times.Never);
+        sessao.UltimoEstadoMaquina.Should().Be("RUNNING");
+        sessao.LastSeenAt.Should().Be(runningAt);
+        sessao.EstadoSessao.Should().Be(EstadoSessaoMaquinaIndustrial.ATIVA);
     }
 
     private static IndustrialTelemetryDto BuildTelemetry(string state, DateTime? occurredAt = null) => new()
@@ -510,12 +544,10 @@ public class IndustrialProducaoServiceTests
 
     private void SetupRegistoIndustrial(List<EstadoProducao?> estadosCriados)
     {
-        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>()))
-            .Returns((CreateRegistosProducaoDto dto, DateTime data) =>
+        _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>(), It.IsAny<bool>()))
+            .Returns((CreateRegistosProducaoDto dto, DateTime data, bool _) =>
             {
                 estadosCriados.Add(dto.Estado_producao);
-                if (estadosCriados.Count == 1 && dto.Estado_producao == EstadoProducao.EM_CURSO)
-                    throw new ArgumentException("Primeiro estado deve ser PREPARACAO.");
 
                 return Task.FromResult(new ResponseRegistosProducaoDto
                 {
