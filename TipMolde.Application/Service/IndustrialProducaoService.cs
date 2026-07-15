@@ -71,11 +71,31 @@ namespace TipMolde.Application.Service
                     continue;
                 }
 
+                var receivedAt = DateTime.UtcNow;
+                var sessaoAberta = await _sessaoRepository.GetAbertaPorMaquinaAsync(maquina.Maquina_id);
                 var evento = BuildEvento(dto, maquina.Maquina_id, NormalizeState(dto.State));
                 evento.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.RECEBIDO;
                 evento.FonteResolucao = "RECEBIDO";
-                evento.CreatedAt = DateTime.UtcNow;
-                evento.UpdatedAt = DateTime.UtcNow;
+                evento.CreatedAt = receivedAt;
+                evento.UpdatedAt = receivedAt;
+
+                if (sessaoAberta is not null)
+                {
+                    evento.SessaoMaquinaIndustrial_id = sessaoAberta.SessaoMaquinaIndustrial_id;
+
+                    sessaoAberta.LastSeenAt = receivedAt;
+                    sessaoAberta.UltimoEstadoMaquina = evento.EstadoMaquina;
+                    sessaoAberta.UpdatedAt = receivedAt;
+
+                    if (IsState(evento.EstadoMaquina, EstadoStopped))
+                    {
+                        evento.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.PENDENTE;
+                        evento.FonteResolucao = "STOPPED_RECEBIDO_COM_SESSAO";
+                        sessaoAberta.EstadoSessao = EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM;
+                    }
+
+                    await _sessaoRepository.UpdateAsync(sessaoAberta);
+                }
 
                 await _eventoRepository.AddAsync(evento);
                 result.Guardados++;
@@ -226,7 +246,7 @@ namespace TipMolde.Application.Service
 
                 sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM;
                 sessao.UltimoEstadoMaquina = EstadoStopped;
-                sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
+                sessao.LastSeenAt = GetRececaoTimestampUtc(evento);
                 sessao.UpdatedAt = DateTime.UtcNow;
                 await _sessaoRepository.UpdateAsync(sessao);
 
@@ -265,7 +285,7 @@ namespace TipMolde.Application.Service
 
                 sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.ATIVA;
                 sessao.UltimoEstadoMaquina = EstadoRunning;
-                sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
+                sessao.LastSeenAt = GetRececaoTimestampUtc(evento);
                 sessao.UpdatedAt = DateTime.UtcNow;
                 await _sessaoRepository.UpdateAsync(sessao);
                 await _eventoRepository.UpdateAsync(evento);
@@ -286,7 +306,7 @@ namespace TipMolde.Application.Service
 
             ResolverEvento(evento, null, IsState(evento.EstadoMaquina, EstadoIdle) ? "IDLE_RECEBIDO" : "ESTADO_TECNICO_RECEBIDO", null);
             sessao.UltimoEstadoMaquina = evento.EstadoMaquina;
-            sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
+            sessao.LastSeenAt = GetRececaoTimestampUtc(evento);
             sessao.UpdatedAt = DateTime.UtcNow;
             await _sessaoRepository.UpdateAsync(sessao);
             await _eventoRepository.UpdateAsync(evento);
@@ -527,7 +547,7 @@ namespace TipMolde.Application.Service
 
                 sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM;
                 sessao.UltimoEstadoMaquina = EstadoStopped;
-                sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
+                sessao.LastSeenAt = GetRececaoTimestampUtc(evento);
                 sessao.UpdatedAt = DateTime.UtcNow;
                 await _sessaoRepository.UpdateAsync(sessao);
 
@@ -566,7 +586,7 @@ namespace TipMolde.Application.Service
 
                 sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.ATIVA;
                 sessao.UltimoEstadoMaquina = EstadoRunning;
-                sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
+                sessao.LastSeenAt = GetRececaoTimestampUtc(evento);
                 sessao.UpdatedAt = DateTime.UtcNow;
                 await _sessaoRepository.UpdateAsync(sessao);
                 await _eventoRepository.AddAsync(evento);
@@ -584,7 +604,7 @@ namespace TipMolde.Application.Service
 
             ResolverEvento(evento, null, IsState(evento.EstadoMaquina, EstadoIdle) ? "IDLE_RECEBIDO" : "ESTADO_TECNICO_RECEBIDO", null);
             sessao.UltimoEstadoMaquina = evento.EstadoMaquina;
-            sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
+            sessao.LastSeenAt = GetRececaoTimestampUtc(evento);
             sessao.UpdatedAt = DateTime.UtcNow;
             await _sessaoRepository.UpdateAsync(sessao);
             await _eventoRepository.AddAsync(evento);
@@ -791,7 +811,7 @@ namespace TipMolde.Application.Service
             if (trabalhoConcluido)
             {
                 sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.FECHADA;
-                sessao.ClosedAt = NormalizeTimestamp(evento.OccurredAt);
+                sessao.ClosedAt = GetRececaoTimestampUtc(evento);
                 sessao.RegistoProducaoConclusao_id = registoProducaoId;
             }
             else
@@ -799,7 +819,7 @@ namespace TipMolde.Application.Service
                 sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.ATIVA;
             }
 
-            sessao.LastSeenAt = NormalizeTimestamp(evento.OccurredAt);
+            sessao.LastSeenAt = GetRececaoTimestampUtc(evento);
             sessao.UltimoEstadoMaquina = EstadoStopped;
             sessao.UpdatedAt = DateTime.UtcNow;
         }
@@ -834,6 +854,14 @@ namespace TipMolde.Application.Service
                 DateTimeKind.Local => timestamp.ToUniversalTime(),
                 _ => DateTime.SpecifyKind(timestamp, DateTimeKind.Utc)
             };
+        }
+
+        private static DateTime GetRececaoTimestampUtc(EventoMaquinaIndustrial evento)
+        {
+            if (evento.CreatedAt > DateTime.MinValue)
+                return NormalizeTimestamp(evento.CreatedAt);
+
+            return NormalizeTimestamp(evento.OccurredAt);
         }
 
         private enum ProcessStatus

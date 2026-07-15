@@ -190,6 +190,7 @@ public class IndustrialProducaoServiceTests
         var stoppedAt = new DateTime(2026, 6, 26, 8, 30, 0, DateTimeKind.Utc);
         var evento = WithId(BuildEvento("STOPPED", stoppedAt), 40);
         evento.SessaoMaquinaIndustrial_id = 100;
+        evento.CreatedAt = stoppedAt;
         var sessao = BuildSessao();
         sessao.RegistoProducaoInicio_id = 250;
         var sessaoAtualizada = (SessaoMaquinaIndustrial?)null;
@@ -237,6 +238,7 @@ public class IndustrialProducaoServiceTests
         var stoppedAt = new DateTime(2026, 6, 26, 8, 30, 0, DateTimeKind.Utc);
         var evento = WithId(BuildEvento("STOPPED", stoppedAt), 40);
         evento.SessaoMaquinaIndustrial_id = 100;
+        evento.CreatedAt = stoppedAt;
         var sessao = BuildSessao();
         sessao.RegistoProducaoInicio_id = 250;
         var sessaoAtualizada = (SessaoMaquinaIndustrial?)null;
@@ -465,7 +467,9 @@ public class IndustrialProducaoServiceTests
             .Callback<EventoMaquinaIndustrial>(e => eventoCriado = e)
             .ReturnsAsync((EventoMaquinaIndustrial e) => e);
 
+        var beforeProcessing = DateTime.UtcNow;
         var result = await _sut.ProcessarTelemetriaAsync([BuildTelemetry("RUNNING", runningAt)]);
+        var afterProcessing = DateTime.UtcNow;
 
         result.Resolvidos.Should().Be(1);
         eventoCriado.Should().NotBeNull();
@@ -478,7 +482,8 @@ public class IndustrialProducaoServiceTests
                 It.IsAny<bool>()),
             Times.Never);
         sessao.UltimoEstadoMaquina.Should().Be("RUNNING");
-        sessao.LastSeenAt.Should().Be(runningAt);
+        sessao.LastSeenAt.Should().BeOnOrAfter(beforeProcessing);
+        sessao.LastSeenAt.Should().BeOnOrBefore(afterProcessing);
         sessao.EstadoSessao.Should().Be(EstadoSessaoMaquinaIndustrial.ATIVA);
     }
 
