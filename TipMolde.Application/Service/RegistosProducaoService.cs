@@ -394,7 +394,7 @@ namespace TipMolde.Application.Service
                     { EstadoProducao.PENDENTE, new() { EstadoProducao.EM_CURSO } },
                     { EstadoProducao.PREPARACAO, new() },
                     { EstadoProducao.EM_CURSO, new() { EstadoProducao.PAUSADO, EstadoProducao.CONCLUIDO } },
-                    { EstadoProducao.PAUSADO, new() { EstadoProducao.EM_CURSO } },
+                    { EstadoProducao.PAUSADO, new() { EstadoProducao.EM_CURSO, EstadoProducao.CONCLUIDO } },
                     { EstadoProducao.CONCLUIDO, new() }
                 }
                 : new Dictionary<EstadoProducao, List<EstadoProducao>>
@@ -402,7 +402,7 @@ namespace TipMolde.Application.Service
                 { EstadoProducao.PENDENTE, new() { EstadoProducao.PREPARACAO } },
                 { EstadoProducao.PREPARACAO, new() { EstadoProducao.EM_CURSO } },
                 { EstadoProducao.EM_CURSO, new() { EstadoProducao.PAUSADO, EstadoProducao.CONCLUIDO } },
-                { EstadoProducao.PAUSADO, new() { EstadoProducao.EM_CURSO, EstadoProducao.PREPARACAO } },
+                { EstadoProducao.PAUSADO, new() { EstadoProducao.EM_CURSO, EstadoProducao.PREPARACAO, EstadoProducao.CONCLUIDO } },
                 { EstadoProducao.CONCLUIDO, new() { EstadoProducao.PREPARACAO } }
             };
 

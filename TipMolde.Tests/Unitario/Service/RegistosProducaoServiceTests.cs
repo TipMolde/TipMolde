@@ -332,6 +332,36 @@ public class RegistosProducaoServiceTests
             It.Is<Peca>(p => p.ProximaFase_id == 7)), Times.Once);
     }
 
+    [Test(Description = "TRP009C - CONCLUIDO tambem pode seguir um estado PAUSADO quando o utilizador confirma o fim do trabalho.")]
+    public async Task CreateAsync_Should_AcceptConcluido_AfterPausado()
+    {
+        // ARRANGE
+        SetupValidDependencies();
+        SetupPersistCreated();
+        _registosRepository.Setup(r => r.GetUltimoRegistoAsync(1, 1)).ReturnsAsync(new RegistosProducao
+        {
+            Fase_id = 1,
+            Peca_id = 1,
+            Maquina_id = 1,
+            Estado_producao = EstadoProducao.PAUSADO,
+            Data_hora = DateTime.UtcNow.AddMinutes(-5)
+        });
+
+        var maquina = BuildMaquina(id: 1, faseId: 1, estado: EstadoMaquina.EM_USO);
+        _maquinaRepository.Setup(r => r.GetByIdUnicoAsync(1)).ReturnsAsync(maquina);
+
+        // ACT
+        var result = await _sut.CreateAsync(BuildDto(estado: EstadoProducao.CONCLUIDO, maquinaId: null));
+
+        // ASSERT
+        result.Estado_producao.Should().Be(EstadoProducao.CONCLUIDO);
+        maquina.Estado.Should().Be(EstadoMaquina.DISPONIVEL);
+        _registosRepository.Verify(r => r.AddWithMachineStateAsync(
+            It.Is<RegistosProducao>(rp => rp.Maquina_id == 1 && rp.Estado_producao == EstadoProducao.CONCLUIDO),
+            It.Is<Maquina>(m => m.Estado == EstadoMaquina.DISPONIVEL),
+            It.IsAny<Peca?>()), Times.Once);
+    }
+
     [Test(Description = "TRP010 - Criacao falha quando a transicao de estado e invalida.")]
     public async Task CreateAsync_Should_Throw_When_TransitionIsInvalid()
     {

@@ -175,9 +175,16 @@ namespace TipMolde.Application.Service
                 return ProcessStatus.Ignorado;
             }
 
+            var sessao = await _sessaoRepository.GetAbertaPorMaquinaAsync(maquina.Maquina_id);
             var bloqueioPendente = await _eventoRepository.GetMaisRecentePendentePorMaquinaAsync(maquina.Maquina_id);
             if (bloqueioPendente != null)
             {
+                if (PodeRetomarAutomaticamenteComRunning(evento, sessao, bloqueioPendente))
+                {
+                    evento.SessaoMaquinaIndustrial_id = sessao!.SessaoMaquinaIndustrial_id;
+                    return await ProcessarEventoRecebidoComSessaoAsync(evento, sessao);
+                }
+
                 _logger.LogDebug(
                     "Processamento adiado para maquina {MaquinaId}: existe evento pendente {EventoId} a aguardar resolucao.",
                     maquina.Maquina_id,
@@ -185,7 +192,6 @@ namespace TipMolde.Application.Service
                 return ProcessStatus.Pendente;
             }
 
-            var sessao = await _sessaoRepository.GetAbertaPorMaquinaAsync(maquina.Maquina_id);
             if (sessao != null && sessao.EstadoSessao == EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM)
             {
                 _logger.LogDebug(
@@ -200,6 +206,17 @@ namespace TipMolde.Application.Service
 
             evento.SessaoMaquinaIndustrial_id = sessao.SessaoMaquinaIndustrial_id;
             return await ProcessarEventoRecebidoComSessaoAsync(evento, sessao);
+        }
+
+        private static bool PodeRetomarAutomaticamenteComRunning(
+            EventoMaquinaIndustrial evento,
+            SessaoMaquinaIndustrial? sessao,
+            EventoMaquinaIndustrial bloqueioPendente)
+        {
+            return sessao is not null
+                && sessao.EstadoSessao == EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM
+                && IsState(evento.EstadoMaquina, EstadoRunning)
+                && IsState(bloqueioPendente.EstadoMaquina, EstadoStopped);
         }
 
         private async Task<ProcessStatus> ProcessarEventoRecebidoSemSessaoAsync(EventoMaquinaIndustrial evento)

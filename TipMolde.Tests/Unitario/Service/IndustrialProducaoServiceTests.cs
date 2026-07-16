@@ -408,6 +408,8 @@ public class IndustrialProducaoServiceTests
         stoppedPendente.EventoMaquinaIndustrial_id = 70;
         stoppedPendente.SessaoMaquinaIndustrial_id = 100;
         var sessao = BuildSessao();
+        sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM;
+        sessao.UltimoEstadoMaquina = "STOPPED";
         var estadosCriados = new List<EstadoProducao?>();
         var datasCriadas = new List<DateTime>();
         var runningCriado = (EventoMaquinaIndustrial?)null;
@@ -417,6 +419,8 @@ public class IndustrialProducaoServiceTests
             .ReturnsAsync(BuildMaquina());
         _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5))
             .ReturnsAsync(sessao);
+        _eventoRepository.Setup(r => r.GetMaisRecentePendentePorMaquinaAsync(5))
+            .ReturnsAsync(stoppedPendente);
         _eventoRepository.Setup(r => r.GetUltimoStoppedPendenteAsync(100))
             .ReturnsAsync(stoppedPendente);
         _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>(), It.IsAny<bool>()))
