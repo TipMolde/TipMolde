@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TipMolde.Application.Dtos.IndustrialProducaoDto;
 using TipMolde.Application.Dtos.RegistoProducaoDto;
+using TipMolde.Application.Interface;
 using TipMolde.Application.Interface.Producao.IIndustrial;
 using TipMolde.Application.Interface.Producao.IMaquina;
 using TipMolde.Application.Interface.Producao.IPeca;
@@ -452,6 +453,36 @@ public class IndustrialProducaoServiceTests
         stoppedAtualizado!.ResolvidoComoEstadoProducao.Should().Be(EstadoProducao.PAUSADO);
         runningCriado!.ResolvidoComoEstadoProducao.Should().Be(EstadoProducao.EM_CURSO);
         sessao.UltimoEstadoMaquina.Should().Be("RUNNING");
+    }
+
+    [Test]
+    public async Task ProcessarEventosRecebidosAsync_ComBloqueioPendente_IgnoraEventoParaEvitarReprocessamento()
+    {
+        var bloqueioPendente = WithId(BuildEvento("RUNNING", new DateTime(2026, 6, 26, 8, 0, 0, DateTimeKind.Utc)), 70);
+        var recebido = WithId(BuildEvento("RUNNING", new DateTime(2026, 6, 26, 8, 10, 0, DateTimeKind.Utc)), 71);
+        recebido.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.RECEBIDO;
+
+        var atualizado = (EventoMaquinaIndustrial?)null;
+
+        _maquinaRepository.Setup(r => r.GetByIdAsync(5))
+            .ReturnsAsync(BuildMaquina());
+        _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5))
+            .ReturnsAsync((SessaoMaquinaIndustrial?)null);
+        _eventoRepository.Setup(r => r.GetRecebidosAsync(1, 50))
+            .ReturnsAsync(new PagedResult<EventoMaquinaIndustrial>(new[] { recebido }, 1, 1, 50));
+        _eventoRepository.Setup(r => r.GetMaisRecentePendentePorMaquinaAsync(5))
+            .ReturnsAsync(bloqueioPendente);
+        _eventoRepository.Setup(r => r.UpdateAsync(It.IsAny<EventoMaquinaIndustrial>()))
+            .Callback<EventoMaquinaIndustrial>(e => atualizado = e)
+            .Returns(Task.CompletedTask);
+
+        await _sut.ProcessarEventosRecebidosAsync();
+
+        atualizado.Should().NotBeNull();
+        atualizado!.EventoMaquinaIndustrial_id.Should().Be(71);
+        atualizado.EstadoResolucao.Should().Be(EstadoResolucaoEventoMaquinaIndustrial.IGNORADO);
+        atualizado.FonteResolucao.Should().Be("BLOQUEADO_POR_EVENTO_PENDENTE");
+        _eventoRepository.Verify(r => r.AddAsync(It.IsAny<EventoMaquinaIndustrial>()), Times.Never);
     }
 
     [Test]

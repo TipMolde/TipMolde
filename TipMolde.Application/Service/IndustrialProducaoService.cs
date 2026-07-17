@@ -189,7 +189,13 @@ namespace TipMolde.Application.Service
                     "Processamento adiado para maquina {MaquinaId}: existe evento pendente {EventoId} a aguardar resolucao.",
                     maquina.Maquina_id,
                     bloqueioPendente.EventoMaquinaIndustrial_id);
-                return ProcessStatus.Pendente;
+
+                if (sessao is not null)
+                    evento.SessaoMaquinaIndustrial_id = sessao.SessaoMaquinaIndustrial_id;
+
+                IgnorarEvento(evento, "BLOQUEADO_POR_EVENTO_PENDENTE");
+                await _eventoRepository.UpdateAsync(evento);
+                return ProcessStatus.Ignorado;
             }
 
             if (sessao != null && sessao.EstadoSessao == EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM)
