@@ -101,5 +101,20 @@ namespace TipMolde.Infrastructure.Repositorio
                 .OrderByDescending(e => e.OccurredAt)
                 .FirstOrDefaultAsync();
         }
+
+        /// <summary>
+        /// Obtem todos os STOPPED pendentes de uma sessao, ordenados do mais antigo para o mais recente.
+        /// </summary>
+        public async Task<IReadOnlyList<EventoMaquinaIndustrial>> GetStoppedPendentesAsync(int sessaoId)
+        {
+            return await _context.EventosMaquinaIndustrial
+                .AsNoTracking()
+                .Where(e =>
+                    e.SessaoMaquinaIndustrial_id == sessaoId &&
+                    e.EstadoMaquina == "STOPPED" &&
+                    e.EstadoResolucao == EstadoResolucaoEventoMaquinaIndustrial.PENDENTE)
+                .OrderBy(e => e.OccurredAt)
+                .ToListAsync();
+        }
     }
 }

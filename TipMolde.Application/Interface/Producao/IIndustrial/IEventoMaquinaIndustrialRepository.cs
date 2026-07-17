@@ -16,5 +16,7 @@ namespace TipMolde.Application.Interface.Producao.IIndustrial
         Task<EventoMaquinaIndustrial?> GetMaisRecentePendentePorMaquinaAsync(int maquinaId, string estadoMaquina);
 
         Task<EventoMaquinaIndustrial?> GetUltimoStoppedPendenteAsync(int sessaoId);
+
+        Task<IReadOnlyList<EventoMaquinaIndustrial>> GetStoppedPendentesAsync(int sessaoId);
     }
 }

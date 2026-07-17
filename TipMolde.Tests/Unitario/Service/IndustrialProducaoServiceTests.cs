@@ -78,7 +78,7 @@ public class IndustrialProducaoServiceTests
         stopped.SessaoMaquinaIndustrial_id = sessao.SessaoMaquinaIndustrial_id;
 
         _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5)).ReturnsAsync(sessao);
-        _eventoRepository.Setup(r => r.GetUltimoStoppedPendenteAsync(100)).ReturnsAsync(stopped);
+        _eventoRepository.Setup(r => r.GetStoppedPendentesAsync(100)).ReturnsAsync(new[] { stopped });
 
         var result = await _sut.GetEventoPendenteMaquinaAsync(5);
 
@@ -92,12 +92,31 @@ public class IndustrialProducaoServiceTests
     public async Task GetEventoPendenteMaquinaAsync_SessaoAtivaSemAcaoManual_DeveIgnorarPendentesAntigos()
     {
         _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5)).ReturnsAsync(BuildSessao());
+        _eventoRepository.Setup(r => r.GetStoppedPendentesAsync(100)).ReturnsAsync(Array.Empty<EventoMaquinaIndustrial>());
 
         var result = await _sut.GetEventoPendenteMaquinaAsync(5);
 
         result.Should().BeNull();
-        _eventoRepository.Verify(r => r.GetUltimoStoppedPendenteAsync(It.IsAny<int>()), Times.Never);
+        _eventoRepository.Verify(r => r.GetStoppedPendentesAsync(100), Times.Once);
         _eventoRepository.Verify(r => r.GetMaisRecentePendentePorMaquinaAsync(It.IsAny<int>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Test]
+    public async Task GetEventoPendenteMaquinaAsync_SessaoAtivaComStoppedPendente_DeveExporPendencia()
+    {
+        var sessao = BuildSessao();
+        sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.ATIVA;
+        var stopped = WithId(BuildEvento("STOPPED", new DateTime(2026, 6, 26, 8, 30, 0, DateTimeKind.Utc)), 71);
+        stopped.SessaoMaquinaIndustrial_id = sessao.SessaoMaquinaIndustrial_id;
+
+        _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5)).ReturnsAsync(sessao);
+        _eventoRepository.Setup(r => r.GetStoppedPendentesAsync(100)).ReturnsAsync(new[] { stopped });
+
+        var result = await _sut.GetEventoPendenteMaquinaAsync(5);
+
+        result.Should().NotBeNull();
+        result!.EventoMaquinaIndustrial_id.Should().Be(71);
+        result.EstadoMaquina.Should().Be("STOPPED");
     }
 
     [Test]
@@ -420,10 +439,8 @@ public class IndustrialProducaoServiceTests
             .ReturnsAsync(BuildMaquina());
         _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5))
             .ReturnsAsync(sessao);
-        _eventoRepository.Setup(r => r.GetMaisRecentePendentePorMaquinaAsync(5))
-            .ReturnsAsync(stoppedPendente);
-        _eventoRepository.Setup(r => r.GetUltimoStoppedPendenteAsync(100))
-            .ReturnsAsync(stoppedPendente);
+        _eventoRepository.Setup(r => r.GetStoppedPendentesAsync(100))
+            .ReturnsAsync(new[] { stoppedPendente });
         _registosProducaoService.Setup(s => s.CreateFromIndustrialEventAsync(It.IsAny<CreateRegistosProducaoDto>(), It.IsAny<DateTime>(), It.IsAny<bool>()))
             .Callback<CreateRegistosProducaoDto, DateTime, bool>((dto, data, _) =>
             {
@@ -456,7 +473,38 @@ public class IndustrialProducaoServiceTests
     }
 
     [Test]
-    public async Task ProcessarEventosRecebidosAsync_ComBloqueioPendente_IgnoraEventoParaEvitarReprocessamento()
+    public async Task ProcessarEventosRecebidosAsync_ComStoppedPendenteAntigo_CriaNovoRunningPendente()
+    {
+        var bloqueioPendente = WithId(BuildEvento("STOPPED", new DateTime(2026, 6, 26, 8, 0, 0, DateTimeKind.Utc)), 70);
+        var recebido = WithId(BuildEvento("RUNNING", new DateTime(2026, 6, 26, 8, 10, 0, DateTimeKind.Utc)), 71);
+        recebido.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.RECEBIDO;
+
+        var atualizado = (EventoMaquinaIndustrial?)null;
+
+        _maquinaRepository.Setup(r => r.GetByIdAsync(5))
+            .ReturnsAsync(BuildMaquina());
+        _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5))
+            .ReturnsAsync((SessaoMaquinaIndustrial?)null);
+        _eventoRepository.Setup(r => r.GetRecebidosAsync(1, 50))
+            .ReturnsAsync(new PagedResult<EventoMaquinaIndustrial>(new[] { recebido }, 1, 1, 50));
+        _eventoRepository.Setup(r => r.GetMaisRecentePendentePorMaquinaAsync(5))
+            .ReturnsAsync(bloqueioPendente);
+        _eventoRepository.Setup(r => r.UpdateAsync(It.IsAny<EventoMaquinaIndustrial>()))
+            .Callback<EventoMaquinaIndustrial>(e => atualizado = e)
+            .Returns(Task.CompletedTask);
+
+        await _sut.ProcessarEventosRecebidosAsync();
+
+        atualizado.Should().NotBeNull();
+        atualizado!.EventoMaquinaIndustrial_id.Should().Be(71);
+        atualizado.EstadoResolucao.Should().Be(EstadoResolucaoEventoMaquinaIndustrial.PENDENTE);
+        atualizado.FonteResolucao.Should().Be("RUNNING_PENDENTE_CONTEXTO");
+        atualizado.CamposEmFalta.Should().Be("Operador_id,Peca_id,Fase_id");
+        _eventoRepository.Verify(r => r.AddAsync(It.IsAny<EventoMaquinaIndustrial>()), Times.Never);
+    }
+
+    [Test]
+    public async Task ProcessarEventosRecebidosAsync_ComRunningPendenteExistente_NaoCriaDuplicado()
     {
         var bloqueioPendente = WithId(BuildEvento("RUNNING", new DateTime(2026, 6, 26, 8, 0, 0, DateTimeKind.Utc)), 70);
         var recebido = WithId(BuildEvento("RUNNING", new DateTime(2026, 6, 26, 8, 10, 0, DateTimeKind.Utc)), 71);
@@ -481,7 +529,7 @@ public class IndustrialProducaoServiceTests
         atualizado.Should().NotBeNull();
         atualizado!.EventoMaquinaIndustrial_id.Should().Be(71);
         atualizado.EstadoResolucao.Should().Be(EstadoResolucaoEventoMaquinaIndustrial.IGNORADO);
-        atualizado.FonteResolucao.Should().Be("BLOQUEADO_POR_EVENTO_PENDENTE");
+        atualizado.FonteResolucao.Should().Be("RUNNING_JA_PENDENTE_SEM_SESSAO");
         _eventoRepository.Verify(r => r.AddAsync(It.IsAny<EventoMaquinaIndustrial>()), Times.Never);
     }
 
@@ -520,6 +568,39 @@ public class IndustrialProducaoServiceTests
         sessao.LastSeenAt.Should().BeOnOrAfter(beforeProcessing);
         sessao.LastSeenAt.Should().BeOnOrBefore(afterProcessing);
         sessao.EstadoSessao.Should().Be(EstadoSessaoMaquinaIndustrial.ATIVA);
+    }
+
+    [Test]
+    public async Task ReceberTelemetriaAsync_StoppedDuplicadoComSessao_DeveSerIgnorado()
+    {
+        var telemetry = BuildTelemetry("STOPPED");
+        var eventoCriado = (EventoMaquinaIndustrial?)null;
+        var sessao = BuildSessao();
+        sessao.EstadoSessao = EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM;
+        var stoppedExistente = WithId(BuildEvento("STOPPED", new DateTime(2026, 6, 26, 8, 0, 0, DateTimeKind.Utc)), 90);
+        stoppedExistente.SessaoMaquinaIndustrial_id = 100;
+
+        _maquinaRepository.Setup(r => r.GetByIpAddressAsync("192.168.1.111"))
+            .ReturnsAsync(BuildMaquina());
+        _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5))
+            .ReturnsAsync(sessao);
+        _eventoRepository.Setup(r => r.GetStoppedPendentesAsync(100))
+            .ReturnsAsync(new[] { stoppedExistente });
+        _eventoRepository.Setup(r => r.AddAsync(It.IsAny<EventoMaquinaIndustrial>()))
+            .Callback<EventoMaquinaIndustrial>(e => eventoCriado = e)
+            .ReturnsAsync((EventoMaquinaIndustrial e) => e);
+        _sessaoRepository.Setup(r => r.UpdateAsync(It.IsAny<SessaoMaquinaIndustrial>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _sut.ReceberTelemetriaAsync([telemetry]);
+
+        result.Recebidos.Should().Be(1);
+        result.Guardados.Should().Be(1);
+        result.Ignorados.Should().Be(0);
+        eventoCriado.Should().NotBeNull();
+        eventoCriado!.EstadoResolucao.Should().Be(EstadoResolucaoEventoMaquinaIndustrial.IGNORADO);
+        eventoCriado.FonteResolucao.Should().Be("STOPPED_DUPLICADO_COM_SESSAO");
+        eventoCriado.ResolvedAt.Should().NotBeNull();
     }
 
     private static IndustrialTelemetryDto BuildTelemetry(string state, DateTime? occurredAt = null) => new()

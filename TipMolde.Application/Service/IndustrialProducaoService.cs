@@ -89,9 +89,19 @@ namespace TipMolde.Application.Service
 
                     if (IsState(evento.EstadoMaquina, EstadoStopped))
                     {
-                        evento.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.PENDENTE;
-                        evento.FonteResolucao = "STOPPED_RECEBIDO_COM_SESSAO";
                         sessaoAberta.EstadoSessao = EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM;
+                        var stoppedPendentes = await _eventoRepository.GetStoppedPendentesAsync(sessaoAberta.SessaoMaquinaIndustrial_id);
+                        if (stoppedPendentes.Count == 0)
+                        {
+                            evento.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.PENDENTE;
+                            evento.FonteResolucao = "STOPPED_RECEBIDO_COM_SESSAO";
+                        }
+                        else
+                        {
+                            evento.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.IGNORADO;
+                            evento.FonteResolucao = "STOPPED_DUPLICADO_COM_SESSAO";
+                            evento.ResolvedAt = receivedAt;
+                        }
                     }
 
                     await _sessaoRepository.UpdateAsync(sessaoAberta);
@@ -176,53 +186,28 @@ namespace TipMolde.Application.Service
             }
 
             var sessao = await _sessaoRepository.GetAbertaPorMaquinaAsync(maquina.Maquina_id);
-            var bloqueioPendente = await _eventoRepository.GetMaisRecentePendentePorMaquinaAsync(maquina.Maquina_id);
-            if (bloqueioPendente != null)
+            if (sessao == null)
             {
-                if (PodeRetomarAutomaticamenteComRunning(evento, sessao, bloqueioPendente))
+                if (IsState(evento.EstadoMaquina, EstadoRunning))
                 {
-                    evento.SessaoMaquinaIndustrial_id = sessao!.SessaoMaquinaIndustrial_id;
-                    return await ProcessarEventoRecebidoComSessaoAsync(evento, sessao);
+                    var bloqueioPendente = await _eventoRepository.GetMaisRecentePendentePorMaquinaAsync(maquina.Maquina_id);
+                    if (bloqueioPendente != null && IsState(bloqueioPendente.EstadoMaquina, EstadoRunning))
+                    {
+                        _logger.LogDebug(
+                            "Processamento adiado para maquina {MaquinaId}: ja existe um RUNNING pendente de contexto.",
+                            maquina.Maquina_id);
+
+                        IgnorarEvento(evento, "RUNNING_JA_PENDENTE_SEM_SESSAO");
+                        await _eventoRepository.UpdateAsync(evento);
+                        return ProcessStatus.Ignorado;
+                    }
                 }
 
-                _logger.LogDebug(
-                    "Processamento adiado para maquina {MaquinaId}: existe evento pendente {EventoId} a aguardar resolucao.",
-                    maquina.Maquina_id,
-                    bloqueioPendente.EventoMaquinaIndustrial_id);
-
-                if (sessao is not null)
-                    evento.SessaoMaquinaIndustrial_id = sessao.SessaoMaquinaIndustrial_id;
-
-                IgnorarEvento(evento, "BLOQUEADO_POR_EVENTO_PENDENTE");
-                await _eventoRepository.UpdateAsync(evento);
-                return ProcessStatus.Ignorado;
-            }
-
-            if (sessao != null && sessao.EstadoSessao == EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM)
-            {
-                _logger.LogDebug(
-                    "Processamento adiado para maquina {MaquinaId}: existe sessao {SessaoId} a aguardar confirmacao de paragem.",
-                    maquina.Maquina_id,
-                    sessao.SessaoMaquinaIndustrial_id);
-                return ProcessStatus.Pendente;
-            }
-
-            if (sessao == null)
                 return await ProcessarEventoRecebidoSemSessaoAsync(evento);
+            }
 
             evento.SessaoMaquinaIndustrial_id = sessao.SessaoMaquinaIndustrial_id;
             return await ProcessarEventoRecebidoComSessaoAsync(evento, sessao);
-        }
-
-        private static bool PodeRetomarAutomaticamenteComRunning(
-            EventoMaquinaIndustrial evento,
-            SessaoMaquinaIndustrial? sessao,
-            EventoMaquinaIndustrial bloqueioPendente)
-        {
-            return sessao is not null
-                && sessao.EstadoSessao == EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM
-                && IsState(evento.EstadoMaquina, EstadoRunning)
-                && IsState(bloqueioPendente.EstadoMaquina, EstadoStopped);
         }
 
         private async Task<ProcessStatus> ProcessarEventoRecebidoSemSessaoAsync(EventoMaquinaIndustrial evento)
@@ -278,12 +263,19 @@ namespace TipMolde.Application.Service
 
             if (IsState(evento.EstadoMaquina, EstadoRunning))
             {
-                var stoppedPendente = await _eventoRepository.GetUltimoStoppedPendenteAsync(sessao.SessaoMaquinaIndustrial_id);
-                if (stoppedPendente != null)
+                var stoppedPendentes = await _eventoRepository.GetStoppedPendentesAsync(sessao.SessaoMaquinaIndustrial_id);
+                if (stoppedPendentes.Count > 0)
                 {
+                    var stoppedPendente = stoppedPendentes[0];
                     var registoPausa = await CriarRegistoProducaoAsync(sessao, EstadoProducao.PAUSADO, NormalizeTimestamp(stoppedPendente.OccurredAt));
                     ResolverEvento(stoppedPendente, EstadoProducao.PAUSADO, "AUTO_RUNNING_APOS_STOPPED", registoPausa.Registo_Producao_id);
                     await _eventoRepository.UpdateAsync(stoppedPendente);
+
+                    foreach (var stoppedDuplicado in stoppedPendentes.Skip(1))
+                    {
+                        ResolverEvento(stoppedDuplicado, EstadoProducao.PAUSADO, "STOPPED_DUPLICADO_AUTO_RESOLVIDO", registoPausa.Registo_Producao_id);
+                        await _eventoRepository.UpdateAsync(stoppedDuplicado);
+                    }
 
                     var registoRetoma = await CriarRegistoProducaoAsync(sessao, EstadoProducao.EM_CURSO, NormalizeTimestamp(evento.OccurredAt));
                     ResolverEvento(evento, EstadoProducao.EM_CURSO, "AUTO_RUNNING_RETOMOU_PRODUCAO", registoRetoma.Registo_Producao_id);
@@ -361,13 +353,8 @@ namespace TipMolde.Application.Service
 
             if (sessao is not null)
             {
-                if (sessao.EstadoSessao == EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM)
-                {
-                    var stoppedPendente = await _eventoRepository.GetUltimoStoppedPendenteAsync(sessao.SessaoMaquinaIndustrial_id);
-                    return stoppedPendente is null ? null : MapEvento(stoppedPendente);
-                }
-
-                return null;
+                var stoppedPendentes = await _eventoRepository.GetStoppedPendentesAsync(sessao.SessaoMaquinaIndustrial_id);
+                return stoppedPendentes.Count == 0 ? null : MapEvento(stoppedPendentes[0]);
             }
 
             var runningPendente = await _eventoRepository.GetMaisRecentePendentePorMaquinaAsync(maquinaId, EstadoRunning);
@@ -488,6 +475,12 @@ namespace TipMolde.Application.Service
                     dto.TrabalhoConcluido ? "UTILIZADOR_CONFIRMOU_CONCLUIDO_IDEMPOTENTE" : "UTILIZADOR_CONFIRMOU_PAUSADO_IDEMPOTENTE",
                     ultimoRegisto.Registo_Producao_id);
                 await _eventoRepository.UpdateAsync(evento);
+                await ResolverEventosStoppedDuplicadosAsync(
+                    sessao,
+                    evento.EventoMaquinaIndustrial_id,
+                    estadoProducao,
+                    ultimoRegisto.Registo_Producao_id,
+                    dto.TrabalhoConcluido ? "UTILIZADOR_CONFIRMOU_CONCLUIDO_DUPLICADO" : "UTILIZADOR_CONFIRMOU_PAUSADO_DUPLICADO");
 
                 return MapEvento(evento);
             }
@@ -507,6 +500,12 @@ namespace TipMolde.Application.Service
                 dto.TrabalhoConcluido ? "UTILIZADOR_CONFIRMOU_CONCLUIDO" : "UTILIZADOR_CONFIRMOU_PAUSADO",
                 registo.Registo_Producao_id);
             await _eventoRepository.UpdateAsync(evento);
+            await ResolverEventosStoppedDuplicadosAsync(
+                sessao,
+                evento.EventoMaquinaIndustrial_id,
+                estadoProducao,
+                registo.Registo_Producao_id,
+                dto.TrabalhoConcluido ? "UTILIZADOR_CONFIRMOU_CONCLUIDO_DUPLICADO" : "UTILIZADOR_CONFIRMOU_PAUSADO_DUPLICADO");
 
             return MapEvento(evento);
         }
@@ -579,12 +578,19 @@ namespace TipMolde.Application.Service
 
             if (IsState(evento.EstadoMaquina, EstadoRunning))
             {
-                var stoppedPendente = await _eventoRepository.GetUltimoStoppedPendenteAsync(sessao.SessaoMaquinaIndustrial_id);
-                if (stoppedPendente != null)
+                var stoppedPendentes = await _eventoRepository.GetStoppedPendentesAsync(sessao.SessaoMaquinaIndustrial_id);
+                if (stoppedPendentes.Count > 0)
                 {
+                    var stoppedPendente = stoppedPendentes[0];
                     var registoPausa = await CriarRegistoProducaoAsync(sessao, EstadoProducao.PAUSADO, NormalizeTimestamp(stoppedPendente.OccurredAt));
                     ResolverEvento(stoppedPendente, EstadoProducao.PAUSADO, "AUTO_RUNNING_APOS_STOPPED", registoPausa.Registo_Producao_id);
                     await _eventoRepository.UpdateAsync(stoppedPendente);
+
+                    foreach (var stoppedDuplicado in stoppedPendentes.Skip(1))
+                    {
+                        ResolverEvento(stoppedDuplicado, EstadoProducao.PAUSADO, "STOPPED_DUPLICADO_AUTO_RESOLVIDO", registoPausa.Registo_Producao_id);
+                        await _eventoRepository.UpdateAsync(stoppedDuplicado);
+                    }
 
                     var registoRetoma = await CriarRegistoProducaoAsync(sessao, EstadoProducao.EM_CURSO, NormalizeTimestamp(evento.OccurredAt));
                     ResolverEvento(evento, EstadoProducao.EM_CURSO, "AUTO_RUNNING_RETOMOU_PRODUCAO", registoRetoma.Registo_Producao_id);
@@ -845,6 +851,21 @@ namespace TipMolde.Application.Service
             sessao.LastSeenAt = GetRececaoTimestampUtc(evento);
             sessao.UltimoEstadoMaquina = EstadoStopped;
             sessao.UpdatedAt = DateTime.UtcNow;
+        }
+
+        private async Task ResolverEventosStoppedDuplicadosAsync(
+            SessaoMaquinaIndustrial sessao,
+            int eventoPrincipalId,
+            EstadoProducao estadoProducao,
+            int registoProducaoId,
+            string fonteResolucaoDuplicada)
+        {
+            var stoppedPendentes = await _eventoRepository.GetStoppedPendentesAsync(sessao.SessaoMaquinaIndustrial_id);
+            foreach (var duplicado in stoppedPendentes.Where(e => e.EventoMaquinaIndustrial_id != eventoPrincipalId))
+            {
+                ResolverEvento(duplicado, estadoProducao, fonteResolucaoDuplicada, registoProducaoId);
+                await _eventoRepository.UpdateAsync(duplicado);
+            }
         }
 
         private static string NormalizeState(string? state)
