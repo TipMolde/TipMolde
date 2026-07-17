@@ -218,6 +218,8 @@ public class IndustrialProducaoServiceTests
         CreateRegistosProducaoDto? dtoCriado = null;
         DateTime? dataCriada = null;
 
+        _eventoRepository.Setup(r => r.GetStoppedPendentesAsync(100))
+            .ReturnsAsync(Array.Empty<EventoMaquinaIndustrial>());
         _eventoRepository.Setup(r => r.GetByIdAsync(40)).ReturnsAsync(evento);
         _sessaoRepository.Setup(r => r.GetByIdAsync(100)).ReturnsAsync(sessao);
         _registosProducaoService.Setup(s => s.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id))
@@ -264,6 +266,8 @@ public class IndustrialProducaoServiceTests
         var sessaoAtualizada = (SessaoMaquinaIndustrial?)null;
         var eventoAtualizado = (EventoMaquinaIndustrial?)null;
 
+        _eventoRepository.Setup(r => r.GetStoppedPendentesAsync(100))
+            .ReturnsAsync(Array.Empty<EventoMaquinaIndustrial>());
         _eventoRepository.Setup(r => r.GetByIdAsync(40)).ReturnsAsync(evento);
         _sessaoRepository.Setup(r => r.GetByIdAsync(100)).ReturnsAsync(sessao);
         _registosProducaoService.Setup(s => s.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id))
@@ -308,6 +312,8 @@ public class IndustrialProducaoServiceTests
         var estadosCriados = new List<EstadoProducao?>();
         var datasCriadas = new List<DateTime>();
 
+        _eventoRepository.Setup(r => r.GetStoppedPendentesAsync(100))
+            .ReturnsAsync(Array.Empty<EventoMaquinaIndustrial>());
         _eventoRepository.Setup(r => r.GetByIdAsync(40)).ReturnsAsync(evento);
         _sessaoRepository.Setup(r => r.GetByIdAsync(100)).ReturnsAsync(sessao);
         _registosProducaoService.Setup(s => s.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id))
@@ -361,6 +367,8 @@ public class IndustrialProducaoServiceTests
         var estadosCriados = new List<EstadoProducao?>();
         var datasCriadas = new List<DateTime>();
 
+        _eventoRepository.Setup(r => r.GetStoppedPendentesAsync(100))
+            .ReturnsAsync(Array.Empty<EventoMaquinaIndustrial>());
         _eventoRepository.Setup(r => r.GetByIdAsync(40)).ReturnsAsync(evento);
         _sessaoRepository.Setup(r => r.GetByIdAsync(100)).ReturnsAsync(sessao);
         _registosProducaoService.Setup(s => s.GetUltimoRegistoAsync(sessao.Fase_id, sessao.Peca_id))
@@ -407,6 +415,8 @@ public class IndustrialProducaoServiceTests
         var evento = WithId(BuildEvento("STOPPED"), 40);
         evento.SessaoMaquinaIndustrial_id = 100;
 
+        _eventoRepository.Setup(r => r.GetStoppedPendentesAsync(100))
+            .ReturnsAsync(Array.Empty<EventoMaquinaIndustrial>());
         _eventoRepository.Setup(r => r.GetByIdAsync(40)).ReturnsAsync(evento);
         _sessaoRepository.Setup(r => r.GetByIdAsync(100)).ReturnsAsync(BuildSessao());
 
@@ -542,6 +552,8 @@ public class IndustrialProducaoServiceTests
         sessao.RegistoProducaoInicio_id = null;
         var eventoCriado = (EventoMaquinaIndustrial?)null;
 
+        _sessaoRepository.Setup(r => r.UpdateAsync(It.IsAny<SessaoMaquinaIndustrial>()))
+            .Returns(Task.CompletedTask);
         _maquinaRepository.Setup(r => r.GetByIpAddressAsync("192.168.1.111"))
             .ReturnsAsync(BuildMaquina());
         _sessaoRepository.Setup(r => r.GetAbertaPorMaquinaAsync(5))

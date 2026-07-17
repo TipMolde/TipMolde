@@ -90,7 +90,8 @@ namespace TipMolde.Application.Service
                     if (IsState(evento.EstadoMaquina, EstadoStopped))
                     {
                         sessaoAberta.EstadoSessao = EstadoSessaoMaquinaIndustrial.AGUARDAR_CONFIRMACAO_PARAGEM;
-                        var stoppedPendentes = await _eventoRepository.GetStoppedPendentesAsync(sessaoAberta.SessaoMaquinaIndustrial_id);
+                        var stoppedPendentes = await _eventoRepository.GetStoppedPendentesAsync(sessaoAberta.SessaoMaquinaIndustrial_id)
+                            ?? [];
                         if (stoppedPendentes.Count == 0)
                         {
                             evento.EstadoResolucao = EstadoResolucaoEventoMaquinaIndustrial.PENDENTE;
@@ -264,6 +265,7 @@ namespace TipMolde.Application.Service
             if (IsState(evento.EstadoMaquina, EstadoRunning))
             {
                 var stoppedPendentes = await _eventoRepository.GetStoppedPendentesAsync(sessao.SessaoMaquinaIndustrial_id);
+                stoppedPendentes ??= [];
                 if (stoppedPendentes.Count > 0)
                 {
                     var stoppedPendente = stoppedPendentes[0];
@@ -354,6 +356,7 @@ namespace TipMolde.Application.Service
             if (sessao is not null)
             {
                 var stoppedPendentes = await _eventoRepository.GetStoppedPendentesAsync(sessao.SessaoMaquinaIndustrial_id);
+                stoppedPendentes ??= [];
                 return stoppedPendentes.Count == 0 ? null : MapEvento(stoppedPendentes[0]);
             }
 
@@ -579,6 +582,7 @@ namespace TipMolde.Application.Service
             if (IsState(evento.EstadoMaquina, EstadoRunning))
             {
                 var stoppedPendentes = await _eventoRepository.GetStoppedPendentesAsync(sessao.SessaoMaquinaIndustrial_id);
+                stoppedPendentes ??= [];
                 if (stoppedPendentes.Count > 0)
                 {
                     var stoppedPendente = stoppedPendentes[0];
@@ -861,6 +865,7 @@ namespace TipMolde.Application.Service
             string fonteResolucaoDuplicada)
         {
             var stoppedPendentes = await _eventoRepository.GetStoppedPendentesAsync(sessao.SessaoMaquinaIndustrial_id);
+            stoppedPendentes ??= [];
             foreach (var duplicado in stoppedPendentes.Where(e => e.EventoMaquinaIndustrial_id != eventoPrincipalId))
             {
                 ResolverEvento(duplicado, estadoProducao, fonteResolucaoDuplicada, registoProducaoId);
