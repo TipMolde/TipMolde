@@ -221,6 +221,38 @@ public class RegistosProducaoServiceTests
             It.IsAny<Peca?>()), Times.Once);
     }
 
+    [Test(Description = "TRP005B - Fluxo industrial pode iniciar EM_CURSO apos CONCLUIDO numa nova sessao.")]
+    public async Task CreateFromIndustrialEventAsync_Should_AcceptEmCurso_AfterConcluido_AsFirstIndustrialState()
+    {
+        // ARRANGE
+        SetupValidDependencies();
+        SetupPersistCreated();
+        _registosRepository.Setup(r => r.GetUltimoRegistoAsync(1, 1)).ReturnsAsync(new RegistosProducao
+        {
+            Fase_id = 1,
+            Peca_id = 1,
+            Estado_producao = EstadoProducao.CONCLUIDO,
+            Data_hora = DateTime.UtcNow.AddMinutes(-5)
+        });
+
+        var maquina = BuildMaquina(id: 1, faseId: 1, estado: EstadoMaquina.DISPONIVEL);
+        _maquinaRepository.Setup(r => r.GetByIdUnicoAsync(1)).ReturnsAsync(maquina);
+
+        // ACT
+        var result = await _sut.CreateFromIndustrialEventAsync(
+            BuildDto(estado: EstadoProducao.EM_CURSO, maquinaId: 1),
+            DateTime.UtcNow,
+            permitirPrimeiroEstadoEmCurso: true);
+
+        // ASSERT
+        result.Estado_producao.Should().Be(EstadoProducao.EM_CURSO);
+        maquina.Estado.Should().Be(EstadoMaquina.EM_USO);
+        _registosRepository.Verify(r => r.AddWithMachineStateAsync(
+            It.Is<RegistosProducao>(rp => rp.Estado_producao == EstadoProducao.EM_CURSO),
+            It.Is<Maquina>(m => m.Estado == EstadoMaquina.EM_USO),
+            It.IsAny<Peca?>()), Times.Once);
+    }
+
     [Test(Description = "TRP006 - PREPARACAO cria registo e coloca maquina em uso numa unica operacao de persistencia.")]
     public async Task CreateAsync_Should_CreateRegistoAndSetMachineInUse_When_TransitionIsPreparacao()
     {

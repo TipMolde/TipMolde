@@ -372,16 +372,17 @@ namespace TipMolde.Application.Service
             NomeFases nomeFase,
             bool permitirPrimeiroEstadoEmCurso = false)
         {
+            if (permitirPrimeiroEstadoEmCurso
+                && nomeFase != NomeFases.MONTAGEM
+                && novoEstado == EstadoProducao.EM_CURSO
+                && (estadoActual is null || estadoActual == EstadoProducao.CONCLUIDO))
+                return;
+
             if (estadoActual is null)
             {
                 var primeiroEstadoValido = nomeFase == NomeFases.MONTAGEM
                     ? EstadoProducao.PENDENTE
                     : EstadoProducao.PREPARACAO;
-
-                if (permitirPrimeiroEstadoEmCurso
-                    && nomeFase != NomeFases.MONTAGEM
-                    && novoEstado == EstadoProducao.EM_CURSO)
-                    return;
 
                 if (novoEstado != primeiroEstadoValido)
                     throw new ArgumentException($"Primeiro estado deve ser {primeiroEstadoValido}.");
